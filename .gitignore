@@ -6,3 +6,4 @@ tests/*.jpg
 !tests/sb_sheet.jpg
 .netlify/
 .DS_Store
+.venv/

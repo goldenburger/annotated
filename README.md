@@ -53,3 +53,7 @@ storage), and the website is hosted on Netlify.
 
 Emoji data from Emojibase (MIT). Supabase JavaScript client (MIT). Instrument Sans and Newsreader fonts (SIL Open
 Font License, included in `extension/fonts`).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
