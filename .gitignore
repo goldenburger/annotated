@@ -1,0 +1,8 @@
+dist/
+preview/dist/
+__pycache__/
+tests/*.png
+tests/*.jpg
+!tests/sb_sheet.jpg
+.netlify/
+.DS_Store

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Annotated</title>
+  <link rel="stylesheet" href="fonts.css">
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body class="panel">
+  <header class="brand">
+    <span class="wordmark" aria-label="annotated"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9.5C22 4.5 58 3.2 97.5 5.8c1.6 5.4 1.2 12.4-1 18.6C62 28.2 27 29.3 2.6 26.2.9 20.6 1.2 14.2 3 9.5z"/></svg><span aria-hidden="true">annotated</span></span>
+    <span class="build dbg">debug</span>
+  </header>
+  <section id="empty" class="emptyState shellEmpty"><div class="esIcons" id="esIcons"></div><p class="esTitle" id="emptyTitle">Open something to annotate</p><p id="emptyMsg">Open a YouTube video or a news article in this tab.</p><p class="esAction" id="emptyAction" hidden></p></section>
+  <div id="videoMode" hidden></div>
+  <div id="articleMode" hidden></div>
+  <div id="postMode" hidden></div>
+  <div id="podcastMode" hidden></div>
+  <div id="annMode" hidden></div>
+  <details class="log dbg"><summary>Diagnostics</summary><pre id="log"></pre></details>
+  <script src="brand.js"></script>
+  <script src="prefs.js"></script>
+  <script src="vendor/supabase.js"></script>
+  <script src="backend.js"></script>
+  <script src="cloud.js"></script>
+  <script src="account.js"></script>
+  <script src="emoji-data.js"></script>
+  <script src="emojikit.js"></script>
+  <script src="panel-kit.js"></script>
+  <script src="compose.js"></script>
+  <script src="waveform.js"></script>
+  <script src="filmstrip.js"></script>
+  <script src="feedpod.js"></script>
+  <script src="videopanel.js"></script>
+  <script src="articlepanel.js"></script>
+  <script src="postpanel.js"></script>
+  <script src="annotation-page.js"></script>
+  <script src="store.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Annotated preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400..700&family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&display=swap">
+<style>
+/*UI_CSS*/
+/* ---------- preview-only: mock browser ---------- */
+:root { --chrome: #E3E6EB; --chrome-2: #F1F3F5; --page: #FFFFFF; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --chrome: #0F131A; --chrome-2: #1A1F29; --page: #0E1117; } }
+:root[data-theme="dark"] { --chrome: #0F131A; --chrome-2: #1A1F29; --page: #0E1117; }
+html, body { height: 100%; }
+body.preview { background: var(--chrome); }
+.browser { display: grid; grid-template-rows: auto auto 1fr; height: 100vh; min-height: 560px; }
+.tabs { display: flex; gap: 2px; padding: 8px 12px 0; background: var(--chrome); overflow-x: auto; }
+.tab { border: 0; background: transparent; border-radius: 8px 8px 0 0; padding: 7px 14px; font-size: 13px; cursor: pointer; color: var(--ink-soft); max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 0 auto; }
+.tab[aria-selected="true"] { background: var(--chrome-2); color: var(--ink); font-weight: 600; }
+.tab:disabled { cursor: default; opacity: .6; }
+.tabs, .bar, .ytinfo { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--chrome-2); border-bottom: 1px solid var(--rule); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--rule); }
+.url { flex: 1; min-width: 0; background: var(--chrome); border-radius: 16px; padding: 5px 14px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.extbtn { border: 1px solid var(--rule); background: var(--chrome); border-radius: 16px; padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.stage { position: relative; display: grid; grid-template-columns: 1fr var(--pw, 380px); min-height: 0; }
+/* The panel's left border can be dragged, like Chrome's side panel. Far enough right, it hides the panel. */
+.pResizer { position: absolute; top: 0; bottom: 0; left: calc(100% - var(--pw, 380px) - 5px); width: 10px; z-index: 30; cursor: col-resize; touch-action: none; background: transparent; border: 0; padding: 0; }
+.pResizer::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 2px; background: transparent; transition: background .15s; }
+.pResizer:hover::after, .pResizer:focus-visible::after, .stage.resizing .pResizer::after { background: var(--hi-edge); }
+.pResizer:focus-visible { outline: none; }
+.stage.closed .pResizer, .stage.floating .pResizer { display: none; }
+.stage.resizing { cursor: col-resize; user-select: none; }
+.stage.resizing iframe, .stage.resizing video, .stage.resizing .pane { pointer-events: none; }
+.stage.willHide > .panel { opacity: .45; transition: opacity .12s; }
+.stage.willHide .pResizer::after { background: var(--ink-3); }
+.hideHint { position: absolute; top: 50%; right: 12px; transform: translateY(-50%); z-index: 31; padding: 6px 10px; border-radius: 8px; background: var(--ink); color: var(--paper); font: 600 12px/1.2 system-ui, sans-serif; pointer-events: none; display: none; }
+.stage.willHide .hideHint { display: block; }
+.stage.closed { grid-template-columns: 1fr 0; }
+.pagepane { background: var(--page); overflow: auto; padding: 20px; position: relative; }
+.stage > .panel { background: var(--paper); border-left: 1px solid var(--rule); overflow: auto; min-width: 0; }
+.stage.closed > .panel { display: none; }
+.stage.floating { grid-template-columns: 1fr 0; }
+.ffBody > .panel { height: 100%; overflow: auto; background: var(--paper); border: 0; padding-top: 0; }
+.player { position: relative; background: #000; border-radius: 12px; overflow: hidden; max-width: 960px; }
+.player video { width: 100%; display: block; aspect-ratio: 16/9; }
+.ytinfo h2 { font-size: 18px; margin: 12px 0 2px; }
+.ytinfo .channel { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.ytinfo .meta, .ytinfo .own { color: var(--ink-soft); font-size: 13px; max-width: 960px; }
+.ytinfo .own { margin-top: 14px; }
+.ytinfo .own label { text-decoration: underline; cursor: pointer; }
+.ytinfo .own input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.adflag { position: absolute; left: 12px; top: 12px; background: var(--hi); color: #1C2433; font-weight: 700; font-size: 12px; padding: 3px 8px; border-radius: 4px; }
+.story { max-width: 680px; margin: 0 auto; padding: 8px 4px 40px; font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.65; color: var(--ink); background: var(--page); }
+.story .kicker { font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; color: #B3322A; }
+.story h1 { font-size: 34px; line-height: 1.15; margin: 6px 0 10px; }
+.story .byline { font-family: system-ui, sans-serif; font-size: 14px; color: var(--ink-soft); display: flex; gap: 12px; margin-bottom: 18px; }
+.story .byline__name { font-weight: 600; color: var(--ink); }
+.story .hero { width: 100%; display: block; border-radius: 6px; margin-bottom: 18px; }
+.story p { margin: 0 0 18px; }
+.story .standin { font-family: system-ui, sans-serif; font-size: 12px; color: var(--ink-soft); border-top: 1px solid var(--rule); padding-top: 10px; }
+mark.annotated-hl { background: #FFE14A; color: #1C2433; border-radius: 2px; box-shadow: 0 0 0 2px #FFE14A; }
+::highlight(annotated-pending) { background-color: rgba(255, 225, 74, .55); color: inherit; }
+::highlight(annotated-flash) { background-color: rgba(255, 214, 10, .9); color: #1C2433; }
+.pagepane.paperbg { background: var(--paper); }
+.annpage { background: var(--paper); margin: -20px; min-height: calc(100% + 40px); }
+.annpage .site { min-height: 100%; }
+.annpage .sitebar { top: -20px; }
+.podpage { max-width: 720px; margin: 0 auto; padding: 24px 8px 60px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+.podshow { font-weight: 700; font-size: 14px; color: #1E5582; letter-spacing: .02em; margin-bottom: 14px; }
+.podhead { display: grid; grid-template-columns: 180px 1fr; gap: 22px; align-items: start; }
+.podart { width: 180px; height: 180px; border-radius: 12px; display: block; }
+.podmeta { font-size: 13px; color: var(--ink-soft); }
+.podpage h1 { font-size: 30px; line-height: 1.15; margin: 6px 0 10px; }
+.poddesc { font-size: 16px; line-height: 1.55; margin: 0; }
+#podAudio { width: 100%; margin-top: 22px; }
+.podpage .standin { font-size: 12px; color: var(--ink-soft); margin-top: 16px; }
+.xpage { max-width: 600px; margin: 0 auto; border-left: 1px solid var(--rule); border-right: 1px solid var(--rule); min-height: 100%; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+.xtop { font-weight: 700; font-size: 20px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+.xpost { padding: 14px 16px; border-bottom: 1px solid var(--rule); background: var(--page); color: var(--ink); }
+.xpost.flash { outline: 3px solid #FFD60A; outline-offset: -3px; transition: outline-color 2s; }
+.xrow { display: flex; gap: 10px; align-items: center; }
+.xav { width: 44px; height: 44px; border-radius: 50%; background: #1C2433; color: #fff; display: grid; place-items: center; font-weight: 700; }
+.xname { display: grid; line-height: 1.25; }
+.xname span:first-child { font-weight: 700; }
+.xname span:last-child { color: var(--ink-soft); font-size: 14px; }
+.xtext { font-size: 19px; line-height: 1.4; margin: 12px 0; }
+.xmedia { width: 100%; border-radius: 14px; border: 1px solid var(--rule); display: block; }
+.xtime { display: block; margin-top: 12px; color: var(--ink-soft); font-size: 14px; text-decoration: none; }
+.xpage .standin { font-size: 12px; color: var(--ink-soft); padding: 12px 16px; }
+.ctxmenu { position: fixed; z-index: 50; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; min-width: 200px; font-size: 13px; }
+.ctxmenu button { all: unset; display: flex; align-items: center; gap: 8px; width: 100%; box-sizing: border-box; padding: 7px 10px; border-radius: 6px; cursor: pointer; }
+.ctxmenu button:hover, .ctxmenu button:focus-visible { background: var(--paper); }
+.ctxmenu .sep { height: 1px; background: var(--rule); margin: 4px 0; }
+.ctxmenu .note { padding: 2px 10px 4px; }
+@media (max-width: 760px) {
+  .browser { height: auto; }
+  .stage, .stage.closed { grid-template-columns: 1fr; }
+  .pResizer, .hideHint { display: none !important; }
+  .stage > .panel { border-left: 0; border-top: 1px solid var(--rule); }
+}
+</style>
+</head>
+<body class="preview">
+<div class="browser">
+  <div class="tabs" role="tablist" aria-label="Browser tabs" id="tabs"></div>
+  <div class="bar">
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="url" id="urlbar"></div>
+    <button class="extbtn" id="toggle" aria-pressed="true" title="Open or close the Annotated side panel"><span class="mark" aria-hidden="true"></span>Annotated</button>
+  </div>
+  <div class="stage" id="stage">
+    <div class="pagepane" id="pane">
+      <div id="ytPage" data-tab="video">
+        <div class="player" id="movie_player">
+          <video id="vid" class="html5-main-video" controls playsinline preload="auto" src="__VIDEO__"></video>
+          <span class="adflag" id="adflag" hidden>Ad</span>
+        </div>
+        <div class="ytinfo">
+          <h2 id="vtitle">Spike test pattern, two minutes at 360p</h2>
+          <div class="channel" id="vchannel">Annotated Test Channel</div>
+          <div class="meta dbg">Stand-in for a YouTube watch page. The side panel records from this player exactly as the extension records from YouTube.</div>
+          <div class="own dbg"><label for="file">Load your own video file</label> to test with real footage. <input id="file" type="file" accept="video/*"> Or <button class="link" id="adBtn">show an ad for 5 seconds</button>.</div>
+        </div>
+      </div>
+      <div id="postPage" data-tab="post" hidden>
+        <div class="xpage">
+          <div class="xtop">Post</div>
+          <article data-testid="tweet" class="xpost">
+            <div class="xrow">
+              <div class="xav" aria-hidden="true">H</div>
+              <div data-testid="User-Name" class="xname"><span>Harborline News</span><span>@harborlinenews</span></div>
+            </div>
+            <div data-testid="tweetText" class="xtext">The city council voted 7 to 2 to fund overnight buses on three routes, starting in November. The six-month trial will cost $2.4 million.</div>
+            <img class="xmedia" src="__HERO__" alt="A city bus at night">
+            <a class="xtime" href="/harborlinenews/status/1836000000000000001"><time datetime="2026-09-17T16:05:00Z">9:05 AM, Sep 17, 2026</time></a>
+          </article>
+          <p class="standin dbg">This account and post are stand-ins written for the preview. On x.com the side panel reads the real post the same way.</p>
+        </div>
+      </div>
+      <div id="podPage" data-tab="podcast" hidden>
+        <div class="podpage">
+          <div class="podshow">The Transit Hour</div>
+          <div class="podhead">
+            <img class="podart" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300'><rect width='300' height='300' fill='%23153B5C'/><circle cx='230' cy='70' r='120' fill='%231E5582'/><path d='M60 185v-25a90 90 0 0 1 180 0v25' fill='none' stroke='%23FFE14A' stroke-width='18' stroke-linecap='round'/><rect x='48' y='175' width='44' height='70' rx='14' fill='%23FFE14A'/><rect x='208' y='175' width='44' height='70' rx='14' fill='%23FFE14A'/><text x='150' y='285' text-anchor='middle' font-family='Georgia,serif' font-size='30' fill='white'>The Transit Hour</text></svg>" alt="The Transit Hour cover art">
+            <div>
+              <div class="podmeta">Episode 41. September 18, 2026. 2 min</div>
+              <h1 id="podtitle">Can overnight buses work?</h1>
+              <p class="poddesc">The city council approved a six-month overnight bus trial on three routes. A longtime night rider joins us to talk about the survey behind it and whether twelve passengers a trip is a fair bar.</p>
+            </div>
+          </div>
+          <audio id="podAudio" controls preload="auto" src="__EPISODE__"></audio>
+          <p class="standin dbg">The Transit Hour is a stand-in show written for the preview, voiced by a speech synthesizer. On a real podcast page the side panel records from the page's own player the same way.</p>
+        </div>
+      </div>
+      <div id="newsPage" data-tab="article" hidden>
+        <article class="story">
+/*ARTICLE*/
+<p class="standin dbg">Harborline News is a stand-in outlet, and this story was written for the preview. On a real site the side panel reads the same kinds of tags.</p>
+        </article>
+      </div>
+    </div>
+    <div class="pResizer" id="pResizer" role="separator" aria-orientation="vertical" aria-label="Resize the annotated panel. Drag all the way right to hide it." tabindex="0" title="Drag to resize. Drag all the way right to hide. Double-click to reset."></div>
+    <div class="hideHint" aria-hidden="true">Release to hide</div>
+    <aside class="panel" aria-label="Annotated side panel">
+      <header class="brand">
+        <span class="wordmark" aria-label="annotated"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9.5C22 4.5 58 3.2 97.5 5.8c1.6 5.4 1.2 12.4-1 18.6C62 28.2 27 29.3 2.6 26.2.9 20.6 1.2 14.2 3 9.5z"/></svg><span aria-hidden="true">annotated</span></span>
+        <span class="build dbg">debug</span>
+        <button class="x" id="close" aria-label="Close side panel">×</button>
+      </header>
+      <section id="empty" class="emptyState shellEmpty" hidden><div class="esIcons" id="esIcons"></div><p class="esTitle">Nothing to annotate here</p><p id="emptyMsg"></p></section>
+      <div id="videoMode"></div>
+      <div id="articleMode" hidden></div>
+      <div id="postMode" hidden></div>
+      <div id="podcastMode" hidden></div>
+      <div id="annMode" hidden></div>
+      <details class="log dbg"><summary>Diagnostics</summary><pre id="log"></pre></details>
+    </aside>
+  </div>
+</div>
+<div class="ctxmenu" id="ctxmenu" role="menu" hidden>
+  <button role="menuitem" id="ctxAnnotate"><span class="mark" aria-hidden="true"></span>Annotate this passage</button>
+  <button role="menuitem" id="ctxCopy">Copy</button>
+  <div class="sep dbg"></div>
+  <p class="note dbg">Preview of the extension's right-click item</p>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+/*SHARED_JS*/
+</script>
+<script>
+/*PREVIEW_JS*/
+</script>
+</body>
+</html>
