@@ -39,10 +39,40 @@ const FeedPod = (() => {
     return null;
   }
 
+  // Shows usually publish through a tracking address that wraps the real one, like
+  // rss.podscribe.ai/p/traffic.megaphone.fm/episode.mp3. When a tracker is down the audio itself is still there,
+  // so these are the addresses hidden inside this one, innermost first.
+  const AUDIO_FILE = /\.(mp3|m4a|mp4|aac|ogg|opus|wav)$/i;
+  const HOSTLIKE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/i;
+  function inside(url) {
+    let u;
+    try { u = new URL(url); } catch { return []; }
+    const parts = u.pathname.split('/').filter(Boolean);
+    const found = [];
+    // The last part is the file itself, so a host can only be one of the parts before it.
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!HOSTLIKE.test(parts[i]) || AUDIO_FILE.test(parts[i])) continue;
+      try { found.push(new URL(`${u.protocol}//${parts.slice(i).join('/')}${u.search}`).href); } catch { /* not an address */ }
+    }
+    return found.reverse();
+  }
+
+  // The first 128 KB of the episode, trying the addresses inside this one if the tracker in front of it fails.
+  async function openStart(url) {
+    let failure = null;
+    for (const u of [url, ...inside(url)]) {
+      let r = null;
+      try { r = await fetch(u, { headers: { Range: 'bytes=0-131071' } }); }
+      catch { failure = new Error('The audio file could not be reached.'); continue; }
+      if (r.status === 206 || r.status === 200) return r;
+      failure = new Error(r.status === 403 || r.status === 401 ? "The show's server refused to share this episode's file." : `The audio file could not be opened (error ${r.status}).`);
+    }
+    throw failure;
+  }
+
   // Reads the start of the file: where the audio begins, its bitrate, and (for variable bitrate) its seek table.
   async function probe(url) {
-    const r = await fetch(url, { headers: { Range: 'bytes=0-131071' } });
-    if (!(r.status === 206 || r.status === 200)) throw new Error(r.status === 403 || r.status === 401 ? "The show's server refused to share this episode's file." : `The audio file could not be opened (error ${r.status}).`);
+    const r = await openStart(url);
     const type = (r.headers.get('content-type') || '').toLowerCase();
     const cr = r.headers.get('content-range');
     const total = cr ? Number(cr.split('/')[1]) : Number(r.headers.get('content-length')) || 0;
