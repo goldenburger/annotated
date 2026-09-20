@@ -13,6 +13,8 @@ CHROME = os.environ.get('ANNOTATED_CHROME') or None
 # Chromium 137 and later ignore --load-extension until this feature is turned off, so every test that loads the
 # extension passes this as well.
 LOADEXT = '--disable-features=DisableLoadExtensionCommandLineSwitch'
+# Some podcast hosts refuse the HeadlessChrome user agent, so tests that reach real hosts pretend to be Chrome.
+REAL_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36'
 def prof(name):
     # A fresh browser profile folder for one test.
     import shutil

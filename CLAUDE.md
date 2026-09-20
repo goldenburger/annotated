@@ -127,6 +127,14 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - Sign-in with X is skipped because X's API costs money. Google meets "X or Google".
 - `ui.css` has many stacked override blocks from review rounds. Consolidating it is safe only with the full test
   suite and screenshots before and after.
-- iHeartRadio and Amazon pages were routed by address but not seen in a real browser. Buzzsprout refused byte-range
-  downloads from the build machine; check from a real browser.
+- This Week in Startups cannot be clipped, which matters because it is Jason's own show. Apple's directory gives a
+  `rss.podscribe.ai` tracking address that answers 500 or 503, while the same file at `traffic.megaphone.fm`
+  answers 206. Falling back to the unwrapped address when a tracking prefix fails would fix it.
+- Amazon Music never sets a page title, even on a fresh load, so the episode box opens empty and the person types
+  the name. The show name does sit in the address as a slug if a guess is ever wanted. Checked in a real browser on
+  2026-09-20.
+- iHeartRadio works end to end. Its page title is the episode and show, the first search result is the right
+  episode, and its audio serves byte ranges. Checked in a real browser on 2026-09-20.
+- Buzzsprout works. Its earlier refusal was the HeadlessChrome user agent rather than byte ranges, which is why
+  `fphosts.py` now sets `REAL_UA` from `tests/_env.py`.
 - Demo: pick strong examples (Jason: "examples matter"), a meaningful paragraph, a good clip, a real podcast moment.

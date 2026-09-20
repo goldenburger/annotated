@@ -6,7 +6,7 @@ TERMS=['Invested by Aleph Gavin Baker','Upside Jensen Drops a Trillion','The Dai
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profFP3'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--headless=new'])
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--headless=new'],user_agent=REAL_UA)
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     extid=sw.url.split('/')[2]
     pg=await ctx.new_page(); await pg.goto(f'chrome-extension://{extid}/sidepanel.html')
