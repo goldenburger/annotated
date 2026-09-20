@@ -29,7 +29,7 @@ X or Google; "examples matter" in the demo.
 ## Commands
 
 ```
-pip install playwright && python -m playwright install chromium
+pip install playwright pillow && python -m playwright install chromium
 python scripts/build_preview.py        # after changing shared extension code the preview uses
 python scripts/run_tests.py            # preview + extension tests (about 10 minutes)
 python scripts/run_tests.py online     # tests that reach the live database and Apple's podcast directory
@@ -38,9 +38,15 @@ python scripts/package_extension.py    # dist/annotated-extension.zip, also copi
 python scripts/sync_website.py         # copy shared page code from extension/ into website/public
 ```
 
-Tests run with `tests/` as the working directory and read paths from `tests/_env.py`. Set `ANNOTATED_CHROME` to a
-Chromium path only if Playwright's own Chromium is not wanted. A test passes when it exits cleanly and prints
-`errors: []`.
+Tests run with `tests/` as the working directory and read paths from `tests/_env.py`. A test passes when it exits
+cleanly and prints `errors: []`. Every test that loads the extension passes `LOADEXT` from `tests/_env.py`, because
+Chromium 137 and later ignore `--load-extension` without it. Set `ANNOTATED_CHROME` to another Chromium build when
+Playwright's own Chromium will not run. On David's computer Playwright's Chromium fails to start with a Windows
+side by side error, so the tests run against Edge.
+
+```
+set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe
+```
 
 ## Extension architecture
 

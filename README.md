@@ -42,7 +42,7 @@ Built for Jason Calacanis's annotated.com bounty on This Week in Startups.
 ## Development
 
 ```
-pip install playwright && python -m playwright install chromium
+pip install playwright pillow && python -m playwright install chromium
 python scripts/run_tests.py
 ```
 

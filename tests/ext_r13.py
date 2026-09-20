@@ -12,7 +12,7 @@ POST='<!doctype html><title>Post / X</title><body style="background:#000;color:#
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profT13'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--headless=new'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--headless=new'],no_viewport=True)
     await ctx.add_init_script(INIT)
     await ctx.route('https://x.com/cb_doge/status/**',lambda r: r.fulfill(status=200,body=POST,headers={'Content-Type':'text/html'}))
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')

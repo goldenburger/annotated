@@ -8,7 +8,7 @@ report=[]
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profM'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new','--window-size=1100,900'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new','--window-size=1100,900'],no_viewport=True)
     await ctx.add_init_script(INIT)
     await ctx.route('https://www.youtube.com/**',yt_route)
     await ctx.route('https://harborline.example/**',lambda r: r.fulfill(status=200,body=NEWS,headers={'Content-Type':'text/html'}))

@@ -10,6 +10,9 @@ PODCAST = str(ROOT / 'preview' / 'assets' / 'episode.webm')
 TMP = tempfile.gettempdir()
 # Unset: Playwright's own Chromium (install with "python -m playwright install chromium").
 CHROME = os.environ.get('ANNOTATED_CHROME') or None
+# Chromium 137 and later ignore --load-extension until this feature is turned off, so every test that loads the
+# extension passes this as well.
+LOADEXT = '--disable-features=DisableLoadExtensionCommandLineSwitch'
 def prof(name):
     # A fresh browser profile folder for one test.
     import shutil

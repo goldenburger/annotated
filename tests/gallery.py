@@ -19,7 +19,7 @@ async def cdn(route):
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profG'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
     await ctx.route('https://www.youtube.com/**',yt_route)
     await ctx.route('https://harborline.example/**',lambda r: r.fulfill(status=200,body=NEWS,headers={'Content-Type':'text/html'}))
     await ctx.route('https://x.com/**',lambda r: r.fulfill(status=200,body=XPAGE,headers={'Content-Type':'text/html'}))

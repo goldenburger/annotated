@@ -10,7 +10,7 @@ PAGE='''<!doctype html><html><head><title>Can overnight buses work? - The Transi
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profP'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new','--window-size=1100,900'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new','--window-size=1100,900'],no_viewport=True)
     await ctx.add_init_script(INIT)
     await ctx.route('https://thetransithour.example/**',lambda r: r.fulfill(status=200,body=PAGE,headers={'Content-Type':'text/html'}))
     async def cdn(route):

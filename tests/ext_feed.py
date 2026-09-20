@@ -7,7 +7,7 @@ SPOT='<!doctype html><title>Bill Gurley: Searching for Feynman | All-In with Cha
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profFP'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
     await ctx.add_init_script(INIT)
     await ctx.route('https://open.spotify.com/**',lambda r: r.fulfill(status=200,body=SPOT,headers={'Content-Type':'text/html'}))
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')

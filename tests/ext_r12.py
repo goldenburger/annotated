@@ -12,7 +12,7 @@ YTSTALE=YT.replace('<title>Test clip - YouTube</title>','<title>(3) Elon Musk an
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profQ'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
     await ctx.add_init_script(INIT)
     await ctx.route('https://open.spotify.com/**',lambda r: r.fulfill(status=200,body=SPOT,headers={'Content-Type':'text/html'}))
     await ctx.route('https://x.com/cb_doge/status/**',lambda r: r.fulfill(status=200,body=POST,headers={'Content-Type':'text/html'}))

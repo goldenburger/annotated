@@ -5,7 +5,7 @@ EXT=EXT
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('prof9'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--headless=new'],viewport={'width':360,'height':760})
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--headless=new'],viewport={'width':360,'height':760})
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     extid=sw.url.split('/')[2]
     print('commands:', await sw.evaluate("chrome.commands.getAll().then(c=>c.map(x=>x.name+'='+x.shortcut))"))

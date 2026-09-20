@@ -6,7 +6,7 @@ INIT="try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}"
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profA'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--headless=new'],viewport={'width':400,'height':760})
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--headless=new'],viewport={'width':400,'height':760})
     await ctx.add_init_script(INIT)
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     extid=sw.url.split('/')[2]; print('extension id:', extid)

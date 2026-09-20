@@ -12,7 +12,7 @@ INIT="try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}"
 async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('profR'),headless=True,executable_path=CHROME,
-      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}','--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
+      args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new'],no_viewport=True)
     await ctx.add_init_script(INIT)
     sheet_hits=[]
     async def yt2(r):

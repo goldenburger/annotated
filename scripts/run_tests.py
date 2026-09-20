@@ -3,11 +3,15 @@
 Groups: preview (the single-file preview), extension (the real extension in Chromium), online (tests that reach the
 real Supabase database, Apple's podcast directory or the network). "all" runs preview and extension.
 Run: python scripts/run_tests.py [preview|extension|online|all] [name ...]
-Needs: pip install playwright ; python -m playwright install chromium
+Needs: pip install playwright pillow, then python -m playwright install chromium
 The preview tests need the built preview: python scripts/build_preview.py
 """
-import pathlib, subprocess, sys, time
+import os, pathlib, subprocess, sys, time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+try: sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception: pass
+# Test output carries emoji and check marks, which a default Windows console cannot encode.
+CHILD_ENV = {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
 TESTS = ROOT / 'tests'
 GROUPS = {
     'preview': ['pa', 'pb', 'pc', 'pd', 'pe', 'emo', 'fix6', 'prev3b', 'prev4', 'prev5', 'prev6', 'p2shots', 'r7', 'r8', 'r9', 'r10',
@@ -28,7 +32,7 @@ passed, failed = [], []
 for n in names:
     t0 = time.time()
     try:
-        r = subprocess.run([sys.executable, f'{n}.py'], cwd=TESTS, capture_output=True, text=True, timeout=300)
+        r = subprocess.run([sys.executable, f'{n}.py'], cwd=TESTS, capture_output=True, text=True, encoding='utf-8', errors='replace', env=CHILD_ENV, timeout=300)
         out = r.stdout + r.stderr
         ok = r.returncode == 0 and 'Traceback' not in out and ('errors: []' in out or 'errors []' in out)
     except subprocess.TimeoutExpired:
