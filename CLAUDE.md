@@ -25,6 +25,8 @@ X or Google; "examples matter" in the demo.
   used for quick reviews. It has no backend (no sign-in, no sharing).
 - `supabase/migrations/` holds every database change, in order. They are already applied to the live project.
 - `tests/` holds the Playwright tests (Python). `scripts/` holds build, package, sync and test commands.
+- The repository is public at https://github.com/goldenburger/annotated under the MIT license, which is the
+  bounty's open source rule.
 
 ## Commands
 
@@ -123,7 +125,6 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - Publish Google sign-in (Testing to In production) shortly before submitting, then test with a second Google account.
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account.
 - Sign-in with X is skipped because X's API costs money. Google meets "X or Google".
-- The code is meant to be open source (bounty rule). Pick a license and push this repository to GitHub.
 - `ui.css` has many stacked override blocks from review rounds. Consolidating it is safe only with the full test
   suite and screenshots before and after.
 - iHeartRadio and Amazon pages were routed by address but not seen in a real browser. Buzzsprout refused byte-range
