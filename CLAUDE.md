@@ -94,9 +94,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   `trending_tags`. Handles come from the person's name, never their email.
 - The publishable key in `backend.js` and `backend-web.js` is public by design. Never put a secret key or the
   Google client secret in this repository.
-- **Google sign-in**: Google Cloud project "Annotated", OAuth client "annotated web". It is still in **Testing**
-  (only listed test users can sign in). Branding (home page, privacy, terms, authorized domains) is filled in, so
-  publishing is Audience, then Publish app. David wants to publish it shortly before submitting.
+- **Google sign-in**: Google Cloud project "Annotated", OAuth client "annotated web". Published to **In production**
+  on 2026-09-21, so any Google account can sign in. Sign-in asks for no scopes of its own, so Supabase requests only
+  openid, email and profile, which are not sensitive and need no Google review. If a logo is ever added to Branding
+  it would need verification to appear on the consent screen, though sign-in works without it. The same Audience
+  page has Back to testing if it ever needs closing again.
 - **Supabase auth settings** (dashboard only): email sign-up is off, so Google is the only sign-in. Site URL is the
   Netlify site; redirect URLs are the extension's `https://cggmedbnmeinbhahhllbphkpdbpjeofm.chromiumapp.org/**` and
   `https://annotated-app.netlify.app/**`.
@@ -122,8 +124,8 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 
 ## Open items
 
-- Publish Google sign-in (Testing to In production) shortly before submitting, then test with a second Google account.
-- Follow, For you and trending were tested signed out only. Following someone needs a second real account.
+- Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
+  is now possible because sign-in is published. This is the last part of the product with no evidence behind it.
 - Sign-in with X is skipped because X's API costs money. Google meets "X or Google".
 - `ui.css` has many stacked override blocks from review rounds. Consolidating it is safe only with the full test
   suite and screenshots before and after.
