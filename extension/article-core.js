@@ -2,6 +2,8 @@
 // No extension APIs in here.
 var ArticleCore = (() => {
   const MIN_CHARS = 40;
+  // Picking your own words is deliberate, so the floor is only there to catch a stray click.
+  const MIN_EXACT = 12;
   const MAX_CHARS = 1200;
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
   // Range.toString drops emoji, which X draws as images. PostCore keeps them.
@@ -10,7 +12,7 @@ var ArticleCore = (() => {
   // Checks the current selection inside `root`. Returns null when the selection is
   // somewhere else (for example the side panel), so callers can ignore it.
   // Checks a range inside `root`. Returns null when it is somewhere else (for example the side panel).
-  function describeRange(range, root) {
+  function describeRange(range, root, min = MIN_CHARS) {
     if (!range || range.collapsed) return { state: 'empty' };
     const anc = range.commonAncestorContainer;
     const ancEl = anc.nodeType === 1 ? anc : anc.parentElement;
@@ -21,7 +23,8 @@ var ArticleCore = (() => {
     for (const h of root.querySelectorAll('h1, [itemprop="headline"]')) {
       if (range.intersectsNode(h)) return { state: 'error', text, len: text.length, error: 'Pick a passage from the story, not the headline.' };
     }
-    if (text.length < MIN_CHARS && !coversWholeBlock(range)) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range), error: 'Select a little more. A passage should be at least a full sentence.' };
+    if (text.length < min && !coversWholeBlock(range)) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range),
+      error: min === MIN_EXACT ? 'Select a few more words.' : 'Select a little more. A passage should be at least a full sentence.' };
     if (text.length > MAX_CHARS) return { state: 'error', text, len: text.length, error: `That is ${text.length.toLocaleString()} characters. Trim it to ${MAX_CHARS.toLocaleString()} or fewer.` };
     return { state: 'ok', text, len: text.length, aligned: isSentenceAligned(range) };
   }
@@ -266,7 +269,7 @@ var ArticleCore = (() => {
     return r.collapsed ? null : r;
   }
 
-  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, clearHighlights, unionRect, fragmentUrl, extractMeta };
+  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MIN_EXACT, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, clearHighlights, unionRect, fragmentUrl, extractMeta };
 })();
 
 
@@ -275,7 +278,7 @@ var ArticleCore = (() => {
 // Shared by the extension content script and the preview.
 var ArticlePage = (() => {
   function create({ root, metaRoot, loc, send, scrollBy, viewport, buttonEnabled = () => true }) {
-    let pinned = null, exact = false, last = { state: 'empty' }, pendingAnnotate = false, timer = null;
+    let pinned = null, exact = true, defaultExact = true, last = { state: 'empty' }, pendingAnnotate = false, timer = null;
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     // Floating button, in a shadow root so page styles cannot touch it.
@@ -323,14 +326,14 @@ var ArticlePage = (() => {
       // Only clicks in the page's own content count. In the preview the panel shares the page, and clicking it must keep the highlight.
       const area = root();
       if (!area || !area.contains(e.target)) return;
-      pinned = null; exact = false; ArticleCore.showPending(null); hideButton();
+      pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
       last = { state: 'empty' }; push();
     }, true);
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pinned && !pendingAnnotate) clear(); }, true);
 
     // Describe a range as it will be captured: expanded to whole sentences unless the user asked for the exact selection.
     function evaluate(range) {
-      const raw = ArticleCore.describeRange(range, root());
+      const raw = ArticleCore.describeRange(range, root(), exact ? ArticleCore.MIN_EXACT : ArticleCore.MIN_CHARS);
       if (!raw || raw.state === 'empty') return raw;
       if (raw.state === 'error' && raw.aligned === undefined) return raw;
       let eff = range, expanded = false;
@@ -358,7 +361,7 @@ var ArticlePage = (() => {
           else { pinned = null; ArticleCore.showPending(null); last = { state: 'empty' }; }
           return push();
         }
-        exact = false;
+        exact = defaultExact;
         const range = window.getSelection().getRangeAt(0).cloneRange();
         const d = evaluate(range);
         if (d && d.state === 'ok') {
@@ -377,6 +380,9 @@ var ArticlePage = (() => {
       return pinned ? pinned.cloneRange() : null;
     }
 
+    // The preference for what a selection captures. Without it, exact lasted for one selection and the next
+    // one snapped again, so anyone who wants their own words had to say so every single time.
+    function setSnap(exactByDefault) { defaultExact = !!exactByDefault; setExact(defaultExact); }
     function setExact(v) {
       exact = !!v;
       const r = currentRange();
@@ -430,7 +436,7 @@ var ArticlePage = (() => {
     }
 
     function clear() {
-      pinned = null; exact = false; ArticleCore.showPending(null); hideButton();
+      pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
       last = { state: 'empty' }; push();
     }
@@ -487,7 +493,7 @@ var ArticlePage = (() => {
       const n = r.commonAncestorContainer;
       return (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
     }
-    return { capture, setExact, clear, info, requestAnnotate, takeWithin, selectedPost, unfold, refold };
+    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, selectedPost, unfold, refold };
   }
   return { create };
 })();

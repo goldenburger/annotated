@@ -61,7 +61,12 @@ body.preview { background: var(--chrome); }
 .story .hero { width: 100%; display: block; border-radius: 6px; margin-bottom: 18px; }
 .story p { margin: 0 0 18px; }
 .story .standin { font-family: system-ui, sans-serif; font-size: 12px; color: var(--ink-soft); border-top: 1px solid var(--rule); padding-top: 10px; }
-mark.annotated-hl { background: #FFE14A; color: #1C2433; border-radius: 2px; box-shadow: 0 0 0 2px #FFE14A; }
+mark.annotated-hl { background: linear-gradient(103deg, #F2C600 0 6%, #FFE14A 14% 88%, #FFEE9E 100%); color: #1C2433;
+  padding: 1px 5px 3px 3px; margin: 0 -2px; border-radius: 4px 11px 5px 12px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+:root[data-pen="wet"] mark.annotated-hl { background: radial-gradient(9px 60% at 3% 52%, #F2C600, transparent 70%), radial-gradient(12px 62% at 98% 48%, #F2C600, transparent 72%), linear-gradient(180deg, #FFEE9E 0 14%, #FFE14A 22% 78%, #F2C600 100%); border-radius: 3px 10px 4px 9px; }
+:root[data-pen="twice"] mark.annotated-hl { background: linear-gradient(101deg, #FFEE9E 0 18%, #FFE14A 34% 70%, #F2C600 78%, #FFE14A 100%); border-radius: 5px 12px 6px 11px; }
+:root[data-pen="streak"] mark.annotated-hl { background: repeating-linear-gradient(94deg, transparent 0 11px, #FFEE9E 11px 13px, transparent 13px 27px), linear-gradient(180deg, #FFEE9E, #FFE14A 46%, #F2C600); border-radius: 4px 10px 5px 11px; }
+:root[data-pen="flat"] mark.annotated-hl { background: #FFE14A; padding: 1px 2px; margin: 0; border-radius: 2px; box-shadow: 0 0 0 2px #FFE14A; }
 ::highlight(annotated-pending) { background-color: rgba(255, 225, 74, .55); color: inherit; }
 ::highlight(annotated-flash) { background-color: rgba(255, 214, 10, .9); color: #1C2433; }
 .pagepane.paperbg { background: var(--paper); }

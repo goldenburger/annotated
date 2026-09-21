@@ -102,7 +102,7 @@ const ArticlePanel = (() => {
       q('.selCount').textContent = `${s.len.toLocaleString()} characters selected`;
       const eb = q('.exactBtn');
       if (s.expanded) { q('.selNote').textContent = 'Snapped to full sentences.'; eb.textContent = 'Use exactly what I selected'; eb.dataset.exact = '1'; eb.hidden = false; }
-      else if (s.exact && s.canExpand) { q('.selNote').textContent = 'Using exactly what you selected.'; eb.textContent = 'Snap to full sentences'; eb.dataset.exact = '0'; eb.hidden = false; }
+      else if (s.exact && s.canExpand) { q('.selNote').textContent = 'Using exactly what you selected.'; eb.textContent = 'Include the rest of the sentence'; eb.dataset.exact = '0'; eb.hidden = false; }
       else { q('.selNote').textContent = ''; eb.hidden = true; }
       q('.selMode').hidden = eb.hidden;
       if (s.state === 'error') { q('.selErr').textContent = s.error; q('.selErr').hidden = false; }

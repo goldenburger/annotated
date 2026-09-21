@@ -6,8 +6,22 @@
   window.__annotatedArticle = mine;
   const orphaned = () => window.__annotatedArticle !== mine;
   const style = document.createElement('style');
-  style.textContent = 'mark.annotated-hl{background:#FFE14A!important;color:#1C2433!important;border-radius:2px;box-shadow:0 0 0 2px #FFE14A!important}' +
-    '::highlight(annotated-pending){background-color:rgba(255,225,74,.55);color:inherit}';
+  // The pens, with their colours written out. This sits on pages we do not own, so nothing here fades to
+  // transparent, which would vanish on a dark page, and nothing uses a blend mode.
+  const HI = '#FFE14A', DEEP = '#F2C600', LIFT = '#FFEE9E';
+  const PENS = {
+    chisel: `background:linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)!important;padding:1px 5px 3px 3px!important;margin:0 -2px!important;border-radius:4px 11px 5px 12px!important`,
+    wet: `background:radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:3px 10px 4px 9px!important`,
+    twice: `background:linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)!important;padding:2px 6px 3px!important;margin:0 -3px!important;border-radius:5px 12px 6px 11px!important`,
+    streak: `background:repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:4px 10px 5px 11px!important`,
+    flat: `background:${HI}!important;padding:1px 2px!important;border-radius:2px!important;box-shadow:0 0 0 2px ${HI}!important`,
+  };
+  const penCss = (name) => `mark.annotated-hl{${PENS[name] || PENS.chisel};color:#1C2433!important;`
+    + '-webkit-box-decoration-break:clone;box-decoration-break:clone}';
+  // The faint one while you are still dragging uses the browser's own highlight API, which takes a colour and
+  // nothing else, so it stays flat whichever pen is chosen.
+  const PENDING = '::highlight(annotated-pending){background-color:rgba(255,225,74,.55);color:inherit}';
+  style.textContent = penCss('chisel') + PENDING;
   (document.head || document.documentElement).appendChild(style);
   const send = (m) => chrome.runtime.sendMessage(m).catch(() => {});
   // The Annotate button beside selected text can be turned off under Display.
@@ -94,6 +108,8 @@
           .catch((e) => reply({ ok: false, error: e.message }));
         return true;
       case 'set-exact': page.setExact(msg.exact); reply({ ok: true }); return;
+      case 'set-snap': page.setSnap(msg.exact); reply({ ok: true }); return;
+      case 'set-pen': style.textContent = penCss(msg.pen) + PENDING; reply({ ok: true }); return;
       case 'clear-selection': page.clear(); reply({ ok: true }); return;
       case 'pin-and-annotate': page.requestAnnotate(); reply({ ok: true }); return;
       case 'p-info': {

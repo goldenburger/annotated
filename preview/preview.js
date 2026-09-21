@@ -320,6 +320,10 @@ const page = ArticlePage.create({
   viewport: () => { const r = pane.getBoundingClientRect(); return { top: r.top, bottom: r.bottom }; },
   buttonEnabled: () => Prefs.get().pageButton !== false,
 });
+// What a selection captures follows the same preference the extension uses.
+const applySnap = () => page.setSnap(Prefs.get().snap === 'exact');
+Prefs.ready.then(applySnap);
+Prefs.onChange(applySnap);
 const shotScale = 2; // sharp text even on 1x screens
 const article = ArticlePanel.create($('#articleMode'), {
   onSelection(cb) { selCb = cb; },

@@ -57,6 +57,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   `articlepanel.js` (any web page: select text, Annotate), `postpanel.js` (a post on X), the podcast-feed picker
   (`makeFeedPod` in `sidepanel.js`, for podcast apps), or the annotated.com view (`renderSide`).
   The panel can also float over the page (`floatframe.js`); Display settings live in `prefs.js`.
+- **Display settings** (`prefs.js`, drawn by `PanelKit.displayMenu`): display, after publishing, what a selection
+  captures, highlighter, density, theme and the page button. Two of them reach the page you are reading through
+  messages, because page scripts have no access to `Prefs`. `set-snap` carries whether a selection is taken
+  exactly or grown to the sentence, and `set-pen` rebuilds the injected highlight style. `sidepanel.js` sends both
+  when a panel is made and again on every preference change.
 - **Page scripts**: `content.js` + `capture-engine.js` on YouTube; `article.js` + `article-core.js` + `post-core.js`
   on every other page. They talk to the panel with `chrome.runtime` messages (`sendTo` in the panel).
 - **Video capture** (`capture-engine.js`): plays the range and records a 240p canvas with MediaRecorder, capped at
@@ -69,6 +74,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   tab audio). Podcast apps (Spotify, Amazon Music, iHeartRadio, Apple Podcasts and others) use `feedpod.js`: search
   Apple's free directory for the episode, open the show's own MP3, and cut the clip from a byte range on MP3 frame
   boundaries with no re-encoding. Encrypted audio is never recorded, on purpose.
+- **Selections**: what you select is what is captured. The sentence around it is offered, never assumed, through
+  the link beside the quote, and that offer lasts for one capture. Anyone who wants sentences every time sets it in
+  Display settings. Exact selections only have to clear `MIN_EXACT`, twelve characters, rather than `MIN_CHARS`,
+  and a whole paragraph or post passes at any length through `coversWholeBlock`.
 - **Articles and X**: `article-core.js` handles selection, the Annotate button, sentence snapping, the held
   highlight (cleared by clicking elsewhere or Escape), and screenshots. A selection inside a post on X becomes an
   annotation of that post, with the selected words as its quote.
@@ -121,6 +130,18 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - After changing shared page code: run the tests, `build_preview.py`, `sync_website.py`, bump the manifest version,
   `package_extension.py`, and deploy the website if its files changed.
 - Every bug fix gets a test, and a test that simulates the failure when the real one cannot be reproduced.
+
+## Known risks, from the audit on 2026-09-21
+
+- The `media` bucket is public by link, so a screenshot of a page behind a login is fetchable by anyone holding the
+  URL. The URLs are unguessable and that is the whole protection.
+- Anyone may file a claim and there is no rate limit, so claims are spammable.
+- IndexedDB grows without pruning. Clips and screenshots stay until deleted by hand.
+- Supabase reports leaked password protection as disabled. It does not apply, because email sign-up is off and
+  Google is the only way in, so no password exists.
+- Four unused indexes sit on the `user_id` columns of comments, reactions, comment_reactions and poll_votes.
+- Page scraped text (a post's author, an outlet, a byline) reaches the panel's checks list. It is written with
+  `textContent`, never `innerHTML`, and it has to stay that way, because a hostile page controls every word of it.
 
 ## Open items
 

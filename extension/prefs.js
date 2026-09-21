@@ -1,7 +1,7 @@
 // Display preferences. Shared by the extension (chrome.storage) and the preview (localStorage).
 // Prefs.init(backend) -> Promise<prefs>. Prefs.set(key, value). Prefs.onChange(fn).
 const Prefs = (() => {
-  const DEFAULTS = { display: 'side', afterPublish: 'stay', density: 'comfortable', theme: 'system', pageButton: true };
+  const DEFAULTS = { display: 'side', afterPublish: 'stay', density: 'comfortable', theme: 'system', pageButton: true, snap: 'exact', pen: 'chisel' };
   let backend = null, cur = { ...DEFAULTS };
   const subs = [];
   function apply() {
@@ -13,6 +13,7 @@ const Prefs = (() => {
       requestAnimationFrame(() => requestAnimationFrame(() => r.classList.remove('noTrans')));
     }
     if (cur.theme === 'system') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', cur.theme);
+    r.setAttribute('data-pen', cur.pen);
     if (document.body) document.body.classList.toggle('compact', cur.density === 'compact');
   }
   async function init(b) {

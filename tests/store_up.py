@@ -23,8 +23,10 @@ async def main():
     print(await feed.evaluate("""(async()=>{const m=await Store.allMeta();const a=await Store.all();
       return {metaRows:m.length, fullRows:a.length, metaHasNoFiles:m.every(r=>!r.item.blob&&!r.item.shot), flags:m.map(r=>[r.id,r.item.hasMedia,r.item.hasShot,!!r.item.shotThumb&&Math.round(r.item.shotThumb.length/1024)+' KB thumb']),
         fullKept:a.map(r=>[r.id,!!r.item.blob,!!r.item.shot])}})()"""))
-    print('feed cards:', await feed.locator('.card').count(), '| article card thumbnail uses the small copy:', await feed.eval_on_selector('.card .cthumb img','i=>i.src.startsWith("data:image/jpeg")'))
-    await feed.click('.cplayBtn'); await asyncio.sleep(.8)
+    print('feed cards:', await feed.locator('.card').count(), '(this computer plus whatever is published)', '| article card thumbnail uses the small copy:', await feed.eval_on_selector('.card .cthumb img','i=>i.src.startsWith("data:image/jpeg")'))
+    # Name the clip this test made. The feed also holds whatever is published, so the first play button on the
+    # page is not necessarily ours, and an audio one has no video element.
+    await feed.click('.cplayBtn[data-id="old-clip-efgh"]'); await asyncio.sleep(.8)
     print('clip loads on play:', await feed.eval_on_selector('.cardPlayer video','v=>v.src.startsWith("blob:")'))
     print('errors:', errs)
     await ctx.close()

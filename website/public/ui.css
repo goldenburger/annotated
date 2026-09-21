@@ -12,6 +12,8 @@
   --newsprint: #ECEDEF;    /* quiet fills */
   --rule: #CFD3DB;         /* hairlines. Dark enough to survive a projector or a compressed recording */
   --hi: #FFE14A;           /* highlighter */
+  --hi-deep: #F2C600;      /* where the nib lands */
+  --hi-lift: #FFEE9E;      /* where it leaves the paper */
   --hi-edge: #E0B800;      /* highlighter edge */
   --hi-ink: #16181D;       /* text on highlighter, same in both themes */
   --red: #C8372D;          /* editor's red pen: claims and errors */
@@ -236,7 +238,10 @@ body.debug .brand .build + .x { margin-left: 8px; }
 .mediaErr { padding: 10px 12px; margin: 0; }
 .pq { margin: 0 0 12px; }
 .pq blockquote { margin: 0; font-family: var(--serif); font-size: 19px; line-height: 1.6; }
-.pq blockquote mark { background: #FFE14A; color: var(--hi-ink); box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 1px 2px; }
+/* Drawn like a chisel tip rather than filled like a rectangle. Heavy where the pen lands, lighter where it
+   leaves the last letter, and every corner a different radius so no edge reads as a box. */
+.pq blockquote mark { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%); color: var(--hi-ink); box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  padding: 1px 5px 3px 3px; margin: 0 -2px; border-radius: 4px 11px 5px 12px; }
 .pq figcaption { font-size: 13px; color: var(--ink-soft); margin-top: 8px; }
 .ctxshot { all: unset; box-sizing: border-box; display: block; width: 100%; position: relative; cursor: pointer; border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; background: var(--sheet); max-height: 120px; }
 .ctxshot img { width: 100%; display: block; }
@@ -477,7 +482,7 @@ dialog .radio input { margin: 0; }
 .annCard .who .name { font-weight: 600; }
 .when { display: block; font-size: var(--t-xs); color: var(--ink-3); }
 .annCard .take { font: 500 26px/1.32 var(--serif); letter-spacing: -0.01em; margin: 16px 0 18px; }
-.annCard .take::after { content: ""; display: block; width: 56px; height: 7px; margin-top: 10px; background: var(--hi); border-radius: 2px 5px 3px 6px; transform: skewX(-12deg) rotate(-1deg); opacity: var(--hi-op); }
+.annCard .take::after { content: ""; display: block; width: 56px; height: 7px; margin-top: 10px; background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%); border-radius: 2px 5px 3px 6px; transform: skewX(-12deg) rotate(-1deg); opacity: var(--hi-op); }
 .vnote { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 6px 10px; border-radius: var(--r-m); background: var(--newsprint); color: var(--ink-2); }
 .media { margin: 0 0 14px; }
 .media .clip, .media .xembed, .media .xshot { margin: 0; }
@@ -540,7 +545,7 @@ dialog .radio input { margin: 0; }
 @keyframes popIn { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 .annCard.fresh .take { animation: riseIn .45s cubic-bezier(.2, .7, .2, 1) both; }
 .annCard.fresh .take::after { animation: drawIn .45s cubic-bezier(.3, .7, .2, 1) .12s both; }
-.annCard.fresh .pq blockquote mark { background: linear-gradient(var(--hi), var(--hi)) no-repeat 0 0; animation: markIn .7s cubic-bezier(.3, .6, .2, 1) .22s both; }
+.annCard.fresh .pq blockquote mark { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%) no-repeat 0 0; animation: markIn .7s cubic-bezier(.3, .6, .2, 1) .22s both; }
 .annCard.fresh .media > .clip, .annCard.fresh .media > .xembed, .annCard.fresh .media > .xshot { animation: riseIn .5s cubic-bezier(.2, .7, .2, 1) .35s both; }
 .pubcard.fresh .pubcheck { animation: popIn .45s cubic-bezier(.3, .7, .3, 1.4) both; }
 @media (prefers-reduced-motion: reduce) {
@@ -1183,3 +1188,27 @@ body.signedOut .pubSignIn { display: block; }
 .localTag { display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--rule); border-radius: 999px; background: var(--newsprint); color: var(--ink-soft); font: 500 11px/1.6 var(--sans); vertical-align: middle; white-space: nowrap; }
 /* A feed reloading after a tab change, so the old list does not read as the new tab's answer. */
 .busy .cards, .busy .feedSortRow { opacity: .35; pointer-events: none; }
+
+/* The highlighter people choose in Display settings. Chisel is the default and lives with the mark itself. */
+:root[data-pen="wet"] .pq blockquote mark { background: radial-gradient(9px 60% at 3% 52%, var(--hi-deep), transparent 70%), radial-gradient(12px 62% at 98% 48%, var(--hi-deep), transparent 72%), linear-gradient(180deg, var(--hi-lift) 0 14%, var(--hi) 22% 78%, var(--hi-deep) 100%); padding: 1px 6px 3px; margin: 0 -3px; border-radius: 3px 10px 4px 9px; }
+:root[data-pen="wet"] .annCard.fresh .pq blockquote mark { background: radial-gradient(9px 60% at 3% 52%, var(--hi-deep), transparent 70%), radial-gradient(12px 62% at 98% 48%, var(--hi-deep), transparent 72%), linear-gradient(180deg, var(--hi-lift) 0 14%, var(--hi) 22% 78%, var(--hi-deep) 100%) no-repeat 0 0; }
+:root[data-pen="wet"] .annCard .take::after { background: radial-gradient(9px 60% at 3% 52%, var(--hi-deep), transparent 70%), radial-gradient(12px 62% at 98% 48%, var(--hi-deep), transparent 72%), linear-gradient(180deg, var(--hi-lift) 0 14%, var(--hi) 22% 78%, var(--hi-deep) 100%); }
+:root[data-pen="twice"] .pq blockquote mark { background: linear-gradient(101deg, var(--hi-lift) 0 18%, var(--hi) 34% 70%, var(--hi-deep) 78%, var(--hi) 100%); padding: 2px 6px 3px; margin: 0 -3px; border-radius: 5px 12px 6px 11px; }
+:root[data-pen="twice"] .annCard.fresh .pq blockquote mark { background: linear-gradient(101deg, var(--hi-lift) 0 18%, var(--hi) 34% 70%, var(--hi-deep) 78%, var(--hi) 100%) no-repeat 0 0; }
+:root[data-pen="twice"] .annCard .take::after { background: linear-gradient(101deg, var(--hi-lift) 0 18%, var(--hi) 34% 70%, var(--hi-deep) 78%, var(--hi) 100%); }
+:root[data-pen="streak"] .pq blockquote mark { background: repeating-linear-gradient(94deg, transparent 0 11px, var(--hi-lift) 11px 13px, transparent 13px 27px), linear-gradient(180deg, var(--hi-lift), var(--hi) 46%, var(--hi-deep)); padding: 1px 6px 3px; margin: 0 -3px; border-radius: 4px 10px 5px 11px; }
+:root[data-pen="streak"] .annCard.fresh .pq blockquote mark { background: repeating-linear-gradient(94deg, transparent 0 11px, var(--hi-lift) 11px 13px, transparent 13px 27px), linear-gradient(180deg, var(--hi-lift), var(--hi) 46%, var(--hi-deep)) no-repeat 0 0; }
+:root[data-pen="streak"] .annCard .take::after { background: repeating-linear-gradient(94deg, transparent 0 11px, var(--hi-lift) 11px 13px, transparent 13px 27px), linear-gradient(180deg, var(--hi-lift), var(--hi) 46%, var(--hi-deep)); }
+:root[data-pen="flat"] .pq blockquote mark { background: linear-gradient(var(--hi), var(--hi)); padding: 1px 2px; border-radius: 2px; }
+:root[data-pen="flat"] .annCard.fresh .pq blockquote mark { background: linear-gradient(var(--hi), var(--hi)) no-repeat 0 0; }
+:root[data-pen="flat"] .annCard .take::after { background: linear-gradient(var(--hi), var(--hi)); }
+/* Swatches in the settings menu, drawn with the same pens. */
+.penRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+.penRow button { flex: 1 1 78px; display: grid; gap: 5px; justify-items: center; padding: 7px 6px 6px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); cursor: pointer; font: 500 11px/1.2 var(--sans); color: var(--ink-2); }
+.penRow button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); }
+.penRow .penInk { width: 100%; height: 13px; }
+.penRow .penInk.chisel { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%); border-radius: 4px 11px 5px 12px; }
+.penRow .penInk.wet { background: radial-gradient(9px 60% at 3% 52%, var(--hi-deep), transparent 70%), radial-gradient(12px 62% at 98% 48%, var(--hi-deep), transparent 72%), linear-gradient(180deg, var(--hi-lift) 0 14%, var(--hi) 22% 78%, var(--hi-deep) 100%); border-radius: 3px 10px 4px 9px; }
+.penRow .penInk.twice { background: linear-gradient(101deg, var(--hi-lift) 0 18%, var(--hi) 34% 70%, var(--hi-deep) 78%, var(--hi) 100%); border-radius: 5px 12px 6px 11px; }
+.penRow .penInk.streak { background: repeating-linear-gradient(94deg, transparent 0 11px, var(--hi-lift) 11px 13px, transparent 13px 27px), linear-gradient(180deg, var(--hi-lift), var(--hi) 46%, var(--hi-deep)); border-radius: 4px 10px 5px 11px; }
+.penRow .penInk.flat { background: linear-gradient(var(--hi), var(--hi)); border-radius: 2px; }

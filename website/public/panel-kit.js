@@ -238,6 +238,7 @@ const PanelKit = (() => {
     let pop = null;
     const seg = (name, label, opts2, val) => `<fieldset class="dmGroup"><legend>${label}</legend><div class="seg">${opts2.map(([v, l]) =>
       `<label><input type="radio" name="dm-${name}" value="${v}" ${val === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></fieldset>`;
+    const PENS = [['chisel', 'Chisel'], ['wet', 'Wet edge'], ['twice', 'Two passes'], ['streak', 'Streaky'], ['flat', 'Flat']];
     function close() { if (pop) { pop.remove(); pop = null; g.setAttribute('aria-expanded', 'false'); } }
     function open(anchor) {
       if (pop) return;
@@ -248,6 +249,9 @@ const PanelKit = (() => {
         ${seg('display', 'Show annotated as', [['side', 'Side panel'], ['float', 'Floating']], p.display)}
         <p class="note dmHint">${p.display === 'float' ? 'Drag the top bar to move it and a bottom corner to resize. Shrink it to a button when you are reading.' : sideHint}</p>
         ${seg('afterPublish', 'After publishing', [['stay', 'Keep open'], ['close', p.display === 'float' ? 'Shrink' : 'Close']], p.afterPublish)}
+        ${seg('snap', 'What a selection captures', [['exact', 'Exactly what I select'], ['sentences', 'The whole sentence']], p.snap)}
+        <fieldset><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
+          `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>
         ${seg('density', 'Density', [['comfortable', 'Comfortable'], ['compact', 'Compact']], p.density)}
         ${seg('theme', 'Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], p.theme)}
         <label class="dmSwitch"><input type="checkbox" class="dmPageBtn" ${p.pageButton ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Show the Annotate button next to selected text</span></label>
@@ -257,13 +261,26 @@ const PanelKit = (() => {
       const gr = anchor || g.getBoundingClientRect(), W = Math.min(300, window.innerWidth - 16);
       const r = gr.width ? gr : { bottom: 2, right: window.innerWidth - 8 };
       pop.style.width = W + 'px';
-      pop.style.top = (r.bottom + 6) + 'px';
       pop.style.left = Math.max(8, Math.min(window.innerWidth - W - 8, r.right - W)) + 'px';
+      // Fit the room actually below the gear, not the whole window. In a short panel this menu is taller than
+      // the space under it, and the controls at the bottom used to sit off screen with no way to reach them.
+      const below = window.innerHeight - (r.bottom + 6) - 10, above = r.top - 16;
+      if (below >= 260 || below >= above) {
+        pop.style.top = (r.bottom + 6) + 'px';
+        pop.style.maxHeight = Math.max(180, below) + 'px';
+      } else {
+        pop.style.bottom = (window.innerHeight - r.top + 6) + 'px';
+        pop.style.maxHeight = Math.max(180, above) + 'px';
+      }
       g.setAttribute('aria-expanded', 'true');
       pop.querySelectorAll('input[type=radio]').forEach((i) => i.addEventListener('change', () => {
         const key = i.name.replace('dm-', '');
         Prefs.set(key, i.value);
         if (key === 'display') { close(); closeWelcome(); onDisplay && onDisplay(i.value); }
+      }));
+      pop.querySelectorAll('.penBtn').forEach((b) => b.addEventListener('click', () => {
+        Prefs.set('pen', b.dataset.pen);
+        pop.querySelectorAll('.penBtn').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       }));
       pop.querySelector('.dmPageBtn').addEventListener('change', (e) => Prefs.set('pageButton', e.target.checked));
       pop.querySelector('.dmDone').addEventListener('click', () => { close(); g.focus(); });

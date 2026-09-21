@@ -41,6 +41,8 @@ async def main():
     pan=await ctx.new_page(); await pan.set_viewport_size({'width':400,'height':900})
     pan.on('pageerror',lambda e: errs.append('PANEL '+str(e)))
     await pan.goto(f'chrome-extension://{extid}/sidepanel.html?tab={tid}'); await asyncio.sleep(1.5)
+    # Exact is the default now, and this test is about what ends up in the quote.
+    await pan.evaluate("Prefs.set('snap','sentences')"); await asyncio.sleep(1.2)
     await pg.bring_to_front(); await pg.evaluate(PICK % ('This is such',12)); await asyncio.sleep(1)
     await pan.bring_to_front(); await pan.click('#postMode .pGrab')
     await pan.wait_for_selector('#postMode .pQuoteBox:not([hidden])',timeout=15000); await asyncio.sleep(.4)

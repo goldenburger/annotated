@@ -34,6 +34,8 @@ async def main():
     pan=await ctx.new_page(); await pan.set_viewport_size({'width':400,'height':900})
     pan.on('pageerror',lambda e: errs.append('PANEL '+str(e)))
     await pan.goto(f'chrome-extension://{extid}/sidepanel.html?tab={tid}'); await asyncio.sleep(1.5)
+    # Exact is the default now, and this test is about what ends up in the quote.
+    await pan.evaluate("Prefs.set('snap','sentences')"); await asyncio.sleep(1.2)
 
     preview=(await pan.inner_text('#postMode .pText')).strip()
     print('preview:',repr(preview))

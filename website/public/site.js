@@ -140,7 +140,8 @@
   function notFound(msg) {
     document.title = 'Not found | annotated';
     page.className = 'ann';
-    page.innerHTML = `<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p>${msg}</p><p><a href="/">See annotations</a></p></div>`;
+    page.innerHTML = '<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p class="esWhy"></p><p><a href="/">See annotations</a></p></div>';
+    page.querySelector('.esWhy').textContent = msg;
   }
 
   if (parts[0] && parts[0].startsWith('@') && parts[1]) await annotation(parts[1]);

@@ -22,6 +22,8 @@ if (!EMBED) document.body.classList.add('nativeSide');
 // Inside the floating frame: the frame's bar sends the gear and help clicks here, and this page reports its height.
 if (EMBED) {
   window.addEventListener('message', (e) => {
+    // Only the window hosting this frame. Anything else with a handle on us is not the frame's own bar.
+    if (e.source !== parent) return;
     const d = e.data;
     if (!d || d.type !== 'annotated-cmd') return;
     if (d.cmd === 'display' && displayApi) displayApi.toggle();
@@ -29,6 +31,13 @@ if (EMBED) {
   });
   PanelKit.reportHeight(document.body, (h) => parent.postMessage({ type: 'annotated-height', h }, '*'));
 }
+Prefs.onChange((v) => {
+  // Changing what a selection captures takes effect on every open page at once.
+  for (const tid of panels.keys()) {
+    sendTo(tid, { type: 'set-snap', exact: v.snap === 'exact' }).catch(() => {});
+    sendTo(tid, { type: 'set-pen', pen: v.pen }).catch(() => {});
+  }
+});
 Prefs.init(Prefs.chromeBackend()).then(() => {
   displayApi = PanelKit.displayMenu(document.body, { onDisplay, sideHint: EMBED ? '' : "Drag the side panel's edge to resize it. Chrome can also show it on the left, in Settings under Appearance." });
   Account.mount(document.body);
@@ -161,10 +170,16 @@ async function tabAudioCapture(p, tid, start, end) {
 // iHeartRadio and others) and for clipping any podcast by name. The episode plays in the panel itself.
 const PODCAST_APPS = [/(^|\.)spotify\.com$/, /^music\.amazon\./, /(^|\.)iheart\.com$/, /^podcasts\.apple\.com$/, /(^|\.)pocketcasts\.com$/, /(^|\.)castbox\.fm$/, /(^|\.)overcast\.fm$/, /(^|\.)podbean\.com$/, /(^|\.)audible\./, /(^|\.)podcastaddict\.com$/];
 const isPodcastApp = (url) => { try { const h = new URL(url).hostname; return PODCAST_APPS.some((re) => re.test(h)); } catch { return false; } };
-// The page title without the app's name, as a starting search.
-const episodeGuess = (title) => (title || '').replace(/^\(\d+\+?\)\s*/, '')
-  .replace(/\s*[|·\-–]\s*(podcast on spotify|spotify|apple podcasts|amazon music|iheart(radio)?|pocket casts|castbox|overcast|podbean|audible|podcast addict)\b.*$/i, '')
-  .replace(/^(your library|home|search|spotify)$/i, '').trim();
+// The page title without the app's name, as a starting search. These apps put their name at either end, so
+// "Spotify - Search" used to be searched for word for word and came back with six unrelated shows.
+const APP_TAIL = /\s*[|·•\-–—]\s*(?:podcast on spotify|spotify|apple podcasts|amazon music|iheart(?:radio)?|pocket casts|castbox|overcast|podbean|audible|podcast addict)\b.*$/i;
+const APP_HEAD = /^(?:podcast on spotify|spotify|apple podcasts|amazon music|iheart(?:radio)?|pocket casts|castbox|overcast|podbean|audible|podcast addict)\s*[|·•\-–—]\s*/i;
+// What is left once the app's name goes, when the page was only the app's own furniture.
+const APP_CHROME = /^(your library|home|search|browse|explore|podcasts?|music|playlists?|queue|liked songs|web player[\s\S]*)$/i;
+const episodeGuess = (title) => {
+  const t = (title || '').replace(/^\(\d+\+?\)\s*/, '').replace(APP_TAIL, '').replace(APP_HEAD, '').trim();
+  return APP_CHROME.test(t) ? '' : t;
+};
 
 function makeFeedPod(tid, url, pageTitle) {
   const el = document.createElement('div');
@@ -230,7 +245,13 @@ function makeFeedPod(tid, url, pageTitle) {
     }
   }
   async function run(term) {
-    q('.fpStatus').textContent = 'Searching…'; q('.fpList').innerHTML = '';
+    q('.fpList').innerHTML = '';
+    // A link can never match, because the directory only knows names.
+    if (/^\s*(?:https?:\/\/|www\.|[a-z0-9-]+\.[a-z]{2,}\/)/i.test(term)) {
+      q('.fpStatus').textContent = 'That is a link, and the directory only knows names. Type the show and a few words of the episode title.';
+      return;
+    }
+    q('.fpStatus').textContent = 'Searching…';
     let res = [];
     try { res = await FeedPod.search(term); } catch (err) { q('.fpStatus').textContent = err.message; return; }
     if (!res.length) { q('.fpStatus').textContent = term ? 'No episodes found. Try the show name and a few words of the title.' : ''; return; }
@@ -247,6 +268,7 @@ function makeFeedPod(tid, url, pageTitle) {
   });
   const guess = episodeGuess(pageTitle);
   q('.fpQ').value = guess;
+  if (!guess) q('.fpStatus').textContent = 'Type the show and a few words of the episode title.';
   if (!isPodcastApp(url)) {
     q('.fpNote').textContent = 'Search for any podcast episode by name. annotated clips it from the show\'s public feed.';
     // A way back to whatever this page offered before.
@@ -297,6 +319,9 @@ function makeArticle(tid, url, hasAudio = false) {
   const el = document.createElement('div');
   $('#articleMode').appendChild(el);
   const p = { kind: 'article', url, el, hasAudio, selCb: () => {} };
+  // The page keeps its own copy of the capture preference, so tell it as soon as the panel exists.
+  sendTo(tid, { type: 'set-snap', exact: Prefs.get().snap === 'exact' }).catch(() => {});
+  sendTo(tid, { type: 'set-pen', pen: Prefs.get().pen }).catch(() => {});
   p.api = ArticlePanel.create(el, {
     onSelection(cb) { p.selCb = cb; },
     info: () => sendTo(tid, { type: 'a-info' }).catch(() => null),
@@ -420,6 +445,16 @@ function show(tid, msg, title) {
 }
 function drop(tid) { const p = panels.get(tid); if (p) { p.el.remove(); panels.delete(tid); } }
 
+// Who is signed in, remembered for a minute. The annotation panel redraws whenever a tab or a saved annotation
+// changes, and each redraw used to ask the database again.
+let profileCache = { at: 0, who: null };
+async function cachedProfile() {
+  if (Date.now() - profileCache.at < 60000) return profileCache.who;
+  const who = await Backend.profile().catch(() => null);
+  profileCache = { at: Date.now(), who };
+  return who;
+}
+
 async function inject(tid, files, ping) {
   try { await sendTo(tid, { type: ping }); }
   catch { await chrome.scripting.executeScript({ target: { tabId: tid }, files }); log('Injected ' + files.join(', ')); }
@@ -511,7 +546,7 @@ async function refresh() {
       annKey = key;
       const records = await Store.allMeta().catch(() => []);
       const curId = tab.url.includes('annotation.html#') ? decodeURIComponent(tab.url.split('#')[1]) : null;
-      const who = await Backend.profile().catch(() => null);
+      const who = await cachedProfile();
       AnnotationPage.renderSide($('#annMode'), {
         current: records.find((r) => r.id === curId) || null, records,
         permalinkOf: (id) => { const r = records.find((x) => x.id === id); return Backend.permalink(id, r && r.author && r.author.handle); },
@@ -562,5 +597,8 @@ chrome.tabs.onRemoved.addListener((id) => {
   feedAsked.delete(id);
   for (const k of [...modeOverride.keys()]) if (k.startsWith(id + ' ')) modeOverride.delete(k);
 });
-setInterval(refresh, 400);
+// The panel polls for the tab it should follow. A hidden panel has nobody watching it, so it rests until it
+// comes back, which it does immediately rather than on the next tick.
+setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 400);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
 refresh();

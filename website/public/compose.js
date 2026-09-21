@@ -101,7 +101,7 @@ const Compose = (() => {
     // Polls: two to four options of up to 25 characters, starting as Agree and Disagree.
     let pollOn = false;
     const drawPoll = (opts) => {
-      q('.peOpts').innerHTML = opts.map((o, i) => `<div class="peRow"><input type="text" class="peOpt" maxlength="25" value="${String(o).replace(/"/g, '&quot;')}" aria-label="Option ${i + 1}" placeholder="Option ${i + 1}">${opts.length > 2 ? `<button type="button" class="quiet peDel" data-i="${i}" aria-label="Remove option ${i + 1}">${Brand.icon('close')}</button>` : ''}</div>`).join('');
+      q('.peOpts').innerHTML = opts.map((o, i) => `<div class="peRow"><input type="text" class="peOpt" maxlength="25" value="${PanelKit.esc(o)}" aria-label="Option ${i + 1}" placeholder="Option ${i + 1}">${opts.length > 2 ? `<button type="button" class="quiet peDel" data-i="${i}" aria-label="Remove option ${i + 1}">${Brand.icon('close')}</button>` : ''}</div>`).join('');
       q('.peAdd').hidden = opts.length >= 4;
       q('.peOpts').querySelectorAll('.peDel').forEach((b) => b.addEventListener('click', () => { const o = pollOpts(); o.splice(Number(b.dataset.i), 1); drawPoll(o); }));
     };

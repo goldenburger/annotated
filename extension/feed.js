@@ -41,7 +41,10 @@
       signIn,
       onPerson: (handle) => { Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.hash = 'user=' + encodeURIComponent(data.id); }); },
     });
-    const social = { ...soc, you: me && soc.youCounts ? { annotations: records.filter((r) => r.mine).length, ...soc.youCounts } : null };
+    // On your own profile this card sits beside a list of everything you have, so it counts the same things.
+    // On Home it counts what you published, because that is what everyone else can see.
+    const youCount = mineOnly ? records.length : records.filter((r) => r.mine).length;
+    const social = { ...soc, you: me && soc.youCounts ? { annotations: youCount, ...soc.youCounts } : null };
     if (mode === 'home' && !tag) {
       const tabs = Cloud.homeTabs(records, soc, me, records.filter((r) => r.mine || !r.author));
       const cur = tabs[tab] ? tab : 'foryou';
