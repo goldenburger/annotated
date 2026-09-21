@@ -69,6 +69,7 @@ const PostPanel = (() => {
     function startFresh() {
       result = null; published = false;
       q('.pBody').classList.remove('folded'); q('.pNewSel').hidden = true; q('.pQuoteX').hidden = false;
+      q('.pBody').insertBefore(q('.showAs'), q('.hint.tip'));
       q('.pResult').hidden = true; q('.pCompose').hidden = true; q('.pDup').hidden = true; q('.pPublished').hidden = true;
       compose.reset(); status.reset();
       q('.pGrab').hidden = false;
@@ -126,6 +127,8 @@ const PostPanel = (() => {
       q('.pGrab').hidden = true;
       // The post and the hints fold away. Only the choice of how to show it stays above your take.
       q('.pBody').classList.add('folded');
+      // The take is the point of the page, so the display choice sits after the quote and the screenshot.
+      q('.pResult').insertBefore(q('.showAs'), q('.pStatus'));
       q('.pTitle').textContent = r.author || q('.pTitle').textContent;
       q('.pMeta').textContent = [r.handle, fmtDate(r.posted)].filter(Boolean).join('. ');
       compose.reset();

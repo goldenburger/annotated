@@ -56,6 +56,7 @@ const VideoPanel = (() => {
           <p class="hint tip" data-tip="realtime">Capture runs in real time, so a 60 second clip takes about 60 seconds.</p>
         </div>
         <p class="error capErr" role="alert" hidden></p>
+        <p class="note capNote" role="status" hidden></p>
       </section>
       <section class="vResult result" hidden>
         <p class="resLabel" hidden></p>
@@ -372,7 +373,15 @@ const VideoPanel = (() => {
       opts.onCapturing && opts.onCapturing(on);
       render();
     }
-    function showError(t) { q('.capErr').textContent = t; q('.capErr').hidden = false; log('Error. ' + t); }
+    // Stopping a capture yourself is not a failure, so it reads as a note rather than a red error.
+    const CANCELLED = 'Capture cancelled.';
+    function showError(t) {
+      if (t === CANCELLED) { showNote('Capture stopped. Nothing was saved, so capture again when you are ready.'); return; }
+      q('.capNote').hidden = true;
+      q('.capErr').textContent = t; q('.capErr').hidden = false; log('Error. ' + t);
+    }
+    function showNote(t) { q('.capErr').hidden = true; q('.capNote').textContent = t; q('.capNote').hidden = false; log(t); }
+    function clearMessages() { q('.capErr').hidden = true; q('.capNote').hidden = true; }
     // After a capture the trimmer shrinks to one line, so the take box is in view without scrolling.
     // After a capture the trimmer folds away. The clip card keeps a Change button to bring it back.
     function setCollapsed(on) {
@@ -404,7 +413,7 @@ const VideoPanel = (() => {
     }
     q('.capBtn').addEventListener('click', async () => {
       if (!sel || capturing) return;
-      q('.capErr').hidden = true; clearResult(); setCapturing(true);
+      clearMessages(); clearResult(); setCapturing(true);
       q('.pText').textContent = 'Seeking to the start';
       log(`Capture ${fmt(sel.start, true)} to ${fmt(sel.end, true)} (${(sel.end - sel.start).toFixed(1)}s). Muted: ${info.muted}`);
       const r = await ad.capture(sel.start, sel.end).catch((e) => ({ ok: false, error: e.message }));

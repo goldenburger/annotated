@@ -10,7 +10,7 @@
   --paper: #FBFBFA;        /* page background */
   --sheet: #FFFFFF;        /* cards and fields */
   --newsprint: #ECEDEF;    /* quiet fills */
-  --rule: #DCDEE3;         /* hairlines */
+  --rule: #CFD3DB;         /* hairlines. Dark enough to survive a projector or a compressed recording */
   --hi: #FFE14A;           /* highlighter */
   --hi-edge: #E0B800;      /* highlighter edge */
   --hi-ink: #16181D;       /* text on highlighter, same in both themes */
@@ -1082,8 +1082,8 @@ body.nativeSide > .brand .wordmark { display: none; }
 .xshotFrame { position: relative; }
 .xshotFrame.tall { max-height: 480px; overflow: hidden; }
 .xshotFrame.tall::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 90px; background: linear-gradient(transparent, rgba(0,0,0,.55)); pointer-events: none; }
-.xshotMore { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 1; width: auto; background: var(--sheet); }
-.xshotFrame.open .xshotMore { position: static; transform: none; display: block; margin: 10px auto; }
+/* The button sits under the picture rather than on top of it, so the cut reads as a fade and not a mistake. */
+.xshotMore { display: block; width: auto; margin: 10px auto; background: var(--sheet); }
 .pBody.folded .pText, .pBody.folded .hint, .pBody.folded .pGrab { display: none; }
 .pBody.folded .showAs { margin-top: 0; }
 .pNewSel { position: sticky; bottom: 0; display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px solid var(--hi-edge); border-radius: var(--r-m); background: color-mix(in srgb, var(--hi) 18%, var(--sheet)); font-size: var(--t-s); }
@@ -1170,3 +1170,11 @@ body.signedOut .pubSignIn { display: block; }
 
 /* The post being annotated is the thing you are reading, so it gets the room the panel has. */
 .pText { max-height: 46vh; }
+
+/* Stopping a capture is deliberate, so Cancel sits clear of the button that was just clicked. */
+.progress .prow { margin-top: 12px; align-items: center; }
+.progress .cancel { padding: 4px 10px; border: 1px solid var(--rule); border-radius: var(--r-m); text-decoration: none; }
+.capNote { margin: 10px 0 0; font-size: var(--t-s); color: var(--ink-2); }
+
+/* While a handle is being dragged its time bubble would sit on top of the scale below the track. */
+.track[data-drag] + .scale { visibility: hidden; }

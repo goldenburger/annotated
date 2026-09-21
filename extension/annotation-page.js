@@ -255,7 +255,7 @@ const AnnotationPage = (() => {
         <div class="xfoot"><span>${esc(fmtDate(item.posted))}</span>${srcLink('xlink', 'View on X')}</div>
       </blockquote>` : '';
     const postShot = isPost && item.shot ? `
-      <figure class="xshot"><div class="xshotFrame"><img src="${esc(safeImg(item.shot))}" alt="Screenshot of the post by ${esc(item.author)}"><button type="button" class="ghost sm xshotMore" hidden>Show the whole post</button></div>
+      <figure class="xshot"><div class="xshotFrame"><img src="${esc(safeImg(item.shot))}" alt="Screenshot of the post by ${esc(item.author)}"></div><button type="button" class="ghost sm xshotMore" hidden>Show the whole post</button>
         <figcaption><span>Saved ${esc(fmtDate(new Date(item.captured || Date.now()).toISOString()))}. It stays even if the post is deleted.</span>${srcLink('xlink2', 'View on X')}</figcaption></figure>` : '';
     // Podcast clips: the clip's waveform with a player, and a link to the full episode.
     const audioCard = isAudio ? `
@@ -279,10 +279,12 @@ const AnnotationPage = (() => {
       </figure>`;
     // Clips: one source line attached to the player, with where the clip sits in the original.
     const srcBar = (where, who, action) => {
+      // A clip of a few seconds needs tenths, or 5:31.4 to 5:33.1 reads as 5:31 to 5:33.
+      const short = (item.end - item.start) < 10;
       const D = item.duration, pos = D > 0 ? `<span class="sbTrack" aria-hidden="true"><i style="left:${(item.start / D) * 100}%;width:${Math.max(0.8, ((item.end - item.start) / D) * 100)}%"></i></span>` : '';
       return `${cardOpen.replace('class="srccard', 'class="srccard srcbar')}
         <span class="sbInfo"><span class="skind">${kindIcon(item)} ${esc(where)}${who ? ` <span class="sbWho">${esc(who)}</span>` : ''}</span><span class="st">${esc(title)}</span></span>
-        <span class="sbPos">${pos}<span class="sbTime num">${fmt(item.start)} to ${fmt(item.end)}${D > 0 ? ` of ${fmt(D)}` : ''}</span><span class="sbGo">${action} ${Brand.icon('external')}</span></span>
+        <span class="sbPos">${pos}<span class="sbTime num">${fmt(item.start, short)} to ${fmt(item.end, short)}${D > 0 ? ` of ${fmt(D)}` : ''}</span><span class="sbGo">${action} ${Brand.icon('external')}</span></span>
       ${cardClose}`;
     };
     const source = isAudio ? srcBar(item.show || 'Podcast', '', 'Listen to the episode')
@@ -457,6 +459,7 @@ const AnnotationPage = (() => {
       q('.editBtn').addEventListener('click', () => {
         let tag = take.tag || null;
         box.innerHTML = `
+          <div class="kindLabel">Kind <span>(optional)</span></div>
           <div class="tags" role="radiogroup" aria-label="Kind of annotation">${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="${t === tag}">${t}</button>`).join('')}</div>
           <textarea class="editText" rows="3" maxlength="500" aria-label="Your take"></textarea>
           <p class="error editErr" hidden>Add a written take, or keep the voice note.</p>

@@ -4,6 +4,8 @@ const ArticleCore = (() => {
   const MIN_CHARS = 40;
   const MAX_CHARS = 1200;
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
+  // Range.toString drops emoji, which X draws as images. PostCore keeps them.
+  const rangeText = (r) => (typeof PostCore !== 'undefined' && PostCore.rangeText ? PostCore.rangeText(r) : r.toString());
 
   // Checks the current selection inside `root`. Returns null when the selection is
   // somewhere else (for example the side panel), so callers can ignore it.
@@ -14,7 +16,7 @@ const ArticleCore = (() => {
     const ancEl = anc.nodeType === 1 ? anc : anc.parentElement;
     if (!ancEl || !root.contains(ancEl)) return null;
     if (ancEl.closest('input, textarea, [contenteditable="true"], .annotated-ui')) return null;
-    const text = norm(expandToWords(range.cloneRange()).toString());
+    const text = norm(rangeText(expandToWords(range.cloneRange())));
     if (!text) return { state: 'empty' };
     for (const h of root.querySelectorAll('h1, [itemprop="headline"]')) {
       if (range.intersectsNode(h)) return { state: 'error', text, len: text.length, error: 'Pick a passage from the story, not the headline.' };
@@ -264,7 +266,7 @@ const ArticleCore = (() => {
     return r.collapsed ? null : r;
   }
 
-  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MAX_CHARS, norm, readSelection, expandToWords, highlightRange, clearHighlights, unionRect, fragmentUrl, extractMeta };
+  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, clearHighlights, unionRect, fragmentUrl, extractMeta };
 })();
 
 
@@ -406,7 +408,7 @@ const ArticlePage = (() => {
       const node = range.commonAncestorContainer;
       const postEl = typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && (node.nodeType === 1 ? node : node.parentElement).closest('article[data-testid="tweet"]');
       // Posts keep their line breaks. Articles collapse whitespace as before.
-      const text = postEl ? range.toString().replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(range.toString());
+      const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(ArticleCore.rangeText(range));
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
       pinned = null; ArticleCore.showPending(null); hideButton();
@@ -474,7 +476,7 @@ const ArticlePage = (() => {
       const r = picked ? ArticleCore.expandToWords(picked.cloneRange()) : null;
       let text = '';
       pendingAnnotate = false;
-      if (r && el.contains(r.commonAncestorContainer)) text = r.toString().replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      if (r && el.contains(r.commonAncestorContainer)) text = ArticleCore.rangeText(r).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
       clear();
       return text;
     }
