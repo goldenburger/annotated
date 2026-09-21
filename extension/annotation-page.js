@@ -183,7 +183,7 @@ const AnnotationPage = (() => {
     root.querySelectorAll('.railPerson').forEach((b) => b.addEventListener('click', () => social.onPerson && social.onPerson(b.dataset.handle)));
   }
   function railList(list) {
-    return `<ul class="raillist">${list.map((r) => `<li><button type="button" class="railOpen" data-id="${esc(r.id)}"><span class="rlKind">${kindIcon(r.item)}</span><span class="rlText"><span class="rlTake">${esc(r.take.text || 'Voice note')}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span></button></li>`).join('')}</ul>`;
+    return `<ul class="raillist">${list.map((r) => `<li><button type="button" class="railOpen" data-id="${esc(r.id)}"><span class="rlKind">${kindIcon(r.item)}</span><span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span></button></li>`).join('')}</ul>`;
   }
   function railRecent(list) {
     const recent = list.slice().sort((a, b) => b.created - a.created).slice(0, 4);
@@ -654,6 +654,9 @@ const AnnotationPage = (() => {
   }
   // Same source document, ignoring which part was captured.
   // Which source a card is about. Empty when there is nothing to go on, so those are never grouped.
+  // What to call an annotation in a list. A poll is a take of its own now, so it is named by its question
+  // rather than being filed under Untitled.
+  const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '');
   const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || '')
     : it.kind === 'audio' ? 'a:' + (it.url || '')
       : it.kind === 'post' ? 'p:' + (it.id || it.url || '')
@@ -748,7 +751,7 @@ const AnnotationPage = (() => {
           return `<li class="cardItem"><button type="button" class="card ${thumb ? '' : 'nothumb'}" data-id="${esc(r.id)}">
             <span class="cbody">
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
-              <span class="ctake">${esc(r.take.text || (r.take.voice ? 'Voice note' : ''))}</span>
+              <span class="ctake">${esc(takeLine(r.take))}</span>
               <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
             </span>
@@ -822,7 +825,7 @@ const AnnotationPage = (() => {
     container.innerHTML = `<div class="annside">
       ${current ? `<section class="sideNow" aria-label="This annotation">
         <div class="snHead"><span class="rlKind">${kindIcon(current.item)}</span><span class="snLabel">This annotation</span>${current.take.tag ? `<span class="tag sm">${esc(current.take.tag)}</span>` : ''}</div>
-        <p class="snTake">${esc(current.take.text || (current.take.voice ? 'Voice note' : 'Untitled'))}</p>
+        <p class="snTake">${esc(takeLine(current.take) || 'Untitled')}</p>
         <p class="note snSrc">${esc(withTime(titleOf(current.item), relTime(current.created)))}</p>
         ${statsOf(current)}
         ${!localAware || current.cloud || current.author ? `<div class="row"><button type="button" class="ghost sm sideCopy">${Brand.icon('link')} <span>Copy link</span></button>
@@ -836,7 +839,7 @@ const AnnotationPage = (() => {
         const now = current && r.id === current.id;
         return `<li><button type="button" data-id="${esc(r.id)}" ${now ? 'aria-current="page"' : ''}>
           <span class="rlKind">${kindIcon(r.item)}</span>
-          <span class="rlText"><span class="rlTake">${esc(r.take.text || (r.take.voice ? 'Voice note' : 'Untitled'))}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
+          <span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
           ${now ? '<span class="nowBadge">Viewing</span>' : ''}</button></li>`;
       }).join('')}</ul>
     </div>`;

@@ -1061,6 +1061,10 @@ body.embedded .phead, .ffBody > .panel .phead { margin-top: 0; }
 .acctBtn.signedIn img { width: 100%; height: 100%; object-fit: cover; }
 .brand .acctBtn + .gearBtn { margin-left: 4px; }
 .acctPop { position: fixed; z-index: 2147483000; width: 260px; padding: 14px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-l); box-shadow: var(--lift); display: grid; gap: 10px; }
+/* Nothing inside may push the column wider than the popup. Without this a row of children that all want an
+   equal share stretched the single column and everything in it hung over the edge, the field included. */
+.acctPop, .acctHandle { grid-template-columns: minmax(0, 1fr); }
+.acctPop > *, .acctHandle > * { min-width: 0; }
 .acctPop .who { display: flex; gap: 10px; align-items: center; }
 .acctPop .who b { display: block; font: 600 var(--t-m)/1.2 var(--sans); }
 .acctPop .who span { font-size: var(--t-xs); color: var(--ink-3); }
@@ -1130,9 +1134,13 @@ body.signedOut .pubSignIn { display: block; }
 .fpBack { justify-self: start; font-size: var(--t-xs); }
 .acctHandle { display: grid; gap: 4px; }
 .acctHandle label { font-size: var(--t-xs); color: var(--ink-3); }
-.acctHandle .row { display: flex; align-items: center; gap: 6px; }
+/* The general rule gives every child of a row an equal share. Here the field takes what is left over after
+   the at sign and the button, which is what makes a handle readable while you type it. */
+.acctHandle .row { display: flex; align-items: center; gap: 6px; margin-top: 0; }
+.acctHandle .row > * { flex: 0 0 auto; }
+.acctHandle .row input { flex: 1 1 auto; }
 .acctHandle .at { color: var(--ink-3); }
-.acctHandle input { flex: 1; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--rule); border-radius: var(--r-s); background: var(--paper); color: var(--ink); font: inherit; }
+.acctHandle input { flex: 1 1 auto; min-width: 0; height: 32px; padding: 0 8px; border: 1px solid var(--rule); border-radius: var(--r-s); background: var(--paper); color: var(--ink); font: inherit; }
 .acctHandle .strong { width: auto; }
 .acctHMsg { margin: 0; min-height: 1em; font-size: var(--t-xs); }
 

@@ -71,7 +71,7 @@ const Compose = (() => {
       <div class="pubBar">
         <p class="pubSignIn">Signed out, this is saved only on this computer. <button type="button" class="link pubSignInBtn">Sign in to publish it for everyone</button></p>
         <button type="button" class="primary publish" disabled>Publish</button>
-        <p class="hint publishHint">Add a written take, a voice note, or both.</p>
+        <p class="hint publishHint">Add a written take, a voice note or a poll.</p>
       </div>`;
 
     // Shown only while signed out in the extension (the panel marks the page). The preview has no accounts.
@@ -103,7 +103,7 @@ const Compose = (() => {
     const drawPoll = (opts) => {
       q('.peOpts').innerHTML = opts.map((o, i) => `<div class="peRow"><input type="text" class="peOpt" maxlength="25" value="${PanelKit.esc(o)}" aria-label="Option ${i + 1}" placeholder="Option ${i + 1}">${opts.length > 2 ? `<button type="button" class="quiet peDel" data-i="${i}" aria-label="Remove option ${i + 1}">${Brand.icon('close')}</button>` : ''}</div>`).join('');
       q('.peAdd').hidden = opts.length >= 4;
-      q('.peOpts').querySelectorAll('.peDel').forEach((b) => b.addEventListener('click', () => { const o = pollOpts(); o.splice(Number(b.dataset.i), 1); drawPoll(o); }));
+      q('.peOpts').querySelectorAll('.peDel').forEach((b) => b.addEventListener('click', () => { const o = pollOpts(); o.splice(Number(b.dataset.i), 1); drawPoll(o); validate(); }));
     };
     const pollOpts = () => [...q('.peOpts').querySelectorAll('.peOpt')].map((i) => i.value);
     const setPoll = (on) => {
@@ -111,9 +111,11 @@ const Compose = (() => {
       if (on && !q('.peOpt')) drawPoll(['Agree', 'Disagree']);
       if (on) { q('.pollEdit').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); q('.peQ').focus({ preventScroll: true }); }
     };
-    q('.pollBtn').addEventListener('click', () => setPoll(!pollOn));
-    q('.peRemove').addEventListener('click', () => { setPoll(false); q('.peOpts').innerHTML = ''; });
-    q('.peAdd').addEventListener('click', () => { const o = pollOpts(); if (o.length < 4) { o.push(''); drawPoll(o); q('.peOpts').lastElementChild.querySelector('input').focus(); } });
+    q('.pollBtn').addEventListener('click', () => { setPoll(!pollOn); validate(); });
+    q('.peRemove').addEventListener('click', () => { setPoll(false); q('.peOpts').innerHTML = ''; validate(); });
+    q('.peAdd').addEventListener('click', () => { const o = pollOpts(); if (o.length < 4) { o.push(''); drawPoll(o); q('.peOpts').lastElementChild.querySelector('input').focus(); } validate(); });
+    // The question and the options are redrawn as they change, so this listens to the whole editor.
+    q('.pollEdit').addEventListener('input', () => validate());
     const pollValue = () => { if (!pollOn) return null; const o = pollOpts().map((x) => x.trim()).filter(Boolean); return o.length >= 2 ? { question: q('.peQ').value.trim(), options: o, vote: null } : null; };
     root._resetPoll = () => { setPoll(false); q('.peOpts').innerHTML = ''; q('.peQ').value = ''; };
     root._pollValue = pollValue;
@@ -126,10 +128,14 @@ const Compose = (() => {
     else { q('.publish').hidden = true; q('.publishHint').hidden = true; }
 
     function value() { return { tag, text: q('.takeInput').value.trim(), voice, poll: root._pollValue ? root._pollValue() : null }; }
+    // A poll with a question is a take. Asking the room whether the clip holds up says as much as writing it
+    // does, and the recording on 2026-09-21 showed a finished poll sitting next to a Publish button that
+    // would not turn on and a line about written takes.
+    const asked = (p) => !!(p && p.question && (p.options || []).length >= 2);
     function validate() {
-      const v = value(), ready = !busy && !rec && (v.text || v.voice);
+      const v = value(), ready = !busy && !rec && (v.text || v.voice || asked(v.poll));
       q('.publish').disabled = !ready;
-      q('.publishHint').textContent = rec ? 'Stop the recording to publish.' : ready ? 'Opens your annotation page in a new tab. Ctrl or Cmd + Enter works too.' : 'Add a written take, a voice note, or both.';
+      q('.publishHint').textContent = rec ? 'Stop the recording to publish.' : ready ? 'Opens your annotation page in a new tab. Ctrl or Cmd + Enter works too.' : 'Add a written take, a voice note or a poll.';
     }
     function setBusy(b) { busy = b; q('.publish').textContent = b ? 'Publishing' : 'Publish'; validate(); }
     function hideMic() { q('.micMsg').hidden = true; q('.micFix').hidden = true; }

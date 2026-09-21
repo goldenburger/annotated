@@ -64,6 +64,9 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   when a panel is made and again on every preference change.
 - **Page scripts**: `content.js` + `capture-engine.js` on YouTube; `article.js` + `article-core.js` + `post-core.js`
   on every other page. They talk to the panel with `chrome.runtime` messages (`sendTo` in the panel).
+- **The clip range**: a player goes on reporting the video you just left for a moment after a change, so a
+  range read from it can sit outside the video that is now loaded. `videopanel.js` brings the range back
+  inside as soon as the real length arrives, rather than trusting the length it had when the video changed.
 - **Video capture** (`capture-engine.js`): plays the range and records a 240p canvas with MediaRecorder, capped at
   90 seconds. Some browsers paint video frames blank on canvas, so it picks a method (canvas drawing or VideoFrame),
   rechecks every second, switches if frames go blank, and stops with a message if both are blank. The panel then
@@ -114,6 +117,9 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`paintTaken(false)` then `paintTaken()`). A quote that starts or ends in the middle of a sentence gets a
   quiet line saying so from `PanelKit.fragmentNote`, which never stops anyone publishing. In a feed, a run of
   cards on one source names it once and the rest say "Same post", because the quote is what tells them apart.
+- **What counts as a take**: written words, a voice note, or a poll with a question and at least two options.
+  A poll on its own is named by its question wherever annotations are listed. `compose.js` decides this in
+  `validate`, and the poll editor tells it whenever the question or the options change.
 - **Sharing** (`cloud.js`): publish uploads files to the `media` bucket under the user's folder, then inserts the
   row. Signed out, or if upload fails, the annotation stays local and says so. `discovery()` and `homeTabs()` supply
   follows, people worth following, trending and the For you, Following and Everyone tabs.

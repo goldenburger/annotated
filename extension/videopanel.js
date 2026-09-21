@@ -628,6 +628,17 @@ const VideoPanel = (() => {
             drawFilm(); log('Filmstrip loading');
           }).catch((e) => log('No filmstrip. ' + e.message));
         }
+        // A player can go on reporting the video you just left for a moment, so a range read from it can end
+        // up outside the video that is now loaded. The recording on 2026-09-21 showed a nine minute video
+        // offering a clip from 23:44 to 24:14. As soon as the real length arrives the range comes back inside.
+        if (sel && !drag && !capturing && isFinite(info.duration) && info.duration > MIN) {
+          if (sel.start > info.duration - MIN) initSelection();
+          else if (sel.end > info.duration) {
+            sel.end = info.duration;
+            if (sel.end - sel.start < MIN) sel.start = Math.max(0, sel.end - MIN);
+            recenter(true, true);
+          }
+        }
         // Titles and channels can arrive after the video does. Keep the header current.
         if (info.title && q('.vTitle').textContent !== info.title) q('.vTitle').textContent = info.title;
         if (!isAudio) { const mt = info.channel ? `${info.channel} on YouTube` : 'YouTube'; if (q('.vMeta').textContent !== mt) q('.vMeta').textContent = mt; }
