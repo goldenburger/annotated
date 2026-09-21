@@ -43,7 +43,7 @@
       // Only the ends of the run are capped and run past the words. The pieces between butt together.
       + `mark.annotated-hl.hl-a::before{left:-${p.o}px;border-top-left-radius:${p.tl}px;border-bottom-left-radius:${p.bl}px}`
       + `mark.annotated-hl.hl-z::before{right:-${p.o}px;border-top-right-radius:${p.tr}px;border-bottom-right-radius:${p.br}px}`
-      + 'mark.annotated-hl.hl-go::before{animation:annotated-sweep var(--sw,160ms) cubic-bezier(.32,.62,.45,1) var(--d,0ms) both}'
+      + 'mark.annotated-hl.hl-go::before{animation:annotated-sweep var(--sw,160ms) linear var(--d,0ms) both}'
       + SWEEP;
   };
   // The faint one while you are still dragging uses the browser's own highlight API, which takes a colour and

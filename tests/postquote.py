@@ -43,6 +43,16 @@ PANEL = """async (post) => {
   d.remove();
   return out;
 }"""
+# A quoted post with paragraphs in it. The blank line between them must carry no ink.
+QUOTE = """async (rec) => {
+  const d = document.createElement('div'); document.body.appendChild(d);
+  await AnnotationPage.render(d, { item: rec.item, take: rec.take, records: [rec], showBanner: false }, {});
+  const marks = [...d.querySelectorAll('.postQuote mark')];
+  const out = { marks: marks.map((m) => m.textContent), blank: marks.filter((m) => !m.textContent.trim()).length,
+                text: (d.querySelector('.postQuote') || {}).textContent || '' };
+  d.remove();
+  return out;
+}"""
 CARD = """(recs) => {
   const d = document.createElement('div'); document.body.appendChild(d);
   AnnotationPage.renderFeed(d, { records: recs, mode: 'home', onOpen() {}, onHome() {}, onProfile() {} });
@@ -111,6 +121,15 @@ async def main():
     if not any(c.startswith('"A real-time') for c in cards): errs.append('a post with no quote lost its text')
     picked = [c for c in cards if c.startswith('"Open source')]
     if len(picked)!=1: errs.append('the card quoting the passage did not show the passage on its own')
+
+    # A quote with paragraphs in it. The blank lines between them carry no ink.
+    para = rec(3, 'First paragraph of the post.\n\nSecond paragraph of the post.\nStill the second.')
+    qt = await pan.evaluate(QUOTE, para)
+    print('ink runs:',qt['marks'])
+    if qt['blank']: errs.append(f"{qt['blank']} runs of ink held no words, so the paragraph gaps are marked")
+    if len(qt['marks'])!=3: errs.append(f"the quote came out as {len(qt['marks'])} runs of ink, wanted one to a line")
+    if 'First paragraph' not in qt['text'] or 'Still the second' not in qt['text']:
+        errs.append('the quote lost some of its words')
 
     # Capturing the same post again keeps the words already chosen.
     pg=await ctx.new_page(); await pg.set_viewport_size({'width':900,'height':700})

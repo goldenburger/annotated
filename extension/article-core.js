@@ -173,10 +173,14 @@ var ArticleCore = (() => {
   // whenever that thread is busy, and capturing keeps it busy, which is why the stroke used to arrive finished.
   function sweep(marks) {
     if (!marks || !marks.length) return;
-    const n = marks.length;
-    const total = Math.min(900, 260 + n * 45);
-    const per = Math.min(230, Math.max(110, Math.round(total * 0.45)));
-    const step = n > 1 ? (total - per) / (n - 1) : 0;
+    // One edge, moving at one speed. Each word starts exactly as the word before it finishes, and is given
+    // time in proportion to its width, so at any moment the words behind the pen are full, one word is being
+    // crossed, and the rest are bare. Giving every word the same length of time instead let several of them
+    // draw at once, each from its own left edge, which came out as a row of separate blocks.
+    const widths = marks.map((m) => Math.max(1, m.getBoundingClientRect().width));
+    const span = widths.reduce((a, b) => a + b, 0);
+    const total = Math.min(1100, Math.max(340, Math.round(span)));
+    const perPx = total / span;
     // Pale text on a dark page would be invisible the moment it turns to ink, before the pen reaches it.
     // Those words keep the page's own colour and turn as the pen passes them.
     let lit = false;
@@ -185,14 +189,17 @@ var ArticleCore = (() => {
       const m = par && getComputedStyle(par).color.match(/\d+/g);
       if (m) lit = (0.299 * +m[0] + 0.587 * +m[1] + 0.114 * +m[2]) / 255 > 0.55;
     } catch { /* the page moved on */ }
+    let run = 0;
     marks.forEach((mk, i) => {
-      const at = Math.round(i * step);
+      const at = Math.round(run * perPx), cross = Math.max(1, Math.round(widths[i] * perPx));
+      run += widths[i];
       mk.style.setProperty('--d', at + 'ms');
-      mk.style.setProperty('--sw', per + 'ms');
+      mk.style.setProperty('--sw', cross + 'ms');
       mk.classList.add('hl-go');
       if (lit) {
         mk.classList.add('hl-lit');
-        setTimeout(() => mk.classList.add('hl-inked'), at + Math.round(per * 0.55));
+        // The word turns to ink as the pen passes its middle.
+        setTimeout(() => mk.classList.add('hl-inked'), at + Math.round(cross * 0.5));
       }
     });
     // Each word being drawn gets its own layer in the browser's compositor. Once the stroke is down they are

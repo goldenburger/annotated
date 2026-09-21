@@ -90,7 +90,9 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   piece on two lines, because the pen is one box laid over the whole mark and a mark that wraps paints a bar of
   ink hanging from one line to the next. X writes a post as one run of text with real newlines in it under
   `white-space: pre-wrap`, which is where that shows up. `sweep` then grows a layer behind each word with a
-  transform, staggered word by word. The transform matters. A stroke drawn by widening a background runs on the
+  transform. One edge, one speed. Each word starts exactly as the one before it finishes and is given time in
+  proportion to its width, so only one word is ever part drawn. Giving every word the same length of time let
+  several draw at once, each from its own left edge, and the stroke came out as a row of separate blocks. The transform matters. A stroke drawn by widening a background runs on the
   page's own thread, the page is busy capturing at that moment, and the stroke arrived finished every time, which
   is why three rounds of recordings showed no animation at all. The sweep runs on `fold-restore`, once the
   screenshot has been taken, so the screenshot holds a finished stroke and the drawing happens when the page has

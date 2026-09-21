@@ -72,7 +72,7 @@ mark.annotated-hl:not(.hl-z)::before { right: -.6px; }
 mark.annotated-hl.hl-a::before { left: -3px; border-top-left-radius: 4px; border-bottom-left-radius: 12px; }
 mark.annotated-hl.hl-z::before { right: -3px; border-top-right-radius: 11px; border-bottom-right-radius: 5px; }
 mark.annotated-hl.hl-off::before { display: none; }
-mark.annotated-hl.hl-go::before { animation: annotated-sweep var(--sw, 160ms) cubic-bezier(.32,.62,.45,1) var(--d, 0ms) both; }
+mark.annotated-hl.hl-go::before { animation: annotated-sweep var(--sw, 160ms) linear var(--d, 0ms) both; }
 @keyframes annotated-sweep { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @media (prefers-reduced-motion: reduce) { mark.annotated-hl.hl-go::before { animation: none; } }
 :root[data-pen="wet"] mark.annotated-hl::before { background-image: radial-gradient(9px 60% at 3% 52%, #F2C600, transparent 70%), radial-gradient(12px 62% at 98% 48%, #F2C600, transparent 72%), linear-gradient(180deg, #FFEE9E 0 14%, #FFE14A 22% 78%, #F2C600 100%); }

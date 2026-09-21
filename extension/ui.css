@@ -1070,7 +1070,10 @@ body.embedded .phead, .ffBody > .panel .phead { margin-top: 0; }
 .rChip.notMine:hover { border-color: var(--hi-edge); }
 
 /* A post's own line breaks stay in its quote */
-.postQuote blockquote, .pText { white-space: pre-line; }
+.pText { white-space: pre-line; }
+/* One paragraph to a line of ink, so the gap between paragraphs carries none. */
+.postQuote blockquote p { margin: 0 0 .7em; }
+.postQuote blockquote p:last-child { margin-bottom: 0; }
 .media .postQuote { margin-top: 14px; }
 .toastSub { font-size: var(--t-xs); color: var(--ink-3); margin-right: auto; }
 .localNote { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); font-size: var(--t-s); color: var(--ink-2); }

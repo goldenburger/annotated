@@ -332,7 +332,7 @@ const AnnotationPage = (() => {
           <div class="editBox" hidden></div>
           ${voiceUrl ? `<div class="vnote">${Brand.icon('mic')}<audio class="pageVoice" controls src="${esc(voiceUrl)}"></audio></div>` : ''}
           <div class="mediaUnit ${isVideo || isAudio ? 'av' : ''}">
-            <div class="media">${media}${isPost && item.quote ? `<figure class="pq postQuote"><blockquote><mark>${esc(item.quote)}</mark></blockquote></figure>` : ''}</div>
+            <div class="media">${media}${isPost && item.quote ? `<figure class="pq postQuote"><blockquote>${inked(item.quote)}</blockquote></figure>` : ''}</div>
             ${isVideo || isAudio ? source : ''}
             <div class="pollBox" ${take.poll ? '' : 'hidden'}></div>
           </div>
@@ -665,6 +665,12 @@ const AnnotationPage = (() => {
   // Home shows everything on annotated, your profile shows yours, and a tag shows one tag. Follows need accounts.
   // social (optional): { you, people, trending, onFollow, onPerson, personStats, followsPerson,
   //   tabs: { current: 'foryou' | 'following' | 'everyone', onTab, note } } for the home feed's tabs.
+  // A quoted post keeps its paragraphs. One mark to a line, so the blank line between paragraphs stays bare.
+  // Marking the whole quote at once left a stray block of ink sitting in every gap.
+  const inked = (t) => String(t || '').split(/\n{2,}/)
+    .map((para) => para.split('\n').filter((l) => l.trim()).map((l) => `<mark>${esc(l)}</mark>`).join('<br>'))
+    .filter(Boolean).map((para) => `<p>${para}</p>`).join('');
+
   function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null }) {
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll });
