@@ -42,7 +42,23 @@ async def main():
     if 'exactly' not in note.lower(): errs.append(f'the note did not say it used the selection, it said {note!r}')
     if 'rest of the sentence' not in btn.lower(): errs.append(f'the offer read {btn!r}')
 
-    # Taking the offer grows this one to the sentence, and the next selection is exact again.
+    # The same offer sits beside Annotate on the page, as a quieter second click.
+    onpage = await pg.is_visible('.more')
+    print('page offers the rest of the sentence:', onpage)
+    if not onpage: errs.append('the page did not offer the rest of the sentence beside Annotate')
+    await pg.click('.more'); await asyncio.sleep(.8)
+    await pan.bring_to_front(); await asyncio.sleep(.3)
+    grown_page = (await pan.inner_text('#articleMode .selQuote')).strip()
+    print('second click gave ->', repr(grown_page[:52]))
+    if not grown_page.startswith('The council met'): errs.append(f'the second click gave {grown_page!r}')
+    # A selection that is already a whole sentence has nothing left to offer.
+    await sel(['b', 0, 56])
+    still = await pg.is_visible('.more')
+    print('offered on a whole sentence:', still)
+    if still: errs.append('the offer was made on a selection that was already a whole sentence')
+
+    # Taking the offer in the panel does the same, and the next selection is exact again.
+    await sel(['a', 12, 40])
     await pan.click('#articleMode .exactBtn'); await asyncio.sleep(.6)
     grown=(await pan.inner_text('#articleMode .selQuote')).strip()
     print('offer taken ->', repr(grown[:52]))

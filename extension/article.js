@@ -2,6 +2,9 @@
 (() => {
   // Reloading the extension leaves an older copy of this script on the page with a dead connection. The newest
   // copy claims the page and the older one stays quiet, so the panel works again without reloading the page.
+  // Take the older copy off the page before claiming it, so its button and its highlights go with it.
+  const older = window.__annotatedArticle;
+  if (older && older.page && typeof older.page.destroy === 'function') { try { older.page.destroy(); } catch { /* already gone */ } }
   const mine = {};
   window.__annotatedArticle = mine;
   const orphaned = () => window.__annotatedArticle !== mine;
@@ -9,18 +12,33 @@
   // The pens, with their colours written out. This sits on pages we do not own, so nothing here fades to
   // transparent, which would vanish on a dark page, and nothing uses a blend mode.
   const HI = '#FFE14A', DEEP = '#F2C600', LIFT = '#FFEE9E';
+  // background-image rather than the background shorthand. The shorthand resets background-size to auto, and
+  // with !important on it neither the longhand below nor the keyframes could ever widen the stroke.
   const PENS = {
-    chisel: `background:linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)!important;padding:1px 5px 3px 3px!important;margin:0 -2px!important;border-radius:4px 11px 5px 12px!important`,
-    wet: `background:radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:3px 10px 4px 9px!important`,
-    twice: `background:linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)!important;padding:2px 6px 3px!important;margin:0 -3px!important;border-radius:5px 12px 6px 11px!important`,
-    streak: `background:repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:4px 10px 5px 11px!important`,
-    flat: `background:${HI}!important;padding:1px 2px!important;border-radius:2px!important;box-shadow:0 0 0 2px ${HI}!important`,
+    chisel: `background-image:linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)!important;padding:1px 5px 3px 3px!important;margin:0 -2px!important;border-radius:4px 11px 5px 12px!important`,
+    wet: `background-image:radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:3px 10px 4px 9px!important`,
+    twice: `background-image:linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)!important;padding:2px 6px 3px!important;margin:0 -3px!important;border-radius:5px 12px 6px 11px!important`,
+    streak: `background-image:repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:4px 10px 5px 11px!important`,
+    flat: `background-image:linear-gradient(${HI},${HI})!important;padding:1px 2px!important;border-radius:2px!important;box-shadow:0 0 0 2px ${HI}!important`,
   };
+  // The pen runs across the words once, per line, the first time the mark appears.
+  const DRAW = '@keyframes annotated-draw{from{background-size:0% 100%}to{background-size:100% 100%}}'
+    + '@media (prefers-reduced-motion:reduce){mark.annotated-hl{animation:none!important}}';
+  // A passage can land in more than one piece when the page splits its text. Only the ends of the run are
+  // capped, so the pieces between them butt together and read as one stroke.
+  const JOIN = 'mark.annotated-hl:not(.hl-a){border-top-left-radius:0!important;border-bottom-left-radius:0!important;'
+    + 'padding-left:0!important;margin-left:0!important}'
+    + 'mark.annotated-hl:not(.hl-z){border-top-right-radius:0!important;border-bottom-right-radius:0!important;'
+    + 'padding-right:0!important;margin-right:0!important}';
   const penCss = (name) => `mark.annotated-hl{${PENS[name] || PENS.chisel};color:#1C2433!important;`
-    + '-webkit-box-decoration-break:clone;box-decoration-break:clone}';
+    + 'background-repeat:no-repeat!important;background-size:100% 100%;'
+    + 'animation:annotated-draw .72s cubic-bezier(.45,.05,.25,1) both;'
+    + '-webkit-box-decoration-break:clone;box-decoration-break:clone}' + JOIN + DRAW;
   // The faint one while you are still dragging uses the browser's own highlight API, which takes a colour and
   // nothing else, so it stays flat whichever pen is chosen.
-  const PENDING = '::highlight(annotated-pending){background-color:rgba(255,225,74,.55);color:inherit}';
+  // What would be taken if you captured now. A paler tint of the same yellow with the same ink, so it reads
+  // as the pen resting rather than a second colour. The highlight API takes a colour and nothing else.
+  const PENDING = '::highlight(annotated-pending){background-color:#FFF0A8;color:#1C2433}';
   style.textContent = penCss('chisel') + PENDING;
   (document.head || document.documentElement).appendChild(style);
   const send = (m) => chrome.runtime.sendMessage(m).catch(() => {});
@@ -37,6 +55,7 @@
     viewport: () => ({ top: 0, bottom: window.innerHeight }),
     buttonEnabled: () => pageButton,
   });
+  mine.page = page;
   // Podcasts: a page with an audio player can be clipped the same way as a video, as sound only.
   const pickAudio = () => {
     const list = [...document.querySelectorAll('audio')];
@@ -118,7 +137,9 @@
         const { el, ...rest } = r; reply({ ok: true, ...rest }); return;
       }
       // Sent once the screenshot has been taken, so a post folded behind Show more goes back to how it was.
-      case 'fold-restore': { page.refold(); reply({ ok: true }); return; }
+      // Sent once the screenshot has been taken. The fold goes back, and the words that were quoted get their
+      // highlight drawn on, so capturing a post leaves the same mark on the page that a passage does.
+      case 'fold-restore': { page.refold(); page.paintTaken(); reply({ ok: true }); return; }
       case 'capture-post': {
         // A selection inside a reply annotates that reply. Otherwise the page's main post.
         const inPost = page.selectedPost();

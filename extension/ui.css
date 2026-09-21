@@ -545,7 +545,7 @@ dialog .radio input { margin: 0; }
 @keyframes popIn { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.12); opacity: 1; } 100% { transform: scale(1); } }
 .annCard.fresh .take { animation: riseIn .45s cubic-bezier(.2, .7, .2, 1) both; }
 .annCard.fresh .take::after { animation: drawIn .45s cubic-bezier(.3, .7, .2, 1) .12s both; }
-.annCard.fresh .pq blockquote mark { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%) no-repeat 0 0; animation: markIn .7s cubic-bezier(.3, .6, .2, 1) .22s both; }
+.annCard.fresh .pq blockquote mark { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%) no-repeat 0 0; animation: markIn .72s cubic-bezier(.45, .05, .25, 1) .22s both; }
 .annCard.fresh .media > .clip, .annCard.fresh .media > .xembed, .annCard.fresh .media > .xshot { animation: riseIn .5s cubic-bezier(.2, .7, .2, 1) .35s both; }
 .pubcard.fresh .pubcheck { animation: popIn .45s cubic-bezier(.3, .7, .3, 1.4) both; }
 @media (prefers-reduced-motion: reduce) {

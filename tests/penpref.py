@@ -32,6 +32,25 @@ async def main():
     if len(pens)!=5: errs.append(f'{len(pens)} pens were offered, wanted five')
     if dict(pens).get('chisel')!='true': errs.append('the chisel was not the one already chosen')
 
+    # Watch a fresh mark actually widen. Checking that an animation is named proves nothing, because an
+    # !important declaration on the animated property leaves the keyframes inert and the stroke arrives finished.
+    await pg.bring_to_front()
+    await pg.evaluate("""()=>{
+      const m=document.createElement('mark'); m.className='annotated-hl'; m.textContent='drawn across these words';
+      document.querySelector('p').appendChild(m);
+      window.__w=[]; const t0=performance.now();
+      // A timer rather than a frame callback, because a page nobody is looking at gets no frames.
+      const id=setInterval(()=>{ window.__w.push(parseFloat(getComputedStyle(m).backgroundSize)||0);
+        if (performance.now()-t0 > 800) clearInterval(id); }, 30);
+    }""")
+    await asyncio.sleep(1.2)
+    w=await pg.evaluate('window.__w')
+    wide=max(w) if w else 0
+    print('stroke width over time: first %.0f, widest %.0f, steps %d' % (w[0] if w else 0, wide, len(set(w))))
+    if wide<=0: errs.append('the stroke never had any width')
+    elif len(set(w))<4: errs.append(f'the stroke jumped to full width in {len(set(w))} steps, so nothing was drawn')
+    elif w[0] > wide*0.25: errs.append(f'the stroke began at {w[0]:.0f} of {wide:.0f}, so most of it was already there')
+
     start=await pg.evaluate(INK)
     print('page starts with:',start)
     if 'linear-gradient' not in start['bg']: errs.append('the page did not start with a drawn stroke')

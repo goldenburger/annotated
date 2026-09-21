@@ -57,13 +57,17 @@ var ArticleCore = (() => {
     const nodes = [];
     const walker = document.createTreeWalker(top, NodeFilter.SHOW_TEXT, {
       acceptNode: (n) => {
-        if (!n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        // Whitespace between words counts. Skipping it left unhighlighted gaps mid-passage, so one stroke came
+        // out looking like several. Whitespace at the very ends is trimmed below instead.
         if (n.parentElement && n.parentElement.closest('script, style, noscript')) return NodeFilter.FILTER_REJECT;
         return range.intersectsNode(n) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
     });
     if (anc.nodeType === 3) nodes.push(anc);
     else while (walker.nextNode()) nodes.push(walker.currentNode);
+    // The stroke should not hang off either end into empty space.
+    while (nodes.length && !nodes[0].nodeValue.trim()) nodes.shift();
+    while (nodes.length && !nodes[nodes.length - 1].nodeValue.trim()) nodes.pop();
 
     const marks = [];
     for (const n of nodes) {
@@ -79,17 +83,23 @@ var ArticleCore = (() => {
       mk.appendChild(node);
       marks.push(mk);
     }
+    // Only the ends of the run are capped, so pieces in the middle butt together as one stroke.
+    if (marks.length) { marks[0].classList.add('hl-a'); marks[marks.length - 1].classList.add('hl-z'); }
     return marks;
   }
 
   function clearHighlights(root = document, keep = []) {
+    const touched = new Set();
     root.querySelectorAll('mark.annotated-hl').forEach((mk) => {
       if (keep.includes(mk)) return;
       const p = mk.parentNode;
       while (mk.firstChild) p.insertBefore(mk.firstChild, mk);
       p.removeChild(mk);
-      p.normalize();
+      touched.add(p);
     });
+    // Normalise once each, at the end. Doing it per mark left the text split, and every capture split it
+    // further, until a passage marked up as one range came out as several pieces.
+    touched.forEach((p) => { try { p.normalize(); } catch { /* the page moved on */ } });
   }
 
   function unionRect(marks) {
@@ -287,20 +297,30 @@ var ArticlePage = (() => {
     host.style.cssText = 'position:fixed;z-index:2147483647;left:0;top:0;display:none';
     const sh = host.attachShadow({ mode: 'open' });
     sh.innerHTML = `<style>
-      button{all:initial;display:flex;align-items:center;gap:6px;cursor:pointer;background:#1C2433;color:#fff;
-        font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;padding:8px 11px;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
-      button:focus-visible{outline:2px solid #FFE14A;outline-offset:2px}
+      .row{display:flex;align-items:stretch;background:#1C2433;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.25);overflow:hidden}
+      button{all:initial;display:flex;align-items:center;gap:6px;cursor:pointer;color:#fff;
+        font:600 13px/1 system-ui,-apple-system,"Segoe UI",sans-serif;padding:8px 11px}
+      button:focus-visible{outline:2px solid #FFE14A;outline-offset:-2px}
+      .more{font-weight:500;color:#C8CDD8;padding-left:9px;padding-right:10px;box-shadow:inset 1px 0 0 rgba(255,255,255,.16)}
+      .more:hover{color:#fff;background:rgba(255,255,255,.07)}
+      .more[hidden]{display:none}
       i{width:16px;height:9px;background:#FFE14A;border-radius:2px 5px 3px 6px;transform:skewX(-14deg) rotate(-4deg)}
-    </style><button type="button" aria-label="Annotate this passage"><i></i>Annotate</button>`;
+      em{all:initial;font:600 13px/1 system-ui,sans-serif;color:#FFE14A;margin-right:5px}
+    </style><div class="row"><button type="button" class="go" aria-label="Annotate this passage"><i></i>Annotate</button>
+      <button type="button" class="more" hidden aria-label="Include the rest of the sentence"><em>+</em>sentence</button></div>`;
     (document.body || document.documentElement).appendChild(host);
-    const btn = sh.querySelector('button');
+    const btn = sh.querySelector('.go'), moreBtn = sh.querySelector('.more');
     btn.addEventListener('mousedown', (e) => e.preventDefault());
     btn.addEventListener('click', () => requestAnnotate());
+    // The second click. Takes the rest of the sentence for this capture only, and then has nothing left to offer.
+    moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    moreBtn.addEventListener('click', () => { setExact(false); moreBtn.hidden = true; });
     const hideButton = () => { host.style.display = 'none'; };
 
     // Put the button in the margin beside the passage so it never covers text.
     // Falls back to above the first line, then below the last line.
-    function positionButton(range) {
+    function positionButton(range, d) {
+      moreBtn.hidden = !(d && d.state === 'ok' && d.canExpand && !d.expanded);
       if (!buttonEnabled()) return hideButton();
       const rects = range.getClientRects();
       const first = rects[0], lastR = rects[rects.length - 1];
@@ -321,15 +341,17 @@ var ArticlePage = (() => {
 
     // A highlight you have not captured goes away the way a selection does: click somewhere else on the page,
     // or press Escape. Clicks in the side panel are outside the page, so they keep it while you work there.
-    document.addEventListener('mousedown', (e) => {
+    const onDown = (e) => {
       if (!pinned || pendingAnnotate || e.composedPath().includes(host)) return;
       // Only clicks in the page's own content count. In the preview the panel shares the page, and clicking it must keep the highlight.
       const area = root();
       if (!area || !area.contains(e.target)) return;
       pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
       last = { state: 'empty' }; push();
-    }, true);
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pinned && !pendingAnnotate) clear(); }, true);
+    };
+    const onKey = (e) => { if (e.key === 'Escape' && pinned && !pendingAnnotate) clear(); };
+    document.addEventListener('mousedown', onDown, true);
+    document.addEventListener('keydown', onKey, true);
 
     // Describe a range as it will be captured: expanded to whole sentences unless the user asked for the exact selection.
     function evaluate(range) {
@@ -349,7 +371,7 @@ var ArticlePage = (() => {
       send({ type: 'sel-update', sel });
     }
 
-    document.addEventListener('selectionchange', () => {
+    const onSel = () => {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const live = ArticleCore.readSelection(root());
@@ -366,13 +388,25 @@ var ArticlePage = (() => {
         const d = evaluate(range);
         if (d && d.state === 'ok') {
           pinned = range;
-          ArticleCore.showPending(d.expanded ? d.range : null);
-          positionButton(range);
+          ArticleCore.showPending(d.range);
+          positionButton(range, d);
         } else hideButton();
         last = d || { state: 'empty' };
         push();
       }, 120);
-    });
+    };
+    document.addEventListener('selectionchange', onSel);
+
+    // Reloading the extension leaves this copy on the page with a dead connection. The copy that replaces it
+    // calls this, so only one button, one set of listeners and one highlight are ever live.
+    function destroy() {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', onDown, true);
+      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('selectionchange', onSel);
+      try { ArticleCore.showPending(null); ArticleCore.clearHighlights(document); } catch { /* the page moved on */ }
+      host.remove();
+    }
 
     function currentRange() {
       const s = ArticleCore.readSelection(root());
@@ -390,7 +424,7 @@ var ArticlePage = (() => {
       const d = evaluate(r);
       const live = ArticleCore.readSelection(root());
       const isLive = live && live.state !== 'empty';
-      ArticleCore.showPending(d && d.state === 'ok' && (d.expanded || !isLive) ? d.range : null);
+      ArticleCore.showPending(d && d.state === 'ok' ? d.range : null);
       last = { ...(d || { state: 'empty' }), pinned: !isLive };
       push();
     }
@@ -475,6 +509,14 @@ var ArticlePage = (() => {
 
     // The words picked inside one element (a post on X), then the highlight is cleared so screenshots stay clean.
     // Snapped to whole sentences the same way a passage is, so the quote matches the highlight drawn on the page.
+    let taken = null;
+    // Draws the highlight over the words a post capture quoted. The screenshot is taken without it, so this runs
+    // afterwards and gives a captured post the same mark a captured passage gets.
+    function paintTaken() {
+      if (!taken) return;
+      try { ArticleCore.clearHighlights(document, ArticleCore.highlightRange(taken)); } catch { /* the page moved on */ }
+      taken = null;
+    }
     function takeWithin(el) {
       const raw = currentRange();
       const d = raw ? evaluate(raw) : null;
@@ -482,6 +524,7 @@ var ArticlePage = (() => {
       const r = picked ? ArticleCore.expandToWords(picked.cloneRange()) : null;
       let text = '';
       pendingAnnotate = false;
+      taken = r && el.contains(r.commonAncestorContainer) ? r.cloneRange() : null;
       if (r && el.contains(r.commonAncestorContainer)) text = ArticleCore.rangeText(r).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
       clear();
       return text;
@@ -493,7 +536,7 @@ var ArticlePage = (() => {
       const n = r.commonAncestorContainer;
       return (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
     }
-    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, selectedPost, unfold, refold };
+    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, paintTaken, selectedPost, unfold, refold, destroy };
   }
   return { create };
 })();

@@ -173,7 +173,15 @@ const PostPanel = (() => {
     return {
       refresh, reset: startFresh,
       captureNow() { if (busy) return; if (published || result) startFresh(); grab(); },
-      onSelection(sel) { q('.pNewSel').hidden = !(published && sel && sel.state && sel.state !== 'empty'); },
+      onSelection(sel) {
+        const fresh = !!(sel && sel.state && sel.state !== 'empty');
+        q('.pNewSel').hidden = !(published && fresh);
+        // Before publishing, the capture below is about to be replaced, so say so rather than leave a stale quote
+        // sitting next to a fresh selection with no explanation.
+        if (result && !published) q('.resLabel').textContent = fresh
+          ? 'You selected new words. Capture the post again to quote them instead.'
+          : "You're annotating";
+      },
     };
   }
   return { create, fmtDate };
