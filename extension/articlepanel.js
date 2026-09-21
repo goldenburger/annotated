@@ -37,6 +37,7 @@ const ArticlePanel = (() => {
       <section class="aResult result" hidden>
         <p class="resLabel">You're annotating</p>
         <blockquote class="quote capQuote"></blockquote>
+        <p class="hint frag aFrag" hidden></p>
         <button type="button" class="quiet ctxthumb" aria-label="See the screenshot of the passage">${Brand.icon('image')} See screenshot<img class="shot" alt="" hidden></button>
         <div class="aStatus"></div>
       </section>
@@ -160,6 +161,9 @@ const ArticlePanel = (() => {
       q('.resLabel').textContent = "You're annotating";
       q('.capQuote').textContent = r.text;
       PanelKit.clampQuote(q('.capQuote'));
+      const frag = PanelKit.fragmentNote(r.text);
+      q('.aFrag').textContent = frag;
+      q('.aFrag').hidden = !frag;
       q('.ctxthumb').hidden = !shot;
       if (shot) q('.shot').src = shot.dataUrl;
 

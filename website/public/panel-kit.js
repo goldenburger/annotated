@@ -349,5 +349,18 @@ const PanelKit = (() => {
     return (line) => { if (!pre) return; pre.textContent += `[${new Date().toLocaleTimeString()}] ${line}\n`; pre.scrollTop = pre.scrollHeight; };
   }
 
-  return { clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, initDebug, makeLog };
+  // A quote that begins or ends in the middle of a sentence is allowed, because what you pick is what you get.
+  // It reads like a mistake to everyone else unless the page says it was on purpose, so the panel says so.
+  function fragmentNote(text) {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    const head = /^[a-z]/.test(t);
+    const tail = !/[.!?…][”’"')\]]?$/.test(t);
+    if (head && tail) return 'This quote starts and ends in the middle of a sentence.';
+    if (head) return 'This quote starts in the middle of a sentence.';
+    if (tail) return 'This quote ends in the middle of a sentence.';
+    return '';
+  }
+
+  return { clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

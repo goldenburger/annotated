@@ -20,6 +20,21 @@ ROOMY=('<!doctype html><html><head><meta charset="utf-8"><title>Story</title></h
 PICK="""()=>{const n=document.getElementById('a').firstChild;
   const r=document.createRange(); r.setStart(n,4); r.setEnd(n,40);
   const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);}"""
+# A selection that ends part way down the paragraph, so the last line has paper left over after the words.
+PICK2="""()=>{const n=document.getElementById('a').firstChild;
+  const r=document.createRange(); r.setStart(n,0); r.setEnd(n,n.nodeValue.length);
+  const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);}"""
+TAIL="""()=>{const h=document.querySelector('.annotated-ui');
+  if(!h||h.style.display==='none') return null;
+  const b=h.getBoundingClientRect(); const p=document.getElementById('a');
+  const pr=p.getBoundingClientRect();
+  const rg=document.createRange(); rg.selectNodeContents(p);
+  const lines=[...rg.getClientRects()];
+  const last=lines[lines.length-1];
+  const onText=lines.some((l)=>!(b.right<=l.left||b.left>=l.right||b.bottom<=l.top||b.top>=l.bottom));
+  return {x:Math.round(b.left), y:Math.round(b.top), onText,
+          lastRight:Math.round(last.right), lastTop:Math.round(last.top), lastBottom:Math.round(last.bottom),
+          pTop:Math.round(pr.top)};}"""
 WHERE="""()=>{const h=document.querySelector('.annotated-ui');
   if(!h||h.style.display==='none') return null;
   const b=h.getBoundingClientRect(); const p=document.getElementById('a').getBoundingClientRect();
@@ -57,6 +72,18 @@ async def main():
     print('with an empty margin:',b)
     if not b: errs.append('no Annotate button appeared on the roomy page')
     elif b['x'] + b['w'] > b['pLeft']: errs.append(f"the button covered the passage at x {b['x']}")
+
+    # Both margins taken and paper left at the end of the last line. The button goes there rather than onto
+    # the line above the passage, which is what it used to cover.
+    await pg.evaluate("()=>window.getSelection().removeAllRanges()"); await asyncio.sleep(.4)
+    await pg.evaluate(PICK2); await asyncio.sleep(.6)
+    c=await pg.evaluate(TAIL)
+    print('with paper left on the last line:',c)
+    if not c: errs.append('no Annotate button appeared for the whole paragraph')
+    else:
+      if c['onText']: errs.append('the button sat on the words of the passage')
+      if c['x'] < c['lastRight']: errs.append(f"the button went to x {c['x']}, left of where the writing stops at {c['lastRight']}")
+      if not (c['lastTop'] - 6 <= c['y'] <= c['lastBottom']): errs.append('the button did not sit beside the last line')
 
     print('errors:',errs)
     await ctx.close()

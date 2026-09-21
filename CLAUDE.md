@@ -80,8 +80,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   and a whole paragraph or post passes at any length through `coversWholeBlock`.
 - **Articles and X**: `article-core.js` handles selection, the Annotate button, sentence snapping, the held
   highlight (cleared by clicking elsewhere or Escape), and screenshots. A selection inside a post on X becomes an
-  annotation of that post, with the selected words as its quote. The Annotate button only uses the margin beside
-  the passage when that margin is empty, checked with `elementFromPoint`, otherwise it sits above the first line.
+  annotation of that post, with the selected words as its quote. The Annotate button tries the margin beside the
+  passage, then the paper left over at the end of the last line, then above the first line. A margin counts as
+  empty by `elementFromPoint`, and the tail of a line counts as empty only when the button's whole box clears
+  every line box of the block, because the button is taller than a line.
   Capturing a post again with nothing selected keeps the words the last capture quoted, remembered as words and
   found again with `findText`, because a range drifts every time the page is marked and unmarked.
 - **The highlighter**: `highlightRange` wraps one word per `<mark>`, each word carrying the space after it, then
@@ -107,6 +109,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **Accounts** (`backend.js`, `account.js`): Google sign-in through Supabase with `chrome.identity.launchWebAuthFlow`
   and the PKCE code exchange. The session is kept in `chrome.storage.local`. The manifest carries a public `key` so
   the extension ID is always `cggmedbnmeinbhahhllbphkpdbpjeofm`, which sign-in returns to. Do not remove the key.
+- **Reading an annotation**: a post's screenshot is taken with the stroke already on it, so the picture points
+  at the words that were quoted, and the stroke is drawn on again afterwards for the person watching
+  (`paintTaken(false)` then `paintTaken()`). A quote that starts or ends in the middle of a sentence gets a
+  quiet line saying so from `PanelKit.fragmentNote`, which never stops anyone publishing. In a feed, a run of
+  cards on one source names it once and the rest say "Same post", because the quote is what tells them apart.
 - **Sharing** (`cloud.js`): publish uploads files to the `media` bucket under the user's folder, then inserts the
   row. Signed out, or if upload fails, the annotation stays local and says so. `discovery()` and `homeTabs()` supply
   follows, people worth following, trending and the For you, Following and Everyone tabs.

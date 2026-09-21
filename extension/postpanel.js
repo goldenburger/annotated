@@ -34,6 +34,7 @@ const PostPanel = (() => {
       <section class="pResult result" hidden>
         <p class="resLabel">You're annotating</p>
         <div class="pQuoteBox" hidden><p class="k">Quoting</p><blockquote class="quote pQuote"></blockquote>
+          <p class="hint frag pFrag" hidden></p>
           <button type="button" class="link pQuoteX">Remove the quote</button></div>
         <button type="button" class="quiet ctxthumb" aria-label="See the screenshot of the post">${Brand.icon('image')} See screenshot<img class="shot" alt="" hidden></button>
         <div class="pStatus"></div>
@@ -122,6 +123,9 @@ const PostPanel = (() => {
       result = { kind: 'post', text: r.text, author: r.author, handle: r.handle, posted: r.posted, url: r.url, id: r.id, shot: shot && shot.dataUrl, quote: r.quote || '', captured: Date.now() };
       q('.pQuoteBox').hidden = !result.quote;
       q('.pQuote').textContent = result.quote || '';
+      const frag = PanelKit.fragmentNote(result.quote);
+      q('.pFrag').textContent = frag;
+      q('.pFrag').hidden = !frag;
       // This capture is the newest thing that happened, so any warning about other words is out of date.
       q('.resLabel').textContent = "You're annotating";
       q('.pResult').hidden = false;

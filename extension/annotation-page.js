@@ -653,6 +653,14 @@ const AnnotationPage = (() => {
     };
   }
   // Same source document, ignoring which part was captured.
+  // Which source a card is about. Empty when there is nothing to go on, so those are never grouped.
+  const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || '')
+    : it.kind === 'audio' ? 'a:' + (it.url || '')
+      : it.kind === 'post' ? 'p:' + (it.id || it.url || '')
+        : 'd:' + ((it.meta && it.meta.url) || '')).replace(/^\w:$/, '');
+  const sameAgain = (it) => (it.kind === 'post' ? 'Same post'
+    : it.kind === 'video' ? 'Same video' : it.kind === 'audio' ? 'Same episode' : 'Same page');
+
   function sameSourceDoc(a, b) {
     if (a.kind !== b.kind) return false;
     if (a.kind === 'video') return a.videoId === b.videoId;
@@ -710,8 +718,13 @@ const AnnotationPage = (() => {
           <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>Newest</span></label>
           <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>Most discussed</span></label>
         </div></div>
-        <ul class="cards">${list.length ? list.map((r) => {
+        <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => {
           const it = r.item;
+          // Three takes on one post used to repeat the author and the post three times over. The source is
+          // named once and the takes below it just say they are on the same thing. The quote still differs
+          // on every card, because that is what tells them apart.
+          const key = srcKey(it), again = !!key && key === lastKey;
+          lastKey = key;
           // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
           const thumb = safeImg(it.kind === 'video' ? it.poster : it.kind === 'audio' ? (it.artwork || it.poster) : it.kind === 'post' ? null : (it.meta.image || it.shotThumb || it.shot));
           // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
@@ -736,14 +749,14 @@ const AnnotationPage = (() => {
             <span class="cbody">
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(r.take.text || (r.take.voice ? 'Voice note' : ''))}</span>
-              <span class="csource">${kindIcon(it)}<span><span class="cst">${esc(srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
+              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
             </span>
             ${thumb && !playable ? `<span class="cthumb"><img src="${esc(thumb)}" alt=""></span>` : thumb ? '<span class="cthumb ghost" aria-hidden="true"></span>' : ''}
           </button>
           ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt=""><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
-        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`}</ul>`;
+        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
       rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
       // Deleting everything at once, rather than opening each annotation to delete it. Two steps, because it
       // cannot be undone, and the second one says how many and how many of them other people can see.

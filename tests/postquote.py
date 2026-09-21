@@ -53,6 +53,56 @@ QUOTE = """async (rec) => {
   d.remove();
   return out;
 }"""
+# A quote that stops in the middle of a sentence. The panel says so once, quietly, and publishing still works.
+FRAG = """async (post) => {
+  const out = {};
+  const run = async (quote) => {
+    const d = document.createElement('div'); document.body.appendChild(d);
+    const api = PostPanel.create(d, { info: async () => post, capture: async () => ({ ...post, quote }) },
+      { log() {}, onPublish: async () => ({ permalink: 'x' }) });
+    await api.refresh();
+    await new Promise((r) => setTimeout(r, 60));
+    d.querySelector('.pGrab').click();
+    await new Promise((r) => setTimeout(r, 250));
+    const note = d.querySelector('.pFrag');
+    const said = note.hidden ? '' : note.textContent;
+    const publish = d.querySelector('.compose button.primary');
+    const state = publish ? publish.disabled : null;
+    d.remove();
+    return { said, state };
+  };
+  const a = await run('Human civilization uses only a tiny');
+  const b = await run('Open source code in the post below.');
+  out.note = a.said; out.whole = b.said;
+  // The note must not change anything about publishing, only say something.
+  out.sameChance = a.state === b.state;
+  return out;
+}"""
+# Three takes on one post. The source is named once and the rest say they are on the same thing.
+RUN = """(recs) => {
+  const d = document.createElement('div'); document.body.appendChild(d);
+  AnnotationPage.renderFeed(d, { records: recs, mode: 'home', onOpen() {}, onHome() {}, onProfile() {} });
+  const out = [...d.querySelectorAll('.csource')].map((e) => ({
+    title: e.querySelector('.cst').textContent, quote: e.querySelector('.csn').textContent,
+    again: e.classList.contains('again') }));
+  d.remove();
+  return out;
+}"""
+# The stroke has to be on the page while the picture of the post is being taken, or the picture does not point
+# at the words that were quoted.
+SHOT = """async (a) => {
+  await chrome.scripting.executeScript({ target: { tabId: a.tid }, func: () => {
+    const n = document.querySelector('[data-testid="tweetText"] span').firstChild;
+    const rg = document.createRange(); rg.setStart(n, 0); rg.setEnd(n, 29);
+    const s = window.getSelection(); s.removeAllRanges(); s.addRange(rg);
+  } });
+  const pending = chrome.tabs.sendMessage(a.tid, { type: 'capture-post' });
+  await new Promise((r) => setTimeout(r, 90));
+  const [mid] = await chrome.scripting.executeScript({ target: { tabId: a.tid },
+    func: () => [...document.querySelectorAll('mark.annotated-hl')].map((m) => m.textContent).join('') });
+  const res = await pending;
+  return { whileShooting: mid.result, quote: (res && res.quote) || '' };
+}"""
 CARD = """(recs) => {
   const d = document.createElement('div'); document.body.appendChild(d);
   AnnotationPage.renderFeed(d, { records: recs, mode: 'home', onOpen() {}, onHome() {}, onProfile() {} });
@@ -131,6 +181,28 @@ async def main():
     if 'First paragraph' not in qt['text'] or 'Still the second' not in qt['text']:
         errs.append('the quote lost some of its words')
 
+    # Three takes on the same post name it once.
+    def onPost(i, quote, pid):
+        r = rec(i, quote); r['item']['id'] = pid; r['item']['url'] = 'https://x.com/techartist_/status/' + pid
+        return r
+    run = await pan.evaluate(RUN, [onPost(1,'First words.','9'), onPost(2,'Second words.','9'),
+                                   onPost(3,'Third words.','9'), onPost(4,'Elsewhere.','7')])
+    print('source lines:',[(c['title'],c['again']) for c in run])
+    named=[c['title'] for c in run if not c['again']]
+    if len(named)!=2: errs.append(f'the post was named {len(named)} times across four cards, wanted twice')
+    if any(t=='Same post' for t in named): errs.append('a card that names the source said Same post instead')
+    if [c['again'] for c in run]!=[False, False, True, True]:
+        errs.append(f"the run came out as {[c['again'] for c in run]}, so the grouping followed the wrong cards")
+    if any(c['title']!='Same post' for c in run if c['again']): errs.append('a repeat card did not say Same post')
+    if len({c['quote'] for c in run}) != 4: errs.append('the cards lost the quotes that tell them apart')
+
+    # A quote that stops in the middle of a sentence says so, and still publishes.
+    frag = await pan.evaluate(FRAG, POST)
+    print('fragment note:',repr(frag['note']),'| whole sentence note:',repr(frag['whole']))
+    if 'middle of a sentence' not in frag['note']: errs.append(f"a half sentence drew no note: {frag['note']!r}")
+    if frag['whole']: errs.append(f"a whole sentence was called a fragment: {frag['whole']!r}")
+    if not frag['sameChance']: errs.append('the note changed whether the annotation could be published')
+
     # Capturing the same post again keeps the words already chosen.
     pg=await ctx.new_page(); await pg.set_viewport_size({'width':900,'height':700})
     await pg.goto('https://x.com/techartist_/status/1'); await asyncio.sleep(1.4)
@@ -141,6 +213,12 @@ async def main():
     if a['first']!='A real-time coastal simulation': errs.append(f"the first capture took {a['first']!r}")
     if a['again']!=a['first']: errs.append(f"capturing again took {a['again']!r} instead of the words already chosen")
     if a['marks'].strip()!=a['first']: errs.append(f"the stroke after capturing again covered {a['marks']!r}")
+
+    # The stroke is on the page while the picture of the post is taken.
+    shot=await sw.evaluate(SHOT,{'tid':tid})
+    print('marked while the picture was taken:',repr(shot['whileShooting']),'| quote:',repr(shot['quote']))
+    if not shot['quote'] or shot['whileShooting'].strip()!=shot['quote'].strip():
+        errs.append('the picture of the post was taken before the words were marked, so it points at nothing')
 
     print('errors:',errs)
     await ctx.close()

@@ -162,6 +162,8 @@
         if (picked && picked !== r.text) r.quote = picked;
         // A long post is folded behind Show more. Open it so the screenshot holds the whole post.
         page.unfold(r.el);
+        // The stroke goes on before the picture is taken, so the picture shows which words were quoted.
+        page.paintTaken(false);
         // Posts taller than the window (with a video, say) are framed from their top, so the author and text are in the screenshot.
         const tall = r.el.getBoundingClientRect().height > window.innerHeight - 80;
         r.el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'instant' });

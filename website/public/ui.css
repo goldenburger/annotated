@@ -1226,3 +1226,11 @@ body.signedOut .pubSignIn { display: block; }
 .delAllAsk .delAllYes { background: var(--red); border-color: var(--red) }
 .delAllAsk .delAllMsg:empty { display: none }
 .delAllAsk .delAllMsg { margin: 10px 0 0 }
+
+/* A quote that begins or ends mid sentence. Said once, quietly, and it never stops you publishing. */
+.hint.frag { margin: 6px 0 0; color: var(--ink-3); font-size: var(--t-s); }
+.hint.frag::before { content: ""; display: inline-block; width: 3px; height: 1em; margin-right: 7px;
+  vertical-align: -2px; border-radius: 2px; background: var(--hi-edge); }
+
+/* The second and third take on one source name it once. The quote below still differs on every card. */
+.csource.again .cst { color: var(--ink-3); font-weight: 400; font-style: italic; }

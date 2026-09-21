@@ -440,6 +440,14 @@ var ArticlePage = (() => {
     moreBtn.addEventListener('click', () => { setExact(false); moreBtn.hidden = true; });
     const hideButton = () => { host.style.display = 'none'; };
 
+    // The lines of writing in a block, as boxes. A line box stops where its words stop, so these say where
+    // there is writing and where there is paper.
+    function lineBoxes(blockEl) {
+      try { const r = document.createRange(); r.selectNodeContents(blockEl); return [...r.getClientRects()]; }
+      catch { return []; }
+    }
+    const hitsText = (x, y, w, h, lines) => lines.some((l) => !(x + w <= l.left || x >= l.right || y + h <= l.top || y >= l.bottom));
+
     // Is that patch of margin empty? A wide page can have another column sitting in it, and on X the button
     // landed on the navigation beside the post, which read as part of X rather than as part of the passage.
     function clearSpace(x, y, w, h, blockEl) {
@@ -468,9 +476,23 @@ var ArticlePage = (() => {
       const blockEl = ArticleCore.blockOf(range.startContainer);
       const block = blockEl.getBoundingClientRect();
       const mid = first.top + (first.height - bh) / 2;
+      // The paper left over at the end of the last line. On a post both margins belong to another column, and
+      // the button used to fall back to sitting on the line above the passage, which covered words you were
+      // reading. This space is usually empty, and it is right where you stopped selecting.
+      const endBlock = ArticleCore.blockOf(range.endContainer);
+      const lines = lineBoxes(endBlock);
+      let tailX = lastR.right;
+      for (const l of lines) if (Math.abs(l.top - lastR.top) < 2) tailX = Math.max(tailX, l.right);
+      tailX += 10;
+      // The button is taller than a line, so beside the last line it can still reach the line above or below.
+      // Sitting level with the line is tried first, then hanging below it, and if neither is clear of the
+      // writing the button goes back to above the passage.
+      const tailY = [lastR.top + (lastR.height - bh) / 2, lastR.top]
+        .find((ty) => tailX + bw <= W - 8 && !hitsText(tailX, ty, bw, bh, lines) && clearSpace(tailX, ty, bw, bh, endBlock));
       let x, y;
       if (block.left - bw - 14 >= 8 && clearSpace(block.left - bw - 14, mid, bw, bh, blockEl)) { x = block.left - bw - 14; y = mid; }
       else if (block.right + bw + 14 <= W - 8 && clearSpace(block.right + 14, mid, bw, bh, blockEl)) { x = block.right + 14; y = mid; }
+      else if (tailY !== undefined) { x = tailX; y = tailY; }
       else if (first.top - bh - 8 >= 8) { x = first.left; y = first.top - bh - 8; }
       else { x = lastR.left; y = lastR.bottom + 8; }
       host.style.left = Math.max(8, Math.min(W - bw - 8, x)) + 'px';
@@ -658,14 +680,16 @@ var ArticlePage = (() => {
     let lastText = '';
     // Draws the highlight over the words a post capture quoted. The screenshot is taken without it, so this runs
     // afterwards and gives a captured post the same mark a captured passage gets.
-    function paintTaken() {
+    // Called twice for a post. Once before the screenshot with the stroke finished, so the picture points at
+    // the words that were quoted, and again afterwards to draw it on for the person watching.
+    function paintTaken(draw = true) {
       if (!taken) return;
       try {
         const marks = ArticleCore.highlightRange(taken);
         ArticleCore.clearHighlights(document, marks);
-        ArticleCore.sweep(marks);
+        if (draw) ArticleCore.sweep(marks);
       } catch { /* the page moved on */ }
-      taken = null;
+      if (draw) taken = null;
     }
     function takeWithin(el) {
       // Any earlier stroke comes off first, so the screenshot shows this capture and nothing before it.
