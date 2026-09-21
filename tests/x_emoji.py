@@ -51,7 +51,7 @@ async def main():
 
     # The text carried into the annotation keeps it too.
     await pan.fill('#postMode .takeInput','Emoji test')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#postMode .publish')
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#postMode .publish')
     ann=await asyncio.wait_for(np,20); ann.on('pageerror',lambda e: errs.append('ANN '+str(e)))
     await ann.wait_for_selector('.ann:not(.loading)',timeout=20000); await asyncio.sleep(.8)
     onpage=(await ann.inner_text('.postQuote')).strip() if await ann.locator('.postQuote').count() else ''

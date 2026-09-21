@@ -35,7 +35,7 @@ async def main():
     print('post folded away:', not await pan.is_visible(P+'.pText'), '| show-as kept:', await pan.is_visible(P+'.showAs'))
     print('sign-in line above Publish:', await pan.is_visible(P+'.pubSignIn'))
     await pan.fill(P+'.takeInput','first')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click(P+'.publish'); ann=await asyncio.wait_for(np,15); await asyncio.sleep(1)
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click(P+'.publish'); ann=await asyncio.wait_for(np,15); await asyncio.sleep(1)
     print('remove-quote hidden after publishing:', not await pan.is_visible(P+'.pQuoteX'))
     # a new selection after publishing
     await select(0,'Excitement',22)

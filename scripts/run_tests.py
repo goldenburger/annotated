@@ -17,7 +17,7 @@ GROUPS = {
     'preview': ['pa', 'pb', 'pc', 'pd', 'pe', 'emo', 'fix6', 'prev3b', 'prev4', 'prev5', 'prev6', 'p2shots', 'r7', 'r8', 'r9', 'r10',
                 'r11', 'r11c', 'shot1', 'pod', 'verify12', 'rz', 'disp', 'disp2'],
     'extension': ['ext_all', 'ext_post', 'e_p3', 'narrow', 'ext_pod', 'ext_welcome', 'ext_float', 'ext_r9', 'ext_x', 'ext_r12',
-                  'ext_r13', 'hl', 'store_up', 'fp_unwrap', 'x_quote', 'x_fold', 'x_emoji', 'reinject', 'feedtabs', 'podguess', 'snappref', 'penpref', 'follows', 'stroke', 'delall', 'postquote', 'btnplace', 'strokelive', 'strokelines', 'acctpop', 'cliprange'],
+                  'ext_r13', 'hl', 'store_up', 'fp_unwrap', 'x_quote', 'x_fold', 'x_emoji', 'reinject', 'feedtabs', 'podguess', 'snappref', 'penpref', 'follows', 'stroke', 'delall', 'postquote', 'btnplace', 'strokelive', 'strokelines', 'acctpop', 'cliprange', 'topnav', 'wipe', 'stayput', 'podroute', 'gifmake', 'ghostbtn'],
     'online': ['ext_feed', 'ext_fpart', 'ext_disc', 'ext_auth', 'web'],
 }
 # Not in any group: matrix (every width and theme, slow), gallery (screenshots of every screen), fphosts (tries six real

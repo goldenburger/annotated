@@ -38,7 +38,7 @@ async def main():
     print('checks:', (await pan.eval_on_selector(P+'.vStatus','e=>e.textContent.replace(/\\s+/g," ")'))[:330])
     print('log:', [l for l in (await pan.evaluate("document.body.textContent")).split('[') if 'Cut ' in l or 'Episode file' in l][:2])
     await pan.fill(P+'.takeInput','Gurley on Feynman')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click(P+'.publish')
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click(P+'.publish')
     ann=await asyncio.wait_for(np,15); ann.on('pageerror',lambda e: errs.append('ANN '+str(e))); await ann.set_viewport_size({'width':1200,'height':900})
     await ann.wait_for_selector('.ann:not(.loading)'); await asyncio.sleep(1.5)
     print('page audio:', await ann.eval_on_selector('.clipAudio','a=>[a.readyState, Math.round(a.duration*10)/10]'), '| source:', (await ann.inner_text('.srcbar')).replace('\n',' | ')[:160])

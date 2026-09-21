@@ -40,6 +40,8 @@ async def main():
     print('inner wordmark row hidden:', not await f.is_visible('body > .brand'))
     # publish from the frame
     await f.fill('#articleMode .takeInput','Floating in the real extension')
+    # This one goes on to read the page, so it asks for it. Publishing no longer opens it by itself.
+    await f.evaluate("() => Prefs.set('afterPublish','page')")
     np=asyncio.ensure_future(ctx.wait_for_event('page'))
     await f.click('#articleMode .publish')
     ann=await asyncio.wait_for(np, 15); await ann.wait_for_selector('.ann:not(.loading)')

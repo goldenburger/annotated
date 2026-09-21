@@ -52,10 +52,14 @@
       localOnly: !shared && !!local,
       stats: { annotations: records.length, followers: 0 },
       comments, reactions, records, social,
+      // The panel beside this page already carries Home and your profile.
+      siteNav: false,
     }, {
       onBack: async () => {
         const ok = local && local.sourceTabId ? await chrome.tabs.update(local.sourceTabId, { active: true }).then(() => true).catch(() => false) : false;
-        if (!ok) location.href = AnnotationPage.srcUrlOf(rec.item);
+        // The tab it was captured from is gone, so the source opens in one of its own. Sending this tab there
+        // would take the annotation with it, and this is the only tab annotated keeps.
+        if (!ok) chrome.tabs.create({ url: AnnotationPage.srcUrlOf(rec.item) });
       },
       onHome: () => { location.href = 'feed.html'; },
       onProfile: () => { location.href = mine ? 'feed.html#profile' : 'feed.html#user=' + encodeURIComponent(author.id); },

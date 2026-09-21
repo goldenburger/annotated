@@ -32,7 +32,7 @@ async def main():
     await pan.click('#articleMode .grab'); await pan.wait_for_selector('#articleMode .aCompose:not([hidden])',timeout=15000); await asyncio.sleep(.5)
     print('checks:', (await pan.eval_on_selector('#articleMode .aStatus','e=>e.textContent.replace(/\\s+/g," ")'))[:120])
     await pan.fill('#articleMode .takeInput','Timeline post test')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#articleMode .publish')
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#articleMode .publish')
     ann=await asyncio.wait_for(np,15); ann.on('pageerror',lambda e: errs.append('ANN '+str(e))); await ann.set_viewport_size({'width':1200,'height':1000})
     await ann.wait_for_selector('.ann:not(.loading)'); await asyncio.sleep(.8)
     print('panel card:', (await pan.inner_text('#articleMode .pubcard')).replace('\n',' | ')[:160], '| copy/X buttons:', await pan.locator('#articleMode .pubcard .pcopy').count())

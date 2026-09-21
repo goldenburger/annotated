@@ -1242,3 +1242,27 @@ body.signedOut .pubSignIn { display: block; }
 
 /* The second and third take on one source name it once. The quote below still differs on every card. */
 .csource.again .cst { color: var(--ink-3); font-weight: 400; font-style: italic; }
+
+/* Home and your profile, beside the wordmark. Quiet until you reach for them. */
+.brand .topLink { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0;
+  border-radius: var(--r-s); background: none; color: var(--ink-3); cursor: pointer; }
+.brand .topLink:hover { background: var(--newsprint); color: var(--ink); }
+.brand .topLink .ic { width: 17px; height: 17px; }
+.brand .homeBtn { margin-left: 6px; }
+.brand .topLink.hasTip::after { left: 0; right: auto; top: calc(100% + 6px); bottom: auto; }
+
+/* Home and your profile, read inside the panel. */
+.browseHead { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
+.browseHead h2 { margin: 0; font: 600 var(--t-l)/1.2 var(--sans); }
+.browseHead .browseFull { margin-left: auto; white-space: nowrap; }
+.browseBack { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0;
+  border-radius: var(--r-s); background: none; color: var(--ink-3); cursor: pointer; }
+.browseBack:hover { background: var(--newsprint); color: var(--ink); }
+.browseBack .ic { width: 17px; height: 17px; }
+.browseTabs { margin: 0 0 8px; }
+.browseNote { margin: 0 0 8px; }
+.browseEmpty { padding: 14px 2px; }
+
+/* The same delete all, in the panel's list of your annotations. */
+.browse .delAll { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.browse .delAllAsk { max-width: none; }

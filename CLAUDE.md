@@ -74,9 +74,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **Filmstrip** (`filmstrip.js`): YouTube's own storyboard sprites in the extension, frames from a hidden copy in
   the preview.
 - **Podcasts**: pages with a normal audio player are recorded directly (three routes: the element, a CORS copy, or
-  tab audio). Podcast apps (Spotify, Amazon Music, iHeartRadio, Apple Podcasts and others) use `feedpod.js`: search
-  Apple's free directory for the episode, open the show's own MP3, and cut the clip from a byte range on MP3 frame
-  boundaries with no re-encoding. Encrypted audio is never recorded, on purpose.
+  tab audio), and that now includes podcast apps, whose own player is tried before anything else. Only a service
+  that encrypts its audio (Spotify, Amazon Music, Audible) goes straight to `feedpod.js`, which searches Apple's
+  free directory for the episode, opens the show's own MP3, and cuts the clip from a byte range on MP3 frame
+  boundaries with no re-encoding. An app whose player turns out to be unreadable falls back to the same place, and
+  "Clip a podcast by name" reaches it from anywhere. Encrypted audio is never recorded, on purpose. Routing every
+  app to the feed, which is what it used to do, meant searching for an episode that was already playing.
 - **Selections**: what you select is what is captured. The sentence around it is offered, never assumed, through
   the link beside the quote, and that offer lasts for one capture. Anyone who wants sentences every time sets it in
   Display settings. Exact selections only have to clear `MIN_EXACT`, twelve characters, rather than `MIN_CHARS`,
@@ -99,10 +102,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   proportion to its width, so only one word is ever part drawn. Giving every word the same length of time let
   several draw at once, each from its own left edge, and the stroke came out as a row of separate blocks. The transform matters. A stroke drawn by widening a background runs on the
   page's own thread, the page is busy capturing at that moment, and the stroke arrived finished every time, which
-  is why three rounds of recordings showed no animation at all. The sweep runs on `fold-restore`, once the
-  screenshot has been taken, so the screenshot holds a finished stroke and the drawing happens when the page has
-  nothing else to do. Pale text on a dark page keeps the page's own colour until the pen reaches it (`hl-lit`,
-  then `hl-inked`).
+  is why three rounds of recordings showed no animation at all. The pen crosses the passage once, before the
+  picture, and the picture waits for it (`sweep` returns how long it takes). Drawing it finished for the
+  screenshot and again afterwards marked the same passage twice over, which is what it looked like. Pale text on
+  a dark page keeps the page's own colour until the pen reaches it (`hl-lit`, then `hl-inked`). A click anywhere
+  in the page, or Escape, wipes whatever is drawn on it, including the stroke a capture left, and a click while
+  the picture is being taken is ignored so the screenshot does not lose it.
 - **Local storage** (`store.js`): IndexedDB `annotated` version 2 with two stores. `annotations` holds everything
   including clips and screenshots. `meta` holds light copies (no files, a small `shotThumb`) for lists, feeds and
   duplicate checks. A change stamp in `chrome.storage` lets the panel skip rereads.
@@ -113,13 +118,29 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   and the PKCE code exchange. The session is kept in `chrome.storage.local`. The manifest carries a public `key` so
   the extension ID is always `cggmedbnmeinbhahhllbphkpdbpjeofm`, which sign-in returns to. Do not remove the key.
 - **Reading an annotation**: a post's screenshot is taken with the stroke already on it, so the picture points
-  at the words that were quoted, and the stroke is drawn on again afterwards for the person watching
-  (`paintTaken(false)` then `paintTaken()`). A quote that starts or ends in the middle of a sentence gets a
+  at the words that were quoted. A quote that starts or ends in the middle of a sentence gets a
   quiet line saying so from `PanelKit.fragmentNote`, which never stops anyone publishing. In a feed, a run of
   cards on one source names it once and the rest say "Same post", because the quote is what tells them apart.
 - **What counts as a take**: written words, a voice note, or a poll with a question and at least two options.
   A poll on its own is named by its question wherever annotations are listed. `compose.js` decides this in
   `validate`, and the poll editor tells it whenever the question or the options change.
+- **GIFs** (`gifmaker.js`): Share on a clip annotation offers Save as GIF. The frames are seeked out of the
+  clip onto a canvas, reduced to 256 colours by median cut, dithered, and written as a GIF89a with its own
+  LZW. It is all here because none of it needs a service, and because posting media to X does need their paid
+  API, which is why the clip itself still travels as a link with a preview card. Two things to know if this is
+  ever touched. The reader builds its dictionary one code behind the writer, so the code width has to grow one
+  code later than it looks like it should, and Chrome forgives getting that wrong while stricter readers will
+  not open the file at all. `gifmake.py` reads the compression back with an ordinary decoder for that reason.
+- **Where things open**: annotated's own reading pages live in one tab. Home, a profile and every annotation
+  move that tab (`openExtPage`), and leaving annotated, a source or a post on X, opens a tab of its own.
+  Publishing stays where you are. The panel shows the published card with the link and View page, and Display
+  settings offers Open the page for anyone who wants Jason's "go straight to the page" instead.
+- **The panel's own Home and profile**: `PanelKit.topLinks` puts them in the top bar in every mode, and they
+  read inside the panel through `AnnotationPage.renderBrowse` rather than taking a tab. `refresh` pauses while
+  the panel is browsing and Back resumes it, so a take in progress is untouched. "See all annotations" opens
+  the full page for what the panel is too narrow for. The pages inside the extension pass `siteNav: false`,
+  because the panel beside them already carries Home and You; the website keeps its nav, having no panel.
+  Deleting every annotation at once is offered both there and on the profile page, from one piece of code.
 - **Sharing** (`cloud.js`): publish uploads files to the `media` bucket under the user's folder, then inserts the
   row. Signed out, or if upload fails, the annotation stays local and says so. `discovery()` and `homeTabs()` supply
   follows, people worth following, trending and the For you, Following and Everyone tabs.

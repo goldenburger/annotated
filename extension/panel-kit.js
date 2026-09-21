@@ -45,7 +45,7 @@ const PanelKit = (() => {
   function published(container, { permalink, xHref, onView, onNew, note = '', local = false }) {
     container.innerHTML = `
       <div class="pubcard fresh" role="status">
-        <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'Your annotation page opened in a new tab.')}</p></div></div>
+        <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div></div>
         ${permalink && !local ? `<div class="publink"><span class="num">${esc(permalink.replace('https://', ''))}</span></div>` : ''}
         <button type="button" class="primary view">View page ${Brand.icon('external')}</button>
         ${local ? '' : `<div class="row">
@@ -225,6 +225,26 @@ const PanelKit = (() => {
     document.body.classList.remove('welcoming');
   }
 
+  // Home and your own profile, beside the wordmark, in every mode. They used to appear only once you had
+  // published something, so there was no way back to what you had already made while you were capturing.
+  function topLinks(panel, { onHome, onProfile } = {}) {
+    const brand = panel.querySelector('.brand');
+    if (!brand || brand.querySelector('.homeBtn')) return;
+    const make = (cls, icon, label, fn) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = cls + ' topLink hasTip'; b.dataset.tooltip = label;
+      b.setAttribute('aria-label', label);
+      b.innerHTML = Brand.icon(icon);
+      b.addEventListener('click', () => fn && fn());
+      return b;
+    };
+    // Before anything that floats to the right, so these sit with the wordmark.
+    const right = brand.querySelector('.build') || brand.querySelector('.acctBtn')
+      || brand.querySelector('.gearBtn') || brand.querySelector('.helpBtn') || brand.querySelector('.x');
+    brand.insertBefore(make('homeBtn', 'home', 'Home', onHome), right || null);
+    brand.insertBefore(make('youBtn', 'user', 'Your profile', onProfile), right || null);
+  }
+
   // Display menu: how annotated appears, plus a few preferences. Lives under the gear in the top bar.
   function displayMenu(panel, { onDisplay, sideHint = '' } = {}) {
     const brand = panel.querySelector('.brand');
@@ -248,7 +268,7 @@ const PanelKit = (() => {
       pop.innerHTML = `<h2>Display</h2>
         ${seg('display', 'Show annotated as', [['side', 'Side panel'], ['float', 'Floating']], p.display)}
         <p class="note dmHint">${p.display === 'float' ? 'Drag the top bar to move it and a bottom corner to resize. Shrink it to a button when you are reading.' : sideHint}</p>
-        ${seg('afterPublish', 'After publishing', [['stay', 'Keep open'], ['close', p.display === 'float' ? 'Shrink' : 'Close']], p.afterPublish)}
+        ${seg('afterPublish', 'After publishing', [['stay', 'Stay here'], ['page', 'Open the page'], ['close', p.display === 'float' ? 'Shrink' : 'Close']], p.afterPublish)}
         ${seg('snap', 'What a selection captures', [['exact', 'Exactly what I select'], ['sentences', 'The whole sentence']], p.snap)}
         <fieldset><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
           `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>
@@ -362,5 +382,5 @@ const PanelKit = (() => {
     return '';
   }
 
-  return { clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
+  return { clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

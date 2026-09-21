@@ -39,6 +39,10 @@ Prefs.onChange((v) => {
   }
 });
 Prefs.init(Prefs.chromeBackend()).then(() => {
+  PanelKit.topLinks(document.body, {
+    onHome: () => openBrowse('home'),
+    onProfile: () => openBrowse('profile'),
+  });
   displayApi = PanelKit.displayMenu(document.body, { onDisplay, sideHint: EMBED ? '' : "Drag the side panel's edge to resize it. Chrome can also show it on the left, in Settings under Appearance." });
   Account.mount(document.body);
   chrome.commands.getAll().then((cmds) => {
@@ -73,19 +77,34 @@ async function publish(tid, item, take) {
     local = true; note = 'Saved on this computer. Sharing failed: ' + e.message;
     log('Sharing failed: ' + e.message);
   }
-  const t = await chrome.tabs.create({ url: chrome.runtime.getURL('annotation.html') + '#' + id });
+  // Publishing leaves you where you are. Being thrown onto a page after every annotation lost your place in
+  // whatever you were reading, and the panel already holds the link, the page and a fresh start.
+  const after = Prefs.get().afterPublish;
+  const t = after === 'stay' ? null : await openExtPage('annotation.html#' + id);
   log((author ? 'Published ' : 'Saved locally ') + id);
-  if (Prefs.get().afterPublish === 'close') {
+  if (after === 'close') {
     if (EMBED) sendTo(tid, { type: 'float-collapse' }).catch(() => {});
     else setTimeout(() => window.close(), 300);
   }
-  return { tabId: t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
+  return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
 }
-// Each panel remembers its own annotation, so View page always opens the right one.
+// annotated's own reading pages live in one tab. Home, a profile and every annotation move that tab rather
+// than each taking one of their own, which left a strip of identical tabs behind after a few captures. A tab
+// already showing the exact page is simply brought forward. Anywhere that is not annotated, a source or a
+// post on X, still opens a tab of its own, because that is leaving rather than moving around.
+const OWN_PAGE = /\/(annotation|feed)\.html/;
 async function openExtPage(path) {
   const url = chrome.runtime.getURL(path);
-  const existing = (await chrome.tabs.query({})).find((t) => t.url === url);
-  if (existing) return chrome.tabs.update(existing.id, { active: true });
+  const tabs = await chrome.tabs.query({});
+  const same = tabs.find((t) => t.url === url);
+  if (same) return chrome.tabs.update(same.id, { active: true });
+  if (OWN_PAGE.test(url)) {
+    const base = chrome.runtime.getURL('');
+    const mine = tabs.filter((t) => t.url && t.url.startsWith(base) && OWN_PAGE.test(t.url));
+    const here = await chrome.windows.getCurrent().catch(() => null);
+    const reuse = (here && mine.find((t) => t.windowId === here.id)) || mine[0];
+    if (reuse) return chrome.tabs.update(reuse.id, { url, active: true });
+  }
   return chrome.tabs.create({ url });
 }
 const viewPublished = (ref) => {
@@ -112,7 +131,7 @@ async function deleteAnnotation(id) {
   log('Deleted ' + id);
   refresh();
 }
-const onMicBlocked = () => chrome.tabs.create({ url: chrome.runtime.getURL('mic.html') });
+const onMicBlocked = () => openExtPage('mic.html');
 
 function makeVideo(tid) {
   const el = document.createElement('div');
@@ -186,7 +205,7 @@ function makeFeedPod(tid, url, pageTitle) {
   $('#podcastMode').appendChild(el);
   el.innerHTML = `<section class="fpPick">
       <div class="fpHead"><span class="fpKind">${Brand.icon('podcast')}</span><div><b class="fpTitle">Find the episode</b>
-        <p class="note fpNote">This app's player can't be recorded, but most shows publish their episodes openly. annotated finds that original audio.</p></div></div>
+        <p class="note fpNote">This player cannot be recorded, but most shows publish their episodes openly. annotated finds that original audio.</p></div></div>
       <form class="fpSearch" role="search"><input class="fpQ" type="search" placeholder="Episode or show name" aria-label="Search for an episode"><button class="strong sm">Search</button></form>
       <p class="note fpStatus" role="status"></p>
       <ul class="fpList"></ul>
@@ -419,7 +438,85 @@ function wirePaste(root) {
     f.querySelector('.pasteMsg').textContent = 'Opening it here.';
   });
 }
+// Home and your profile read inside the panel. A menu shows its contents where you are, and opening a tab
+// for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
+// comments, its source and the conversation live there, and that page shares the one annotated tab.
+let browsing = null, browseTab = 'foryou';
+async function openBrowse(kind) {
+  browsing = kind;
+  for (const [, q] of panels) q.el.hidden = true;
+  ['#videoMode', '#articleMode', '#postMode', '#podcastMode', '#annMode', '#empty'].forEach((s) => { $(s).hidden = true; });
+  $('#browseMode').hidden = false;
+  await drawBrowse();
+}
+function closeBrowse() {
+  browsing = null;
+  $('#browseMode').hidden = true;
+  return refresh();
+}
+// Annotating something while the panel is showing Home or your profile puts it back on what you are
+// annotating, because that is plainly what you just asked it for. The panel for that tab may not have been
+// built while the list was up, so this waits for it rather than dropping the request.
+async function annotateNow(tid) {
+  await closeBrowse();
+  for (let i = 0; i < 25; i++) {
+    const q = panels.get(tid);
+    if (q && q.api && q.api.captureNow) return q.api.captureNow();
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+async function drawBrowse() {
+  const kind = browsing;
+  const local = await Store.allMeta().catch(() => []);
+  const me = await cachedProfile();
+  let records = local, title = 'You', note = '', tabs = null;
+  if (kind === 'profile' && me) {
+    // Anything published from another computer belongs here too, and to whatever is deleted from here.
+    let mine = [];
+    try { mine = await Cloud.list({ authorId: me.id, limit: 100 }); } catch { /* signed out, or no connection */ }
+    const here = new Set(local.map((r) => r.id));
+    records = [...local, ...mine.filter((r) => !here.has(r.id))];
+  }
+  if (kind === 'home') {
+    title = 'Home';
+    let shared = [];
+    try { shared = await Cloud.list({ limit: 60 }); } catch { /* signed out, or no connection */ }
+    const seen = new Set(shared.map((r) => r.id));
+    const merged = [...shared.map((r) => ({ ...r, mine: !!(me && r.author && r.author.id === me.id) })),
+      ...local.filter((r) => !seen.has(r.id))];
+    let soc = null;
+    try { soc = await Cloud.discovery(me, {}); } catch { /* the rails are not needed here */ }
+    soc = soc || { followed: new Set(), people: [], trending: { sources: [], tags: [] } };
+    const t = Cloud.homeTabs(merged, soc, me, merged.filter((r) => r.mine || !r.author));
+    const cur = t[browseTab] ? browseTab : 'foryou';
+    records = t[cur].records; note = t[cur].note || '';
+    tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
+      onTab: (k) => { browseTab = k; drawBrowse(); } };
+  }
+  if (browsing !== kind) return;
+  AnnotationPage.renderBrowse($('#browseMode'), {
+    title, records, note, tabs, localAware: true,
+    onOpen: (id) => openExtPage('annotation.html#' + id),
+    onBack: closeBrowse,
+    onFull: () => openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile'),
+    // The same control as on your profile page, where it took some finding.
+    onDeleteAll: kind === 'profile' ? async (progress) => {
+      const all = records.slice(), failed = [];
+      let done = 0;
+      for (const r of all) {
+        if ((r.cloud || r.author) && me) {
+          try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+        }
+        await Store.del(r.id).catch(() => {});
+        progress(++done, all.length);
+      }
+      await drawBrowse();
+      return failed;
+    } : null,
+  });
+}
 function show(tid, msg, title) {
+  if (browsing) return;
   const p = tid != null ? panels.get(tid) : null;
   if (!title) {
     // Nothing on this page to annotate: podcasts can still be clipped by name.
@@ -463,6 +560,8 @@ async function inject(tid, files, ping) {
 
 let busyRefresh = false;
 async function refresh() {
+  // While the panel is showing Home or your profile it stays on them. Back puts the page you are on back.
+  if (browsing) return;
   if (busyRefresh) return;
   busyRefresh = true;
   try {
@@ -500,14 +599,16 @@ async function refresh() {
       if (ai && ai.autoCapture) p.api.captureNow();
       return;
     }
-    // Podcast apps, including protected ones like Spotify: clip from the show's public feed instead of the app's player.
-    if (isPodcastApp(tab.url) || feedAsked.has(tab.id)) {
+    // A service that encrypts its audio can never be recorded, whoever is asking, so those go straight to the
+    // show's public feed. Every other podcast app gets its own player tried first, because most of them play
+    // an ordinary audio file and clipping what you are listening to beats searching for it again.
+    const feedPanel = () => {
       const url = tab.url.split('#')[0];
       if (p && (!p.feed || p.url !== url)) { drop(tab.id); p = null; }
       if (!p) { p = makeFeedPod(tab.id, url, feedAsked.has(tab.id) && !isPodcastApp(tab.url) ? '' : tab.title); panels.set(tab.id, p); }
       show(tab.id);
-      return;
-    }
+    };
+    if ((isPodcastApp(tab.url) && protectedService(tab.url)) || feedAsked.has(tab.id)) return feedPanel();
     const service = protectedService(tab.url);
     if (service) { if (p) { drop(tab.id); p = null; } return showProtected(tab, service); }
     if (isWeb(tab.url)) {
@@ -516,7 +617,9 @@ async function refresh() {
       catch { return show(null, 'Chrome does not allow extensions on this page.'); }
       // A page with an audio player opens as a podcast when it looks like one. Either way the other mode is one click away.
       const pod = await sendTo(tab.id, { type: 'pod-info' }).catch(() => null);
-      const hasAudio = !!(pod && pod.found);
+      const hasAudio = !!(pod && pod.found && pod.route !== 'protected');
+      // A podcast app whose player turns out to be unreadable falls back to the show's public feed.
+      if (!hasAudio && isPodcastApp(tab.url)) return feedPanel();
       const want = modeOverride.get(tab.id + ' ' + url) || (hasAudio && pod.likely ? 'audio' : 'article');
       if (p && (p.kind !== want || p.url !== url)) { drop(tab.id); p = null; }
       if (want === 'audio') {
@@ -576,6 +679,7 @@ async function refresh() {
 }
 
 chrome.runtime.onMessage.addListener((m, sender) => {
+  if (browsing && m.type === 'annotate-request' && sender.tab) { annotateNow(sender.tab.id); return; }
   const p = sender.tab && panels.get(sender.tab.id);
   if (!p) return;
   if (m.type === 'sel-update' && p.kind === 'article') return p.selCb(m.sel);

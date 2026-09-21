@@ -50,7 +50,7 @@ async def main():
     await px.click('#postMode .pGrab'); await px.wait_for_selector('#postMode .pCompose:not([hidden])',timeout=15000); await asyncio.sleep(.5)
     print('panel quote:', repr(await px.inner_text('#postMode .pQuote')), '| page highlight after capture:', await x.evaluate(hl))
     await px.fill('#postMode .takeInput','Quote test')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await px.click('#postMode .publish')
+    await px.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await px.click('#postMode .publish')
     ann=await asyncio.wait_for(np,15); ann.on('pageerror',lambda e: errs.append('ANN '+str(e))); await ann.set_viewport_size({'width':1200,'height':900})
     await ann.wait_for_selector('.ann:not(.loading)'); await asyncio.sleep(1)
     print('page quote:', repr(await ann.inner_text('.postQuote')))

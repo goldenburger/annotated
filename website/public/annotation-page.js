@@ -92,19 +92,23 @@ const AnnotationPage = (() => {
 
   /* ---------------- site chrome ---------------- */
   // annotated.com frame: a top bar with the wordmark and navigation, a main column, and a right rail on wide screens.
-  function shell(container, { active, onHome, onProfile }) {
+  // siteNav is off inside the extension, where the panel beside the page already carries Home and your
+  // profile and a second pair of them a few centimetres away is just two of everything. The wordmark still
+  // goes home, so the page is never a dead end. On the website there is no panel, so the nav stays.
+  function shell(container, { active, onHome, onProfile, siteNav = true }) {
     container.classList.add('site');
     container.innerHTML = `
       <header class="sitebar">
         <button type="button" class="wmBtn navHome" aria-label="annotated home">${Brand.wordmark()}</button>
-        <nav class="sitenav" aria-label="Site">
+        ${siteNav ? `<nav class="sitenav" aria-label="Site">
           <button type="button" class="navBtn navHome" ${active === 'home' ? 'aria-current="page"' : ''}>${Brand.icon('home')} Home</button>
           <button type="button" class="navBtn navProfile" ${active === 'profile' ? 'aria-current="page"' : ''}>${av('xs')} You</button>
-        </nav>
+        </nav>` : ''}
       </header>
       <div class="sitegrid"><div class="sitemain"></div><aside class="rail" aria-label="More"></aside></div>`;
     container.querySelectorAll('.navHome').forEach((b) => b.addEventListener('click', () => onHome && onHome()));
-    container.querySelector('.navProfile').addEventListener('click', () => onProfile && onProfile());
+    const you = container.querySelector('.navProfile');
+    if (you) you.addEventListener('click', () => onProfile && onProfile());
     return { main: container.querySelector('.sitemain'), rail: container.querySelector('.rail') };
   }
 
@@ -296,7 +300,7 @@ const AnnotationPage = (() => {
         <span class="scard"><span class="skind">${kindIcon(item)} ${esc(item.meta.site)}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
       ${cardClose}`;
 
-    const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onProfile: hooks.onProfile });
+    const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
     main.classList.add('ann', 'loading');
     main.innerHTML = `
       <div class="loadmsg" role="status" aria-label="Loading the annotation">
@@ -376,7 +380,30 @@ const AnnotationPage = (() => {
     });
     const share = menu(q('.shareBtn'), `
       <button type="button" role="menuitem" class="copyBtn">${Brand.icon('link')} <span class="cpText">Copy link</span></button>
-      <a role="menuitem" href="${xUrl(item, take, permalink)}" target="_blank" rel="noopener" data-close>${Brand.icon('x')} Post to X</a>`);
+      <a role="menuitem" href="${xUrl(item, take, permalink)}" target="_blank" rel="noopener" data-close>${Brand.icon('x')} Post to X</a>
+      ${isVideo && typeof GifMaker !== 'undefined' ? `<button type="button" role="menuitem" class="gifBtn">${Brand.icon('image')} <span class="gifText">Save as GIF</span></button>` : ''}`);
+    // A GIF of the clip, made here rather than anywhere else. It has no sound, so it sits beside the clip
+    // rather than in place of it, and it is the thing you can drop straight into a post.
+    const gifBtn = share.querySelector('.gifBtn');
+    if (gifBtn) gifBtn.addEventListener('click', async () => {
+      const lab = gifBtn.querySelector('.gifText'), v = q('.clipVideo');
+      const src = v && (v.currentSrc || v.src);
+      if (!src) { lab.textContent = 'There is no clip to turn into a GIF'; return; }
+      gifBtn.disabled = true;
+      try {
+        const blob = await GifMaker.fromVideo(src, { onProgress: (a, b) => { lab.textContent = `Making a GIF, ${Math.round((a / b) * 100)} percent`; } });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = (titleOf(item) || 'annotated').replace(/[^\w \-]+/g, '').trim().slice(0, 60).replace(/\s+/g, '-') + '.gif';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 20000);
+        lab.textContent = `Saved, ${(blob.size / 1048576).toFixed(1)} MB`;
+      } catch (err) {
+        lab.textContent = err && err.message ? err.message : 'The GIF could not be made.';
+      }
+      setTimeout(() => { lab.textContent = 'Save as GIF'; gifBtn.disabled = false; }, 4000);
+    });
     if (q('.moreBtn')) menu(q('.moreBtn'), `
       ${hooks.onEdit ? `<button type="button" role="menuitem" class="editBtn" data-close>${Brand.icon('edit')} Edit your take</button>` : ''}
       ${hooks.onDelete ? `<button type="button" role="menuitem" class="delBtn danger" data-close>${Brand.icon('trash')} Delete</button>` : ''}`);
@@ -682,9 +709,9 @@ const AnnotationPage = (() => {
     .map((para) => para.split('\n').filter((l) => l.trim()).map((l) => `<mark>${esc(l)}</mark>`).join('<br>'))
     .filter(Boolean).map((para) => `<p>${para}</p>`).join('');
 
-  function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null }) {
+  function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true }) {
     let filter = 'all', sort = 'new';
-    const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll });
+    const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
     main.classList.add('ann', 'feed');
@@ -705,10 +732,7 @@ const AnnotationPage = (() => {
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
                <div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${social && social.personStats ? social.personStats.followers : 0}</span> follower${social && social.personStats && social.personStats.followers === 1 ? '' : 's'}, ${social && social.personStats ? social.personStats.following : 0} following</div>
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
-               ${onDeleteAll && !person && records.length ? `<div class="delAll"><button type="button" class="link delAllOpen">Delete all your annotations</button>
-                 <div class="delAllAsk" hidden role="alertdialog"><p>${plural(records.length, 'annotation')} will be deleted${(() => { const n = records.filter((r) => r.cloud || r.author).length; return n ? `, including ${n} published for everyone` : ''; })()}. This cannot be undone.</p>
-                   <div class="row"><button type="button" class="ghost sm delAllNo">Keep them</button><button type="button" class="primary sm delAllYes">Delete ${plural(records.length, 'annotation')}</button></div>
-                   <p class="note delAllMsg" role="status"></p></div></div>` : ''}`
+               ${onDeleteAll && !person && records.length ? delAllBox(records) : ''}`
             : `<h1>Home</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
@@ -761,21 +785,7 @@ const AnnotationPage = (() => {
           </li>`;
         }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
       rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
-      // Deleting everything at once, rather than opening each annotation to delete it. Two steps, because it
-      // cannot be undone, and the second one says how many and how many of them other people can see.
-      const dOpen = main.querySelector('.delAllOpen');
-      if (dOpen) {
-        const ask = main.querySelector('.delAllAsk'), msg = main.querySelector('.delAllMsg');
-        dOpen.addEventListener('click', () => { ask.hidden = false; dOpen.hidden = true; main.querySelector('.delAllNo').focus(); });
-        main.querySelector('.delAllNo').addEventListener('click', () => { ask.hidden = true; dOpen.hidden = false; dOpen.focus(); });
-        main.querySelector('.delAllYes').addEventListener('click', async (e) => {
-          const b = e.currentTarget; b.disabled = true; b.textContent = 'Deleting';
-          try {
-            const failed = await onDeleteAll((done, total) => { msg.textContent = `Deleted ${done} of ${total}.`; });
-            if (failed && failed.length) msg.textContent = `${plural(failed.length, 'annotation')} could not be deleted. ${failed[0]}`;
-          } catch (err) { b.disabled = false; b.textContent = 'Delete them'; msg.textContent = 'Nothing was deleted. ' + (err.message || ''); }
-        });
-      }
+      wireDelAll(main, onDeleteAll);
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));
@@ -813,6 +823,57 @@ const AnnotationPage = (() => {
 
   // Side panel view while an annotation page is the active tab: share tools and your other annotations.
   // localAware: the extension knows which annotations are only saved locally. The preview does not.
+  // Deleting everything at once, rather than opening each annotation to delete it. Two steps, because it
+  // cannot be undone, and the second one says how many and how many of them other people can see. Offered
+  // both on your profile page and in the panel, because on the page alone it took some finding.
+  const delAllBox = (records) => {
+    const shared = records.filter((r) => r.cloud || r.author).length;
+    return `<div class="delAll"><button type="button" class="link delAllOpen">Delete all your annotations</button>
+      <div class="delAllAsk" hidden role="alertdialog"><p>${plural(records.length, 'annotation')} will be deleted${shared ? `, including ${shared} published for everyone` : ''}. This cannot be undone.</p>
+        <div class="row"><button type="button" class="ghost sm delAllNo">Keep them</button><button type="button" class="primary sm delAllYes">Delete ${plural(records.length, 'annotation')}</button></div>
+        <p class="note delAllMsg" role="status"></p></div></div>`;
+  };
+  function wireDelAll(root, onDeleteAll) {
+    const open = root.querySelector('.delAllOpen');
+    if (!open) return;
+    const ask = root.querySelector('.delAllAsk'), msg = root.querySelector('.delAllMsg');
+    open.addEventListener('click', () => { ask.hidden = false; open.hidden = true; root.querySelector('.delAllNo').focus(); });
+    root.querySelector('.delAllNo').addEventListener('click', () => { ask.hidden = true; open.hidden = false; open.focus(); });
+    root.querySelector('.delAllYes').addEventListener('click', async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.textContent = 'Deleting';
+      try {
+        const failed = await onDeleteAll((done, total) => { msg.textContent = `Deleted ${done} of ${total}.`; });
+        if (failed && failed.length) msg.textContent = `${plural(failed.length, 'annotation')} could not be deleted. ${failed[0]}`;
+      } catch (err) { b.disabled = false; b.textContent = 'Delete them'; msg.textContent = 'Nothing was deleted. ' + (err.message || ''); }
+    });
+  }
+
+  // The panel's own Home and profile. A menu shows you its contents where you are, so these read inside the
+  // panel rather than taking a tab. Opening one annotation is a page, because that is where its comments,
+  // its source and the conversation live, and that page still shares the one annotated tab.
+  function renderBrowse(container, { title, records, note = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true }) {
+    const list = records.slice().sort((a, b) => b.created - a.created);
+    container.innerHTML = `<div class="annside browse">
+      <div class="browseHead"><button type="button" class="browseBack" aria-label="Back to this page">${Brand.icon('arrowLeft')}</button>
+        <h2>${esc(title)}</h2>
+        ${onFull ? '<button type="button" class="link browseFull">See all annotations</button>' : ''}</div>
+      ${tabs ? `<div class="seg browseTabs" role="radiogroup" aria-label="Which annotations">${tabs.options.map(([k, l]) =>
+        `<label><input type="radio" name="browseTab" value="${esc(k)}" ${tabs.current === k ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>` : ''}
+      ${note ? `<p class="note browseNote">${esc(note)}</p>` : ''}
+      <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
+        <span class="rlKind">${kindIcon(r.item)}</span>
+        <span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
+        </button></li>`).join('') : '<li class="browseEmpty"><p class="note">Nothing here yet. Capture something and it shows up.</p></li>'}</ul>
+      ${onDeleteAll && list.length ? delAllBox(list) : ''}
+    </div>`;
+    wireDelAll(container, onDeleteAll);
+    container.querySelector('.browseBack').addEventListener('click', () => onBack());
+    const full = container.querySelector('.browseFull');
+    if (full) full.addEventListener('click', () => onFull());
+    if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));
+    container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
+  }
+
   function renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware = false }) {
     const list = records.slice().sort((a, b) => b.created - a.created);
     const statsOf = (r) => {
@@ -875,5 +936,5 @@ const AnnotationPage = (() => {
     return a.text === b.text && (a.meta.url || '') === (b.meta.url || '');
   }
 
-  return { kindLabel, sameSource, render, renderFeed, renderSide, xText, xUrl, srcUrlOf, titleOf, relTime, setMe };
+  return { kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe };
 })();

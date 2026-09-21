@@ -172,7 +172,7 @@ var ArticleCore = (() => {
   // width, which the compositor can do on its own. A stroke animated on the page's own thread is skipped
   // whenever that thread is busy, and capturing keeps it busy, which is why the stroke used to arrive finished.
   function sweep(marks) {
-    if (!marks || !marks.length) return;
+    if (!marks || !marks.length) return 0;
     // One edge, moving at one speed. Each word starts exactly as the word before it finishes, and is given
     // time in proportion to its width, so at any moment the words behind the pen are full, one word is being
     // crossed, and the rest are bare. Giving every word the same length of time instead let several of them
@@ -209,6 +209,7 @@ var ArticleCore = (() => {
       mk.style.removeProperty('--d');
       mk.style.removeProperty('--sw');
     }), total + 120);
+    return total;
   }
 
   function clearHighlights(root = document, keep = []) {
@@ -501,17 +502,32 @@ var ArticlePage = (() => {
     window.addEventListener('scroll', hideButton, true);
     window.addEventListener('resize', hideButton);
 
-    // A highlight you have not captured goes away the way a selection does: click somewhere else on the page,
-    // or press Escape. Clicks in the side panel are outside the page, so they keep it while you work there.
-    const onDown = (e) => {
-      if (!pinned || pendingAnnotate || e.composedPath().includes(host)) return;
-      // Only clicks in the page's own content count. In the preview the panel shares the page, and clicking it must keep the highlight.
-      const area = root();
-      if (!area || !area.contains(e.target)) return;
+    // While a capture is being taken the page must keep what is drawn on it, because the picture is still
+    // being made. Any other time a click can wipe it.
+    let shooting = false, shotTimer = null;
+    const startShot = () => { shooting = true; clearTimeout(shotTimer); shotTimer = setTimeout(() => { shooting = false; }, 6000); };
+    const endShot = (ms = 0) => { clearTimeout(shotTimer); shotTimer = setTimeout(() => { shooting = false; }, ms); };
+
+    // Anything annotated has drawn on the page goes away the way a selection does: click somewhere else, or
+    // press Escape. That covers the stroke a capture left as well as a passage waiting to be captured, so the
+    // page does not fill up with old marks. The annotation keeps its quote, which is in the panel.
+    // Clicks in the side panel are outside the page, so they keep it while you work there.
+    const wipe = () => {
+      const had = !!pinned;
       pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
-      last = { state: 'empty' }; push();
+      try { ArticleCore.clearHighlights(document); } catch { /* the page moved on */ }
+      if (had) { last = { state: 'empty' }; push(); }
     };
-    const onKey = (e) => { if (e.key === 'Escape' && pinned && !pendingAnnotate) clear(); };
+    const onDown = (e) => {
+      if (pendingAnnotate || shooting || e.composedPath().includes(host)) return;
+      // Only clicks in the page's own content count. In the preview the panel shares the page, and clicking it must keep the highlight.
+      // The empty paper below the writing belongs to the page too, and that click lands on the document itself.
+      const area = root();
+      if (!area) return;
+      if (!area.contains(e.target) && !(area === document.body && e.target === document.documentElement)) return;
+      wipe();
+    };
+    const onKey = (e) => { if (e.key === 'Escape' && !pendingAnnotate && !shooting) { window.getSelection().removeAllRanges(); wipe(); } };
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('keydown', onKey, true);
 
@@ -602,6 +618,7 @@ var ArticlePage = (() => {
 
     async function capture() {
       pendingAnnotate = false;
+      startShot();
       const r = currentRange();
       const d = r && evaluate(r);
       if (!d || d.state !== 'ok') return { ok: false, error: (d && d.error) || 'Select a passage on the page first.' };
@@ -613,9 +630,6 @@ var ArticlePage = (() => {
       const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(ArticleCore.rangeText(range));
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
-      // The stroke is drawn on afterwards, once the screenshot is taken and the page has nothing else to do.
-      // The screenshot itself wants it finished, which is how it is until the sweep starts.
-      taken = range.cloneRange();
       pinned = null; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
       if (postEl) unfold(postEl);
@@ -626,6 +640,10 @@ var ArticlePage = (() => {
       scrollBy(postEl && clip.h > vp.bottom - vp.top - 80 ? clip.y - vp.top - 64 : clip.y + clip.h / 2 - (vp.top + vp.bottom) / 2);
       await frames();
       await new Promise((res) => setTimeout(res, 120));
+      // The pen crosses the passage, and the picture waits for it. One stroke, drawn once, and the screenshot
+      // holds it finished.
+      await new Promise((res) => setTimeout(res, ArticleCore.sweep(marks) + 40));
+      endShot();
       hideButton();
       clip = box();
       const meta = ArticleCore.extractMeta(metaRoot(), loc());
@@ -682,16 +700,22 @@ var ArticlePage = (() => {
     // afterwards and gives a captured post the same mark a captured passage gets.
     // Called twice for a post. Once before the screenshot with the stroke finished, so the picture points at
     // the words that were quoted, and again afterwards to draw it on for the person watching.
-    function paintTaken(draw = true) {
-      if (!taken) return;
+    // Draws the stroke over the words a post capture quoted and says how long the pen takes, so the picture
+    // of the post can wait for it.
+    function paintTaken() {
+      if (!taken) return 0;
+      let ms = 0;
       try {
         const marks = ArticleCore.highlightRange(taken);
         ArticleCore.clearHighlights(document, marks);
-        if (draw) ArticleCore.sweep(marks);
+        ms = ArticleCore.sweep(marks);
       } catch { /* the page moved on */ }
-      if (draw) taken = null;
+      taken = null;
+      endShot(ms + 60);
+      return ms;
     }
     function takeWithin(el) {
+      startShot();
       // Any earlier stroke comes off first, so the screenshot shows this capture and nothing before it.
       const raw = currentRange();
       const d = raw ? evaluate(raw) : null;

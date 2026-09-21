@@ -31,7 +31,7 @@ async def main():
     await panel.click('#postMode .takeInput'); await panel.keyboard.type('Check the number :eyes:', delay=15)
     await panel.click('#postMode .pollBtn')
     print('panel take:', await panel.input_value('#postMode .takeInput'))
-    np=ctx.wait_for_event('page'); await panel.click('#postMode .publish'); ann=await np
+    await panel.evaluate("() => Prefs.set('afterPublish','page')"); np=ctx.wait_for_event('page'); await panel.click('#postMode .publish'); ann=await np
     ann.on('pageerror',lambda e: errs.append('ANN '+str(e)))
     await ann.wait_for_selector('.ann:not(.loading)')
     print('poll on page:', await ann.locator('.pollOpt').count())

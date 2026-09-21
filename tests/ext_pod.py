@@ -44,7 +44,7 @@ async def main():
     print('checks:', (await panel.eval_on_selector('#podcastMode .vStatus','e=>e.textContent.replace(/\s+/g," ")'))[:260])
     await panel.fill('#podcastMode .takeInput','Podcast clip in the real extension')
     np=asyncio.ensure_future(ctx.wait_for_event('page'))
-    await panel.click('#podcastMode .publish')
+    await panel.evaluate("() => Prefs.set('afterPublish','page')"); await panel.click('#podcastMode .publish')
     ann=await asyncio.wait_for(np,15); ann.on('pageerror',lambda e: errs.append('ANN '+str(e)))
     await ann.wait_for_selector('.ann:not(.loading)'); await asyncio.sleep(1)
     print('page:', await ann.inner_text('.take'), '| audio', await ann.eval_on_selector('.clipAudio','a=>[a.readyState,Math.round(a.duration)]'), '| back label:', await ann.inner_text('.back'))

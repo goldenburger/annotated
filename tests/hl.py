@@ -36,7 +36,7 @@ async def main():
     await pan.click('#articleMode .grab'); await pan.wait_for_selector('#articleMode .aCompose:not([hidden])',timeout=15000); await asyncio.sleep(.4)
     await n.bring_to_front(); print('after capturing C:', await n.evaluate(state))
     await pan.bring_to_front(); await pan.fill('#articleMode .takeInput','x')
-    np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#articleMode .publish'); await asyncio.wait_for(np,15); await asyncio.sleep(.8)
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click('#articleMode .publish'); await asyncio.wait_for(np,15); await asyncio.sleep(.8)
     print('after publishing:', await n.evaluate(state))
     print('errors:', errs)
     await n.screenshot(path='hl.png')

@@ -90,18 +90,49 @@ RUN = """(recs) => {
 }"""
 # The stroke has to be on the page while the picture of the post is being taken, or the picture does not point
 # at the words that were quoted.
-SHOT = """async (a) => {
+# How much of the stroke is on the paper. A mark that is not being drawn has no transform at all, and one
+# mid sweep is scaled between nothing and its full width.
+DRAWN = """() => {
+  const m = [...document.querySelectorAll('mark.annotated-hl')];
+  const at = (x) => { const t = getComputedStyle(x, '::before').transform;
+    const g = t.match(/matrix\(([-\d.]+)/); return g ? +g[1] : (t === 'none' ? 1 : 0); };
+  return { n: m.length, t: m.map((x) => x.textContent).join(''),
+           least: m.length ? Math.round(Math.min(...m.map(at)) * 100) : 0 };
+}"""
+SHOT = """async (a, DRAWN) => {
   await chrome.scripting.executeScript({ target: { tabId: a.tid }, func: () => {
     const n = document.querySelector('[data-testid="tweetText"] span').firstChild;
     const rg = document.createRange(); rg.setStart(n, 0); rg.setEnd(n, 29);
     const s = window.getSelection(); s.removeAllRanges(); s.addRange(rg);
   } });
-  const pending = chrome.tabs.sendMessage(a.tid, { type: 'capture-post' });
-  await new Promise((r) => setTimeout(r, 90));
-  const [mid] = await chrome.scripting.executeScript({ target: { tabId: a.tid },
-    func: () => [...document.querySelectorAll('mark.annotated-hl')].map((m) => m.textContent).join('') });
+  // Watch the page until the capture answers. The picture is taken once it does, so whatever is marked on
+  // the last look is what the picture holds.
+  let done = false, seen = '';
+  const counts = [], drawn = [];
+  const pending = chrome.tabs.sendMessage(a.tid, { type: 'capture-post' }).then((r) => { done = true; return r; });
+  for (let i = 0; i < 80 && !done; i++) {
+    const [m] = await chrome.scripting.executeScript({ target: { tabId: a.tid }, func: DRAWN });
+    counts.push(m.result.n); drawn.push(m.result.least);
+    if (m.result.t) seen = m.result.t;
+    await new Promise((r) => setTimeout(r, 40));
+  }
   const res = await pending;
-  return { whileShooting: mid.result, quote: (res && res.quote) || '' };
+  // The panel sends this once it has taken the picture, so the watch carries on through it.
+  chrome.tabs.sendMessage(a.tid, { type: 'fold-restore' }).catch(() => {});
+  for (let i = 0; i < 25; i++) {
+    const [m] = await chrome.scripting.executeScript({ target: { tabId: a.tid }, func: DRAWN });
+    counts.push(m.result.n); drawn.push(m.result.least);
+    if (m.result.t) seen = m.result.t;
+    await new Promise((r) => setTimeout(r, 40));
+  }
+  // Marked, cleared, marked again is the passage being highlighted twice over.
+  let starts = 0;
+  for (let i = 1; i < counts.length; i++) if (counts[i - 1] === 0 && counts[i] > 0) starts += 1;
+  if (counts[0] > 0) starts += 1;
+  // Finished, then part drawn again, is the passage being highlighted a second time.
+  let redrawn = 0, wasWhole = false;
+  for (const d of drawn) { if (d >= 98) wasWhole = true; else if (wasWhole && d < 50) { redrawn += 1; wasWhole = false; } }
+  return { whileShooting: seen, quote: (res && res.quote) || '', counts, drawn, starts, redrawn };
 }"""
 CARD = """(recs) => {
   const d = document.createElement('div'); document.body.appendChild(d);
@@ -215,10 +246,16 @@ async def main():
     if a['marks'].strip()!=a['first']: errs.append(f"the stroke after capturing again covered {a['marks']!r}")
 
     # The stroke is on the page while the picture of the post is taken.
-    shot=await sw.evaluate(SHOT,{'tid':tid})
+    shot=await sw.evaluate('(args) => (' + SHOT + ')(args[0], eval(args[1]))', [{'tid':tid}, DRAWN])
     print('marked while the picture was taken:',repr(shot['whileShooting']),'| quote:',repr(shot['quote']))
+    print('marks through the capture:',shot['counts'])
     if not shot['quote'] or shot['whileShooting'].strip()!=shot['quote'].strip():
         errs.append('the picture of the post was taken before the words were marked, so it points at nothing')
+    print('how much was drawn, through the capture:',shot['drawn'])
+    if shot['starts']>1:
+        errs.append(f"the passage was marked {shot['starts']} separate times, so the stroke is drawn twice over")
+    if shot['redrawn']:
+        errs.append(f"the stroke was finished and then drawn again {shot['redrawn']} time(s), so it highlights twice")
 
     print('errors:',errs)
     await ctx.close()

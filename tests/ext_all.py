@@ -58,7 +58,7 @@ async def main():
     await panel.click('#videoMode .recBtn'); await asyncio.sleep(2); await panel.click('#videoMode .recStop')
     await panel.wait_for_selector('#videoMode .voiceOut:not([hidden])')
     newpage = ctx.wait_for_event('page')
-    await panel.click('#videoMode .publish')
+    await panel.evaluate("() => Prefs.set('afterPublish','page')"); await panel.click('#videoMode .publish')
     ann = await newpage
     ann.on('pageerror',lambda e: errs.append('ANN '+str(e)))
     await ann.wait_for_selector('.ann:not(.loading)',timeout=10000)
@@ -107,9 +107,15 @@ async def main():
     src=await ap.get_attribute('.shot','src'); open('e_shot.jpg','wb').write(base64.b64decode(src.split(',')[1]))
     print('placeholder:', await ap.get_attribute('#articleMode .takeInput','placeholder'))
     await ap.fill('#articleMode .takeInput','The 61 percent figure comes from a survey handed out by employers.')
-    newpage = ctx.wait_for_event('page')
-    await ap.click('#articleMode .publish')
-    ann2 = await newpage
+    # annotated's pages share one tab, so the second annotation moves the tab the first one opened rather
+    # than opening another beside it.
+    was = ann.url
+    await ap.evaluate("() => Prefs.set('afterPublish','page')"); await ap.click('#articleMode .publish')
+    ann2 = ann
+    for _ in range(80):
+        if ann2.url != was: break
+        await asyncio.sleep(.25)
+    if ann2.url == was: raise AssertionError('the annotated tab never moved to the second annotation')
     await ann2.wait_for_selector('.ann:not(.loading)',timeout=10000)
     await ann2.screenshot(path='e_ann_article.png', full_page=True)
     print('article page order:', await ann2.evaluate("[...document.querySelector('.media').children].map(e=>e.className)"), '| screenshot shows:', await ann2.is_visible('.pageShot img'), await ann2.eval_on_selector('.pageShot img','i=>i.naturalWidth'))

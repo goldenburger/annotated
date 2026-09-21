@@ -55,6 +55,8 @@
     el.className = '';   // also clears the busy mark a tab switch puts there
     AnnotationPage.renderFeed(el, {
       records, tag, mode, person, social,
+      // The panel beside this page already carries Home and your profile.
+      siteNav: false,
       getMedia: async (id) => { const r = await Store.get(id).catch(() => null); return r && r.item ? r.item.blob || null : null; },
       onOpen: (id) => { location.href = 'annotation.html#' + encodeURIComponent(id); },
       onTag: (t) => { location.hash = 'tag=' + encodeURIComponent(t); },

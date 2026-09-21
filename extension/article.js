@@ -5,6 +5,10 @@
   // Take the older copy off the page before claiming it, so its button and its highlights go with it.
   const older = window.__annotatedArticle;
   if (older && older.page && typeof older.page.destroy === 'function') { try { older.page.destroy(); } catch { /* already gone */ } }
+  // And anything a copy older than that left behind. Reloading the extension leaves the script that was
+  // already on the page running with no way to reach the extension, and if it came from a version that could
+  // not be asked to tidy up, its button stayed there. Two Annotate buttons, one of which did nothing.
+  document.querySelectorAll('.annotated-ui').forEach((el) => el.remove());
   const mine = {};
   window.__annotatedArticle = mine;
   const orphaned = () => window.__annotatedArticle !== mine;
@@ -53,7 +57,11 @@
   const PENDING = '::highlight(annotated-pending){background-color:#FFF0A8;color:#1C2433}';
   style.textContent = penCss('chisel') + PENDING;
   (document.head || document.documentElement).appendChild(style);
-  const send = (m) => chrome.runtime.sendMessage(m).catch(() => {});
+  // Talking to nobody means the extension has been reloaded or removed and this copy is a leftover, so it
+  // takes itself off the page rather than leaving a button that cannot do anything.
+  const send = (m) => chrome.runtime.sendMessage(m).catch(() => {
+    if (!chrome.runtime || !chrome.runtime.id) { try { if (mine.page) mine.page.destroy(); } catch { /* already gone */ } }
+  });
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
   chrome.storage.local.get('annotatedPrefs').then((o) => { if (o.annotatedPrefs) pageButton = o.annotatedPrefs.pageButton !== false; }).catch(() => {});
@@ -149,9 +157,8 @@
         const { el, ...rest } = r; reply({ ok: true, ...rest }); return;
       }
       // Sent once the screenshot has been taken, so a post folded behind Show more goes back to how it was.
-      // Sent once the screenshot has been taken. The fold goes back, and the words that were quoted get their
-      // highlight drawn on, so capturing a post leaves the same mark on the page that a passage does.
-      case 'fold-restore': { page.refold(); page.paintTaken(); reply({ ok: true }); return; }
+      // The stroke is already on the page by then, drawn before the picture rather than after it.
+      case 'fold-restore': { page.refold(); reply({ ok: true }); return; }
       case 'capture-post': {
         // A selection inside a reply annotates that reply. Otherwise the page's main post.
         const inPost = page.selectedPost();
@@ -162,16 +169,19 @@
         if (picked && picked !== r.text) r.quote = picked;
         // A long post is folded behind Show more. Open it so the screenshot holds the whole post.
         page.unfold(r.el);
-        // The stroke goes on before the picture is taken, so the picture shows which words were quoted.
-        page.paintTaken(false);
         // Posts taller than the window (with a video, say) are framed from their top, so the author and text are in the screenshot.
         const tall = r.el.getBoundingClientRect().height > window.innerHeight - 80;
         r.el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'instant' });
         if (tall) window.scrollBy(0, -64);
+        // The post settles, then the pen crosses the words that were quoted, and the picture waits for it.
+        // Drawing it finished for the picture and again afterwards marked the passage twice over.
         requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
-          const b = r.el.getBoundingClientRect();
-          const { el, ...rest } = r;
-          reply({ ok: true, ...rest, clip: { x: b.left, y: b.top, w: b.width, h: b.height }, vw: window.innerWidth });
+          const drawing = page.paintTaken();
+          setTimeout(() => {
+            const b = r.el.getBoundingClientRect();
+            const { el, ...rest } = r;
+            reply({ ok: true, ...rest, clip: { x: b.left, y: b.top, w: b.width, h: b.height }, vw: window.innerWidth });
+          }, drawing + 40);
         }, 150)));
         return true;
       }
