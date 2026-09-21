@@ -322,7 +322,10 @@ async function tabShot(tid, r) {
   if (EMBED) await sendTo(tid, { type: 'float-hide' }).catch(() => {});
   let shotUrl;
   try { shotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }); }
-  finally { if (EMBED) sendTo(tid, { type: 'float-show' }).catch(() => {}); }
+  finally {
+    if (EMBED) sendTo(tid, { type: 'float-show' }).catch(() => {});
+    sendTo(tid, { type: 'fold-restore' }).catch(() => {});
+  }
   const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = shotUrl; });
   const k = img.width / r.vw;
   r.image = img;

@@ -1153,3 +1153,20 @@ body.signedOut .pubSignIn { display: block; }
 .pasteForm .strong { width: auto; }
 .pasteMsg { margin: 0; min-height: 1em; font-size: var(--t-xs); }
 .selHint .pasteForm { margin-top: 16px; }
+
+
+/* Something to look at while an annotation page loads, instead of a blank window. */
+.bootSkel { animation: bootFade .9s ease-in-out infinite alternate; }
+.bootBar { height: 52px; border-bottom: 1px solid var(--rule); background: var(--sheet); }
+.bootMain { display: grid; gap: 14px; max-width: 680px; margin: 0 auto; padding: 32px 20px; }
+.bootSkel span { display: block; border-radius: 8px; background: var(--sheet); }
+.bootLine { height: 18px; }
+.bootBlock { height: 200px; }
+.bootLine.w40 { width: 40%; height: 30px; }
+.bootLine.w80 { width: 80%; }
+.bootLine.w60 { width: 60%; }
+@keyframes bootFade { from { opacity: .55; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .bootSkel { animation: none; } }
+
+/* The post being annotated is the thing you are reading, so it gets the room the panel has. */
+.pText { max-height: 46vh; }

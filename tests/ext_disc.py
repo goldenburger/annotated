@@ -15,8 +15,12 @@ async def main():
     await f.goto(f'chrome-extension://{extid}/feed.html'); await f.wait_for_selector('.feedTabs', timeout=15000); await asyncio.sleep(1)
     print('extension feed tabs:', await f.eval_on_selector_all('.feedTabs label','ls=>ls.map(l=>l.innerText)'), '| cards:', await f.locator('.card').count())
     print('rail:', await f.eval_on_selector_all('.rail .railcard:not(.dbg) h2','hs=>hs.map(h=>h.innerText)'))
-    await f.click('.card >> nth=0'); await f.wait_for_selector('.ann:not(.loading)', timeout=15000); await asyncio.sleep(1)
-    print('author follow button:', await f.is_visible('.annCard .followBtn'), '| rail:', await f.eval_on_selector_all('.rail .railcard:not(.dbg) h2','hs=>hs.map(h=>h.innerText)'))
+    # Opening an annotation needs one to exist. With an empty database the feed itself is still checked.
+    if not await f.locator('.card').count():
+      print('nothing is published, so opening an annotation is skipped')
+    else:
+      await f.click('.card >> nth=0'); await f.wait_for_selector('.ann:not(.loading)', timeout=15000); await asyncio.sleep(1)
+      print('author follow button:', await f.is_visible('.annCard .followBtn'), '| rail:', await f.eval_on_selector_all('.rail .railcard:not(.dbg) h2','hs=>hs.map(h=>h.innerText)'))
     # paste a link from the empty panel of a blank tab
     blank=await ctx.new_page(); await blank.goto('about:blank')
     tid=await sw.evaluate("chrome.tabs.query({}).then(t=>t.find(x=>x.url==='about:blank').id)")

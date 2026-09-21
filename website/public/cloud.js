@@ -148,8 +148,12 @@ const Cloud = (() => {
     return new Set((data || []).map((r) => r.followee_id));
   }
   async function people(me, lim = 4) {
-    const { data } = await c().rpc('people_to_follow', { viewer: me || null, lim });
-    return (data || []).map((p) => ({ id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: p.avatar_url || '', annotations: p.annotations }));
+    const { data } = await c().rpc('people_to_follow', { viewer: me || null, lim: lim + 1 });
+    // Signed out the query cannot leave you out, so the last account used here is dropped by hand.
+    let skip = me || null;
+    if (!skip && typeof Backend !== 'undefined' && Backend.lastId) { try { skip = await Backend.lastId(); } catch { skip = null; } }
+    return (data || []).filter((p) => !skip || p.id !== skip).slice(0, lim)
+      .map((p) => ({ id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: p.avatar_url || '', annotations: p.annotations }));
   }
   async function trending() {
     const [s, t] = await Promise.all([c().rpc('trending_sources', { lim: 5 }), c().rpc('trending_tags', { lim: 5 })]);

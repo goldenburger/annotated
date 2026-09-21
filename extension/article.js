@@ -97,6 +97,8 @@
         if (!r) { reply({ ok: false, error: 'Waiting for the post to load.' }); return; }
         const { el, ...rest } = r; reply({ ok: true, ...rest }); return;
       }
+      // Sent once the screenshot has been taken, so a post folded behind Show more goes back to how it was.
+      case 'fold-restore': { page.refold(); reply({ ok: true }); return; }
       case 'capture-post': {
         // A selection inside a reply annotates that reply. Otherwise the page's main post.
         const inPost = page.selectedPost();
@@ -105,6 +107,8 @@
         // Words selected inside the post become its quote. Taking them also clears the highlight before the screenshot.
         const picked = page.takeWithin(r.el);
         if (picked && picked !== r.text) r.quote = picked;
+        // A long post is folded behind Show more. Open it so the screenshot holds the whole post.
+        page.unfold(r.el);
         // Posts taller than the window (with a video, say) are framed from their top, so the author and text are in the screenshot.
         const tall = r.el.getBoundingClientRect().height > window.innerHeight - 80;
         r.el.scrollIntoView({ block: tall ? 'start' : 'center', behavior: 'instant' });

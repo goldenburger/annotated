@@ -14,12 +14,16 @@ const Backend = (() => {
     if (error) throw error;
   }
   async function signOut() { await client.auth.signOut(); }
+  // Who was signed in last in this browser. Kept after signing out so lists can still leave you out of them.
+  const LAST = 'annotated-last-id';
+  async function lastId() { try { return localStorage.getItem(LAST) || null; } catch { return null; } }
   async function profile() {
     const { data: { session } } = await client.auth.getSession();
     if (!session) return null;
     const u = session.user, meta = u.user_metadata || {};
     const { data } = await client.from('profiles').select('id, handle, display_name, avatar_url').eq('id', u.id).maybeSingle();
+    try { localStorage.setItem(LAST, u.id); } catch { /* nothing to remember with */ }
     return { id: u.id, name: (data && data.display_name) || meta.full_name || meta.name || 'You', handle: (data && data.handle) || '', avatar: (data && data.avatar_url) || meta.avatar_url || meta.picture || '' };
   }
-  return { client, signIn, signOut, profile, url: SUPABASE_URL };
+  return { client, signIn, signOut, profile, lastId, url: SUPABASE_URL };
 })();

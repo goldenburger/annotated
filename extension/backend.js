@@ -35,6 +35,9 @@ const Backend = (() => {
     return profile();
   }
   async function signOut() { await client.auth.signOut(); }
+  // Who was signed in last on this computer. Kept after signing out so lists can still leave you out of them.
+  const LAST = 'annotated-last-id';
+  async function lastId() { try { const o = await chrome.storage.local.get(LAST); return o[LAST] || null; } catch { return null; } }
 
   // The signed-in person's profile, or null when signed out.
   async function profile() {
@@ -42,6 +45,7 @@ const Backend = (() => {
     if (!session) return null;
     const u = session.user, meta = u.user_metadata || {};
     const { data } = await client.from('profiles').select('id, handle, display_name, avatar_url').eq('id', u.id).maybeSingle();
+    try { chrome.storage.local.set({ [LAST]: u.id }); } catch { /* nothing to remember with */ }
     return {
       id: u.id,
       email: u.email || '',
@@ -54,5 +58,5 @@ const Backend = (() => {
   // Where shared annotations live on the web: https://annotated-app.netlify.app/@handle/id
   const SITE = 'https://annotated-app.netlify.app';
   const permalink = (id, handle) => `${SITE}/@${handle || 'annotated'}/${encodeURIComponent(id)}`;
-  return { client, signIn, signOut, profile, onChange, url: SUPABASE_URL, site: SITE, permalink };
+  return { client, signIn, signOut, profile, lastId, onChange, url: SUPABASE_URL, site: SITE, permalink };
 })();

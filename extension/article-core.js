@@ -127,7 +127,9 @@ const ArticleCore = (() => {
     if (/^https?:/i.test(author)) author = ldAuthor || '';
     return {
       // Without a leading unread count like "(1) Home / X".
-      title: norm(attr('meta[property="og:title"]') || attr('meta[name="twitter:title"]') || ld.headline || h1 || (root.title || '')).replace(/^\(\d+\+?\)\s*/, ''),
+      // X renames its own page as you move around it, so on X the source name comes from the address.
+      title: (typeof PostCore !== 'undefined' && PostCore.isXHost(loc.hostname) && !PostCore.isStatusUrl(loc.href)) ? 'X'
+        : norm(attr('meta[property="og:title"]') || attr('meta[name="twitter:title"]') || ld.headline || h1 || (root.title || '')).replace(/^\(\d+\+?\)\s*/, ''),
       site: attr('meta[property="og:site_name"]') || (ld.publisher && ld.publisher.name) || loc.hostname.replace(/^www\./, ''),
       author,
       published: attr('meta[property="article:published_time"]') || ld.datePublished || attr('time[datetime]', 'datetime'),
@@ -409,6 +411,7 @@ const ArticlePage = (() => {
       ArticleCore.clearHighlights(document, marks);
       pinned = null; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
+      if (postEl) unfold(postEl);
       const box = () => { if (!postEl) return ArticleCore.contextRect(marks); const b = postEl.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; };
       let clip = box();
       const vp = viewport();
@@ -435,6 +438,33 @@ const ArticlePage = (() => {
       return { meta: ArticleCore.extractMeta(metaRoot(), loc()), sel, autoCapture: pendingAnnotate };
     }
 
+    // X hides the rest of a long post behind a Show more link, and a screenshot of that shows a cut-off source.
+    // The fold is opened for the shot and put back afterwards. The timer is a backstop for callers that never
+    // call refold, such as the preview.
+    let folded = null, foldTimer = null;
+    function unfold(el) {
+      refold();
+      if (!el) return false;
+      const undo = [];
+      const set = (n, prop, to) => { undo.push([n, prop, n.style[prop]]); n.style[prop] = to; };
+      for (const n of [el, ...el.querySelectorAll('[data-testid="tweetText"], [data-testid="tweetText"] *')]) {
+        const cs = getComputedStyle(n);
+        if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') set(n, 'webkitLineClamp', 'unset');
+        if (cs.overflow === 'hidden' && n.scrollHeight > n.clientHeight + 1) set(n, 'overflow', 'visible');
+      }
+      for (const m of el.querySelectorAll('[data-testid="tweet-text-show-more-link"]')) set(m, 'display', 'none');
+      folded = undo.length ? undo : null;
+      clearTimeout(foldTimer);
+      if (folded) foldTimer = setTimeout(refold, 5000);
+      return !!folded;
+    }
+    function refold() {
+      clearTimeout(foldTimer);
+      if (!folded) return;
+      for (const [n, prop, was] of folded) n.style[prop] = was;
+      folded = null;
+    }
+
     // The words picked inside one element (a post on X), then the highlight is cleared so screenshots stay clean.
     // Snapped to whole sentences the same way a passage is, so the quote matches the highlight drawn on the page.
     function takeWithin(el) {
@@ -455,7 +485,7 @@ const ArticlePage = (() => {
       const n = r.commonAncestorContainer;
       return (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
     }
-    return { capture, setExact, clear, info, requestAnnotate, takeWithin, selectedPost };
+    return { capture, setExact, clear, info, requestAnnotate, takeWithin, selectedPost, unfold, refold };
   }
   return { create };
 })();

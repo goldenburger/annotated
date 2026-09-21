@@ -135,6 +135,8 @@ const AnnotationPage = (() => {
     for (const r of records) if (r.take.tag) c[r.take.tag] = (c[r.take.tag] || 0) + 1;
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }
+  // Only your own. A feed or a shared list also holds other people's annotations.
+  const mineCount = (records) => records.filter((r) => r.mine || !r.author).length;
   function railYou(stats) {
     return `<section class="railcard"><div class="who">${av('')}<div><div class="name">${esc(me.name)} <span class="uname">${esc(meHandle())}</span></div>
       <div class="stats">${statsLine(stats)}</div></div></div></section>`;
@@ -225,7 +227,7 @@ const AnnotationPage = (() => {
     const { item, take, permalink, backLabel } = opts;
     const records = opts.records || [];
     const showBanner = opts.showBanner !== false;
-    let stats = opts.stats || { annotations: records.length || 1, followers: 0 };
+    let stats = opts.stats || { annotations: mineCount(records) || 1, followers: 0 };
     const isVideo = item.kind === 'video', isPost = item.kind === 'post', isAudio = item.kind === 'audio';
     const srcUrl = safeLink(srcUrlOf(item)) || '#', title = titleOf(item);
     // Clip addresses made for the previous annotation shown here are released first.
@@ -672,6 +674,9 @@ const AnnotationPage = (() => {
       const scope = records.filter((r) => !tag || r.take.tag === tag);
       const counts = { all: scope.length, video: 0, audio: 0, article: 0, post: 0 };
       scope.forEach((r) => { counts[r.item.kind] = (counts[r.item.kind] || 0) + 1; });
+      // Every kind stays selectable, because each empty state says how to make one. Only the zeros are dropped,
+      // so the row stops reading like a scoreboard of nothing.
+      const kinds = [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']];
       main.innerHTML = `
         <header class="feedHead">
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
@@ -684,7 +689,7 @@ const AnnotationPage = (() => {
           ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
         </div>` : ''}
         <div class="seg feedFilter" role="radiogroup" aria-label="Show">
-          ${[['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']].map(([k, l]) => `<label><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l} <span class="num">${counts[k] || 0}</span></span></label>`).join('')}
+          ${kinds.map(([k, l]) => `<label><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
         </div>
         <div class="feedSortRow" ${social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
           <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>Newest</span></label>
@@ -694,7 +699,8 @@ const AnnotationPage = (() => {
           const it = r.item;
           // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
           const thumb = safeImg(it.kind === 'video' ? it.poster : it.kind === 'audio' ? (it.artwork || it.poster) : it.kind === 'post' ? null : (it.meta.image || it.shotThumb || it.shot));
-          const cut = (t, n) => (t.length > n ? t.slice(0, n).trimEnd() + '…' : t);
+          // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
+          const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
           const range = `${fmt(it.start)} to ${fmt(it.end)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
           const snippet = it.kind === 'video' ? `YouTube${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
             : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
@@ -720,7 +726,7 @@ const AnnotationPage = (() => {
           ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt=""><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
         }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${{ all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`}</ul>`;
-      rail.innerHTML = railYou(social && social.you ? social.you : { annotations: records.length, followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
+      rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));

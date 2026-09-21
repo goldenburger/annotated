@@ -112,7 +112,7 @@
       permalink: location.origin + linkFor(id),
       backLabel: { video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[rec.item.kind] || 'Read the original',
       showBanner: false,
-      stats: { annotations: records.length, followers: 0 },
+      stats: { annotations: records.filter((r) => r.mine || !r.author).length, followers: 0 },
       comments: sc ? sc.comments : [], reactions: sc ? sc.reactions : [], records, social,
     }, {
       ...nav,
