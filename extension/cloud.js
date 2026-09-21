@@ -33,6 +33,8 @@ const Cloud = (() => {
     const row = {
       id, author_id: me.id, kind: item.kind, take_text: take.text || '', tag: take.tag || null,
       poll: take.poll ? { question: take.poll.question || '', options: take.poll.options } : null,
+      // The GIF is GIPHY's own address rather than a copy of the file, which is what their terms ask for.
+      gif: take.gif ? { id: take.gif.id, url: take.gif.url, preview: take.gif.preview, w: take.gif.w, h: take.gif.h, alt: take.gif.alt } : null,
       source, ...paths,
     };
     const { error } = await c().from('annotations').insert(row);
@@ -48,7 +50,7 @@ const Cloud = (() => {
     if (a.media_path) item.mediaUrl = publicUrl(a.media_path);
     return {
       id: a.id, cloud: true, created: Date.parse(a.created_at), author: person(a.author),
-      item, take: { text: a.take_text, tag: a.tag, poll: a.poll ? { ...a.poll, vote: null } : null, voice: a.voice_path ? { url: publicUrl(a.voice_path) } : null },
+      item, take: { text: a.take_text, tag: a.tag, poll: a.poll ? { ...a.poll, vote: null } : null, gif: a.gif || null, voice: a.voice_path ? { url: publicUrl(a.voice_path) } : null },
       paths: { media: a.media_path, poster: a.poster_path, shot: a.shot_path, voice: a.voice_path },
       counts: a.counts || null,
     };
@@ -84,14 +86,14 @@ const Cloud = (() => {
   // Comments, reactions and votes for one annotation, from everyone.
   async function social(id, myId) {
     const [cm, rx, pv] = await Promise.all([
-      c().from('comments').select(`id, body, created_at, author_id, ${COMMENT_PROFILE}`).eq('annotation_id', id).order('created_at'),
+      c().from('comments').select(`id, body, gif, created_at, author_id, ${COMMENT_PROFILE}`).eq('annotation_id', id).order('created_at'),
       c().from('reactions').select('emoji, user_id').eq('annotation_id', id),
       c().from('poll_votes').select('option_index, user_id').eq('annotation_id', id),
     ]);
     const cIds = (cm.data || []).map((x) => x.id);
     const crx = cIds.length ? await c().from('comment_reactions').select('comment_id, emoji, user_id').in('comment_id', cIds) : { data: [] };
     const comments = (cm.data || []).map((x) => ({
-      dbId: x.id, text: x.body, t: Date.parse(x.created_at), author: person(x.author), mine: !!myId && x.author_id === myId,
+      dbId: x.id, text: x.body, gif: x.gif || null, t: Date.parse(x.created_at), author: person(x.author), mine: !!myId && x.author_id === myId,
       reactions: groupReactions((crx.data || []).filter((r) => r.comment_id === x.id), myId),
     }));
     const counts = [0, 0, 0, 0];
@@ -101,8 +103,11 @@ const Cloud = (() => {
   }
 
   // Writes. Each one only touches the signed-in person's own rows.
-  const addComment = async (id, uid, text) => {
-    const { data, error } = await c().from('comments').insert({ annotation_id: id, author_id: uid, body: text }).select('id').single();
+  const addComment = async (id, uid, text, gif) => {
+    const row = { annotation_id: id, author_id: uid, body: text || '' };
+    // GIPHY's address for it, rather than a copy of the file, which is what their terms ask for.
+    if (gif) row.gif = { id: gif.id, url: gif.url, preview: gif.preview, w: gif.w, h: gif.h, alt: gif.alt };
+    const { data, error } = await c().from('comments').insert(row).select('id').single();
     if (error) throw error; return data.id;
   };
   const deleteComment = (dbId) => c().from('comments').delete().eq('id', dbId);
@@ -116,11 +121,13 @@ const Cloud = (() => {
     ? c().from('poll_votes').delete().match({ annotation_id: id, user_id: uid })
     : c().from('poll_votes').upsert({ annotation_id: id, user_id: uid, option_index: index }));
   const edit = (id, { text, tag }) => c().from('annotations').update({ take_text: text || '', tag: tag || null }).eq('id', id);
+  // The row first, then the files. The other way round, a row that then refused to delete was left live
+  // with a clip and a screenshot that had already gone, which is worse than a file nobody points at.
   async function remove(id, uid) {
-    const { data } = await c().storage.from(BUCKET).list(`${uid}/${id}`);
-    if (data && data.length) await c().storage.from(BUCKET).remove(data.map((f) => `${uid}/${id}/${f.name}`));
     const { error } = await c().from('annotations').delete().eq('id', id);
     if (error) throw error;
+    const { data } = await c().storage.from(BUCKET).list(`${uid}/${id}`);
+    if (data && data.length) await c().storage.from(BUCKET).remove(data.map((f) => `${uid}/${id}/${f.name}`)).catch(() => {});
   }
   // Sharing something first saved locally: its comments and reactions come along, as the signed-in person's.
   async function carryOver(id, uid, comments = [], reactions = []) {
@@ -179,7 +186,13 @@ const Cloud = (() => {
 
   // Everything the pages need for following and discovery, in one call. signIn is called when a signed-out
   // person presses Follow. Returns the "social" object the page renderers take.
+  // Follows, people worth following and trending change slowly and every page asks for all of them, which
+  // was five queries each time an annotation was opened. They are held for a minute instead.
+  const KEEP = 60000;
+  let held = null;
   async function discovery(me, { personId = null, onPerson, signIn } = {}) {
+    const key = `${(me && me.id) || ''}|${personId || ''}`;
+    if (held && held.key === key && Date.now() - held.at < KEEP) return { ...held.value, onPerson };
     const [followed, ppl, trend, youCounts, personStats] = await Promise.all([
       followingIds(me && me.id).catch(() => new Set()),
       people(me && me.id, 4).catch(() => []),
@@ -187,7 +200,7 @@ const Cloud = (() => {
       me ? followCounts(me.id).catch(() => null) : null,
       personId ? followCounts(personId).catch(() => null) : null,
     ]);
-    return {
+    const value = {
       followed, people: ppl, trending: trend, youCounts, personStats, onPerson,
       followsPerson: !!(personId && followed.has(personId)),
       async onFollow(id, on) {
@@ -198,6 +211,9 @@ const Cloud = (() => {
         return true;
       },
     };
+    // Kept by reference, so following someone is reflected in the held copy as well.
+    held = { key, at: Date.now(), value };
+    return value;
   }
   // The home feed's three tabs from one list of annotations.
   function homeTabs(records, soc, me, mine = []) {

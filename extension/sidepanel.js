@@ -8,6 +8,20 @@ PanelKit.compactOnScroll();
 const EMBED = new URLSearchParams(location.search).get('embed') === 'float';
 const PINNED = Number(new URLSearchParams(location.search).get('tab')) || null;
 if (EMBED) document.body.classList.add('embedded');
+// Any page is allowed to load an extension page it can reach, so a hostile site could put this panel in a
+// frame of its own and lay itself over the buttons. The frame the extension makes carries a key only the
+// extension could have written. Nothing is drawn and nothing is started until that key matches, so a page
+// that framed the panel is left with one sentence and no buttons to lay anything over.
+const OURS = (async () => {
+  if (!EMBED) return true;
+  document.documentElement.style.visibility = 'hidden';
+  const name = 'floatKey' + PINNED, given = new URLSearchParams(location.search).get('k') || '';
+  let ok = false;
+  try { const o = await chrome.storage.local.get(name); ok = !!given && o[name] === given; } catch {}
+  if (!ok) document.body.textContent = 'Open annotated from its own button.';
+  document.documentElement.style.visibility = '';
+  return ok;
+})();
 function onDisplay(mode) {
   if (mode === 'side' && EMBED) {
     // Opening the side panel needs this click, so it happens right away. The frame removes itself when the setting changes.
@@ -20,7 +34,8 @@ function onDisplay(mode) {
 let displayApi = null, shortcutText = '';
 if (!EMBED) document.body.classList.add('nativeSide');
 // Inside the floating frame: the frame's bar sends the gear and help clicks here, and this page reports its height.
-if (EMBED) {
+OURS.then((ok) => {
+  if (!ok || !EMBED) return;
   window.addEventListener('message', (e) => {
     // Only the window hosting this frame. Anything else with a handle on us is not the frame's own bar.
     if (e.source !== parent) return;
@@ -30,7 +45,7 @@ if (EMBED) {
     if (d.cmd === 'help') PanelKit.welcome(document.body, { shortcut: shortcutText, force: true, onDisplayChoice: onDisplay });
   });
   PanelKit.reportHeight(document.body, (h) => parent.postMessage({ type: 'annotated-height', h }, '*'));
-}
+});
 Prefs.onChange((v) => {
   // Changing what a selection captures takes effect on every open page at once.
   for (const tid of panels.keys()) {
@@ -38,7 +53,8 @@ Prefs.onChange((v) => {
     sendTo(tid, { type: 'set-pen', pen: v.pen }).catch(() => {});
   }
 });
-Prefs.init(Prefs.chromeBackend()).then(() => {
+Prefs.init(Prefs.chromeBackend()).then(async () => {
+  if (!(await OURS)) return;
   PanelKit.topLinks(document.body, {
     onHome: () => openBrowse('home'),
     onProfile: () => openBrowse('profile'),
@@ -65,7 +81,7 @@ const panels = new Map();   // tabId -> { kind, url, el, api, selCb }
 async function publish(tid, item, take) {
   const title = AnnotationPage.titleOf(item);
   const id = `${slug(take.text || title)}-${Math.random().toString(36).slice(2, 6)}`;
-  const saved = { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null };
+  const saved = { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null };
   await Store.put(id, { item, take: saved, reactions: [], sourceTabId: tid, created: Date.now() });
   // Signed in: share it, files and all, so it has a public page. Signed out, or if sharing fails, it stays on this computer.
   let author = null, note = '', local = false;
@@ -80,12 +96,8 @@ async function publish(tid, item, take) {
   // Publishing leaves you where you are. Being thrown onto a page after every annotation lost your place in
   // whatever you were reading, and the panel already holds the link, the page and a fresh start.
   const after = Prefs.get().afterPublish;
-  const t = after === 'stay' ? null : await openExtPage('annotation.html#' + id);
+  const t = after === 'page' ? await openExtPage('annotation.html#' + id) : null;
   log((author ? 'Published ' : 'Saved locally ') + id);
-  if (after === 'close') {
-    if (EMBED) sendTo(tid, { type: 'float-collapse' }).catch(() => {});
-    else setTimeout(() => window.close(), 300);
-  }
   return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
 }
 // annotated's own reading pages live in one tab. Home, a profile and every annotation move that tab rather
@@ -363,6 +375,12 @@ function makeArticle(tid, url, hasAudio = false) {
 // Screenshot the visible tab and convert a viewport box into image pixels.
 async function tabShot(tid, r) {
   const tab = await chrome.tabs.get(tid);
+  // Chrome only ever gives a picture of whichever tab is in front of a window, never of the tab it is asked
+  // about, and setting a capture up takes about a second. A tab change inside that second used to put a
+  // picture of somewhere else on the annotation, and publishing sends that picture to a bucket that is
+  // public by link. No picture at all is better than a picture of the wrong page.
+  const [front] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+  if (!front || front.id !== tid) throw new Error('Another tab was in front, so the picture would have been of that page. Go back to the page and capture again.');
   if (EMBED) await sendTo(tid, { type: 'float-hide' }).catch(() => {});
   let shotUrl;
   try { shotUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' }); }
@@ -690,9 +708,10 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   if (p.kind !== 'video' && p.kind !== 'audio') return;
   if (m.type === 'pod-range-done') { if (p.tabRec) p.tabRec.finish(); return; }
   if (m.type === 'capture-done') {
-    const i = m.dataUrl.indexOf(';base64,'), bin = atob(m.dataUrl.slice(i + 8)), arr = new Uint8Array(bin.length);
-    for (let k = 0; k < bin.length; k++) arr[k] = bin.charCodeAt(k);
-    p.api.engine({ ...m, blob: new Blob([arr], { type: m.audioOnly ? 'audio/webm' : 'video/webm' }) });
+    const type = m.audioOnly ? 'audio/webm' : 'video/webm';
+    fetch(m.dataUrl).then((res) => res.blob())
+      .then((b) => p.api.engine({ ...m, blob: new Blob([b], { type }) }))
+      .catch(() => p.api.engine({ type: 'capture-error', error: 'The recording could not be read.' }));
   } else if (m.type === 'capture-progress' || m.type === 'capture-error') p.api.engine(m);
 });
 chrome.tabs.onActivated.addListener(() => refresh());
@@ -704,6 +723,9 @@ chrome.tabs.onRemoved.addListener((id) => {
 });
 // The panel polls for the tab it should follow. A hidden panel has nobody watching it, so it rests until it
 // comes back, which it does immediately rather than on the next tick.
-setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 400);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
-refresh();
+OURS.then((ok) => {
+  if (!ok) return;
+  setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 400);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
+  refresh();
+});

@@ -579,6 +579,8 @@ var ArticlePage = (() => {
     // calls this, so only one button, one set of listeners and one highlight are ever live.
     function destroy() {
       clearTimeout(timer);
+      window.removeEventListener('scroll', hideButton, true);
+      window.removeEventListener('resize', hideButton);
       document.removeEventListener('mousedown', onDown, true);
       document.removeEventListener('keydown', onKey, true);
       document.removeEventListener('selectionchange', onSel);

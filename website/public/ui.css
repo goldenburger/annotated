@@ -733,6 +733,9 @@ body.debug .status.quietOk { display: block; }
 .hasTip::after { content: attr(data-tooltip); position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 10; padding: 5px 8px; border-radius: 6px; background: var(--ink); color: var(--paper); font: 500 11.5px/1.2 var(--sans); white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity .12s, transform .12s; }
 .hasTip:hover::after, .hasTip:focus-visible::after { opacity: 1; transform: none; transition-delay: .35s; }
 .hasTip:focus-visible::after { transition-delay: 0s; }
+/* The tools sit at the foot of the take box, so a tooltip above one covers the words being typed. */
+.tfTools .hasTip::after { top: calc(100% + 6px); bottom: auto; transform: translateY(-3px); }
+.tfTools .hasTip:hover::after, .tfTools .hasTip:focus-visible::after { transform: none; }
 @media (prefers-reduced-motion: reduce) { .hasTip::after, .takefield textarea { transition: none; } }
 
 /* ===== Second pass, Phase C: annotation pages ===== */
@@ -773,6 +776,8 @@ body.debug .status.quietOk { display: block; }
 .card.nothumb { grid-template-columns: 1fr; }
 .cthumb { position: relative; display: block; width: 132px; border-radius: var(--r-m); overflow: hidden; background: #000; }
 .cthumb img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 0; }
+/* A screenshot reads from its top left, where the author and the first line are. */
+.cthumb img.top { object-position: left top; }
 .cdur { position: absolute; right: 5px; bottom: 5px; padding: 2px 5px; border-radius: 4px; background: rgba(0, 0, 0, .72); color: #fff; font: 600 11px/1 var(--sans); }
 .cplay { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; opacity: .9; }
 .cplay .ic { width: 22px; height: 22px; fill: #fff; stroke: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
@@ -1266,3 +1271,27 @@ body.signedOut .pubSignIn { display: block; }
 /* The same delete all, in the panel's list of your annotations. */
 .browse .delAll { margin: 14px 0 4px; padding-top: 12px; border-top: 1px solid var(--rule); }
 .browse .delAllAsk { max-width: none; }
+
+/* A GIF in a take, picked the way you would pick one for a message. */
+.gifPick { margin: 10px 0 0; padding: 10px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet); }
+.gpHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.gpQ { width: 100%; height: 32px; padding: 0 8px; border: 1px solid var(--rule); border-radius: var(--r-s); background: var(--paper); color: var(--ink); font: inherit; }
+.gpStatus:empty { display: none; }
+.gpGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; max-height: 260px; overflow: auto; margin-top: 8px; }
+.gpItem { padding: 0; border: 1px solid transparent; border-radius: var(--r-s); background: var(--newsprint); cursor: pointer; overflow: hidden; line-height: 0; }
+.gpItem:hover, .gpItem:focus-visible { border-color: var(--hi-edge); }
+/* Whole, not cropped. Filling the tile cut the faces out of anything taller than it is wide. */
+.gpItem img { width: 100%; height: 88px; object-fit: contain; display: block; background: var(--newsprint); }
+.gpMark { margin: 8px 0 0; font-size: var(--t-xs); color: var(--ink-3); }
+.gifChosen { margin: 10px 0 0; }
+.gifChosen .gcImg { max-width: 100%; max-height: 180px; border-radius: var(--r-m); display: block; }
+.gifChosen .gcRemove { margin-top: 6px; }
+.takeGif { margin: 10px 0 0; }
+.takeGif img { max-width: 100%; border-radius: var(--r-l); display: block; }
+.takeGif figcaption { margin-top: 6px; }
+
+/* A GIF in a comment, smaller than one in a take because a comment is smaller. */
+.cmtGif { margin: 8px 0 0; }
+.cmtGif img { max-width: 260px; width: 100%; border-radius: var(--r-m); display: block; }
+.cmtGif figcaption { margin-top: 4px; font-size: var(--t-xs); }
+.cGifChosen .gcImg { max-height: 140px; }

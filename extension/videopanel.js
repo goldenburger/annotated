@@ -86,6 +86,9 @@ const VideoPanel = (() => {
     if (opts.switchTo) PanelKit.modeSwitch(root, 'audio', opts.switchTo.onClick);
     let info = null, sel = null, view = { start: 0, len: 60 }, drag = null, capturing = false, lastVideoId = null, lastSeek = 0;
     let result = null, isPublished = false, pubRef = null, anim = null, collapsed = false, edgeTimer = null, lastX = 0;
+    // One address at a time. Capturing again throws the last recording away, so its address goes with it.
+    let madeUrl = null;
+    const blobUrl = (b) => { if (madeUrl) URL.revokeObjectURL(madeUrl); madeUrl = URL.createObjectURL(b); return madeUrl; };
 
     /* ---------- view window: zooms so the clip is about a third of the track ---------- */
     function wantedLen() {
@@ -456,7 +459,7 @@ const VideoPanel = (() => {
 
     async function onDone(m) {
       if (isAudio) return onAudioDone(m);
-      const url = URL.createObjectURL(m.blob);
+      const url = blobUrl(m.blob);
       result = { kind: 'video', blob: m.blob, url, start: m.start, end: m.end, duration: info.duration, poster: m.poster, title: m.title || info.title,
         videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '' };
       // The visible preview stays at the start. The checks scrub a hidden copy instead.
@@ -520,7 +523,7 @@ const VideoPanel = (() => {
 
     // Podcast clips: check the recording, then draw its waveform as the clip's picture.
     async function onAudioDone(m) {
-      const url = URL.createObjectURL(m.blob);
+      const url = blobUrl(m.blob);
       result = { kind: 'audio', blob: m.blob, start: m.start, end: m.end, duration: info.duration, url: m.url || info.url, title: m.title || info.title,
         show: m.show || info.show || '', artwork: m.artwork || info.artwork || '', poster: null };
       const pv = q('.vPreview');

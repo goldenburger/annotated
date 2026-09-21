@@ -57,6 +57,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   `articlepanel.js` (any web page: select text, Annotate), `postpanel.js` (a post on X), the podcast-feed picker
   (`makeFeedPod` in `sidepanel.js`, for podcast apps), or the annotated.com view (`renderSide`).
   The panel can also float over the page (`floatframe.js`); Display settings live in `prefs.js`.
+- **Who may show the panel**: `sidepanel.html` is the only web accessible resource, and any page may load one
+  it can reach, so `float.js` writes a random key to `chrome.storage.local` under `floatKey<tabId>` and puts it
+  in the frame's address. The panel checks it (`OURS` in `sidepanel.js`) and nothing is drawn or started until
+  it matches, so a site that frames the panel itself gets one sentence and no buttons to lay anything over.
+  Scripts injected with `chrome.scripting.executeScript` need no entry in `web_accessible_resources`, so do
+  not add one back.
 - **Display settings** (`prefs.js`, drawn by `PanelKit.displayMenu`): display, after publishing, what a selection
   captures, highlighter, density, theme and the page button. Two of them reach the page you are reading through
   messages, because page scripts have no access to `Prefs`. `set-snap` carries whether a selection is taken
@@ -113,7 +119,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   duplicate checks. A change stamp in `chrome.storage` lets the panel skip rereads.
 - **Pages** (`annotation.html` + `annotation.js`, `feed.html` + `feed.js`) render with `annotation-page.js`, which is
   shared with the website and the preview. Anything from a shared annotation goes through `esc`, `safeLink` and
-  `safeImg` before it reaches the page, because other people write that data.
+  `safeImg` before it reaches the page, because other people write that data. That includes a reaction, which
+  is a sixteen character column anyone may write and was the one piece that used to reach the page as markup.
+  `reactEmojis` escapes at the source and `EmojiKit.reactions` escapes the chip, and `harden.py` would notice
+  either coming undone. A render also puts the previous clock away (`stopClock`), because annotations share one
+  tab now and the old one used to run forever.
 - **Accounts** (`backend.js`, `account.js`): Google sign-in through Supabase with `chrome.identity.launchWebAuthFlow`
   and the PKCE code exchange. The session is kept in `chrome.storage.local`. The manifest carries a public `key` so
   the extension ID is always `cggmedbnmeinbhahhllbphkpdbpjeofm`, which sign-in returns to. Do not remove the key.
@@ -124,6 +134,16 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **What counts as a take**: written words, a voice note, or a poll with a question and at least two options.
   A poll on its own is named by its question wherever annotations are listed. `compose.js` decides this in
   `validate`, and the poll editor tells it whenever the question or the options change.
+- **A GIF in a take or a comment** (`giphy.js`): GIPHY search, with the key in that file. It is a client key
+  in a public repository and GIPHY cannot restrict it, so the protection is that it only searches for GIFs.
+  The free key allows a hundred calls an hour shared by everyone running the extension, so the picker is
+  thrifty on purpose. Trending is asked for once, every search is remembered while the panel is open, and a
+  search goes out once you stop typing rather than per letter. Running out is refused rather than charged and
+  the picker says so. `Giphy.mount` is the picker itself, used by both the take box and the comment box so
+  they cannot drift, and it asks through `Giphy.list` so a test can stand in for the network. A GIF counts as
+  a take and as a comment on its own. The annotation keeps GIPHY's address rather than a copy of the file,
+  which is what their terms ask for, so a GIF they take down stops showing. `gif jsonb` on annotations and on
+  comments, and a comment may have empty words only when it has a GIF.
 - **GIFs** (`gifmaker.js`): Share on a clip annotation offers Save as GIF. The frames are seeked out of the
   clip onto a canvas, reduced to 256 colours by median cut, dithered, and written as a GIF89a with its own
   LZW. It is all here because none of it needs a service, and because posting media to X does need their paid
@@ -131,6 +151,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   ever touched. The reader builds its dictionary one code behind the writer, so the code width has to grow one
   code later than it looks like it should, and Chrome forgives getting that wrong while stricter readers will
   not open the file at all. `gifmake.py` reads the compression back with an ordinary decoder for that reason.
+- **The screenshot** (`tabShot` in `sidepanel.js`): Chrome only ever gives a picture of whichever tab is in
+  front of a window, never of the tab it is asked about, and setting a capture up takes about a second. A tab
+  change inside that second used to put a picture of a different page on the annotation, and publishing sends
+  that picture to a bucket that is public by link. `tabShot` now refuses when the front tab is not the one
+  being annotated, and the annotation is saved without a picture and says why. `shottab.py` proves it with a
+  solid red decoy page, so the answer is in the pixels rather than in a message.
 - **Where things open**: annotated's own reading pages live in one tab. Home, a profile and every annotation
   move that tab (`openExtPage`), and leaving annotated, a source or a post on X, opens a tab of its own.
   Publishing stays where you are. The panel shows the published card with the link and View page, and Display
@@ -162,6 +188,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **Supabase auth settings** (dashboard only): email sign-up is off, so Google is the only sign-in. Site URL is the
   Netlify site; redirect URLs are the extension's `https://cggmedbnmeinbhahhllbphkpdbpjeofm.chromiumapp.org/**` and
   `https://annotated-app.netlify.app/**`.
+- **Website headers**: `website/public/_headers` carries the content security policy and the framing, sniffing
+  and referrer rules. Scripts are files of our own and no page may carry one written inside it, which is why
+  the wordmark on the plain pages lives in `wordmark.js`. Styles keep the inline allowance because a poll bar
+  sets its own width. The edge function copies the headers of the response it rewrites, so annotation pages
+  get them too.
 - **Netlify** site `annotated-app` (id `7b1045ff-71db-4a13-a177-6c4a6b8fa152`). Routes `/@*` to `index.html`
   (profiles and annotation pages are drawn by `site.js`). `netlify/edge-functions/preview-card.ts` adds link-preview
   tags for X from the database. Environment variables: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`.
@@ -182,19 +213,54 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   `package_extension.py`, and deploy the website if its files changed.
 - Every bug fix gets a test, and a test that simulates the failure when the real one cannot be reproduced.
 
+## Second audit, 2026-09-21
+
+Fixed in the same pass. Each is here because the shape of it is easy to reintroduce.
+
+- Menus put one listener on the document each, per render. There is one for the whole document now, because
+  annotations share a tab and the old ones stayed forever holding the page they came from.
+- `destroy()` in `article-core.js` has to take off the window scroll and resize listeners as well as the three
+  on the document. It used to leave those two behind on every extension reload.
+- A blob address is given back when the thing it points at is replaced. Capture again in `videopanel.js` and
+  Record again in `compose.js` are ordinary paths and each one used to leave a whole recording in memory.
+- A podcast server that answers `bytes 0-131071/*` will not say how long the file is. `probe` says so rather
+  than carrying on, which used to give a clip cut in the wrong place with nothing said about it.
+- A waveform window is marked done only once it has been fetched, so one hiccup no longer leaves that stretch
+  blank for good.
+- `capture-post` replies whatever happens inside its timers. Anything that threw left the panel on Capturing
+  with a reply that was never coming.
+- `pod-info` no longer measures the page on every tick. `innerText` asks for a full layout, which is about a
+  millisecond on a settled page and about forty on one that is scrolling or loading, and the panel asks for
+  `pod-info` two and a half times a second. The length is only used to guess whether a page looks like a
+  podcast, so it is measured every ten seconds instead.
+- A recording comes back as a data address and is turned into a file with `fetch`, not with `atob` and a loop
+  over several million characters.
+- `HOSTLIKE` in `feedpod.js` requires a real ending, so an address hidden inside a tracking address can no
+  longer be an IP address. A podcast publisher controls that string through Apple's directory.
+
 ## Known risks, from the audit on 2026-09-21
 
 - The `media` bucket is public by link, so a screenshot of a page behind a login is fetchable by anyone holding the
   URL. The URLs are unguessable and that is the whole protection.
 - Anyone may file a claim and there is no rate limit, so claims are spammable.
+- Nobody has a storage quota. One signed-in account can upload 25 MB at a time until the free plan's gigabyte
+  is gone, which is the same shape as the claim spam above.
 - IndexedDB grows without pruning. Clips and screenshots stay until deleted by hand.
 - Supabase reports leaked password protection as disabled. It does not apply, because email sign-up is off and
   Google is the only way in, so no password exists.
-- Four unused indexes sit on the `user_id` columns of comments, reactions, comment_reactions and poll_votes.
+- Four unused indexes sit on the `user_id` columns of comments, reactions, comment_reactions and poll_votes,
+  and `source` has no size limit. `10_tidy_indexes_and_source_size.sql` fixes both and **has not been applied**.
 - Page scraped text (a post's author, an outlet, a byline) reaches the panel's checks list. It is written with
   `textContent`, never `innerHTML`, and it has to stay that way, because a hostile page controls every word of it.
 
 ## Open items
+
+- The panel polls every 400 ms (`setInterval` at the foot of `sidepanel.js`), and on a YouTube or an X tab
+  each pass also sends a ping and an info message. Driving it from `chrome.tabs.onUpdated`, `onActivated` and
+  `chrome.storage.onChanged` with a slow poll behind it would save nearly all of that. Left alone before the
+  deadline because every extension test leans on the current timing.
+- The website's headers have only been tried locally, against a server that sends the same file. Deploy and
+  check the policy on the live site.
 
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
   is now possible because sign-in is published. This is the last part of the product with no evidence behind it.

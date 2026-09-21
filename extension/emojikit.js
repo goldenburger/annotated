@@ -252,7 +252,7 @@ const EmojiKit = (() => {
     function draw() {
       container.classList.add('reactRow');
       if (size) container.classList.add(size);
-      container.innerHTML = items.map((r) => `<button type="button" class="rChip ${r.mine ? '' : 'notMine'}" aria-pressed="${r.mine}" title="${esc(title(r))}" aria-label="${esc(baseOf(r.emoji).label)}, ${r.count} reaction${r.count > 1 ? 's' : ''}${r.mine ? ', including yours' : ''}"><span>${r.emoji}</span><span class="num">${r.count}</span></button>`).join('')
+      container.innerHTML = items.map((r) => `<button type="button" class="rChip ${r.mine ? '' : 'notMine'}" aria-pressed="${r.mine}" title="${esc(title(r))}" aria-label="${esc(baseOf(r.emoji).label)}, ${r.count} reaction${r.count > 1 ? 's' : ''}${r.mine ? ', including yours' : ''}"><span>${esc(r.emoji)}</span><span class="num">${r.count}</span></button>`).join('')
         + (addButton ? '' : `<span class="rAddWrap"><button type="button" class="rAdd" aria-label="Add a reaction" title="Add a reaction">${Brand.icon('smile')}<span class="plus">+</span></button></span>`);
       if (addButton) container.hidden = !items.length;
       container.querySelectorAll('.rChip').forEach((c, i) => c.addEventListener('click', () => toggle(items[i].emoji)));

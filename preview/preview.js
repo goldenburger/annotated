@@ -118,7 +118,7 @@ async function publish(sourceId, item, take) {
   el.className = 'annpage';
   pane.appendChild(el);
   const t = { id: 'ann-' + id, kind: 'ann', recId: id, title: `${take.text || title} | annotated`, url: permalink.replace('https://', ''), el };
-  const rec = { id, item, take: { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null }, created: Date.now(), comments: [], reactions: [], tabId: t.id, api: null };
+  const rec = { id, item, take: { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null }, created: Date.now(), comments: [], reactions: [], tabId: t.id, api: null };
   records.push(rec);
   tabs.push(t);
   activate(t.id);
@@ -150,7 +150,6 @@ async function publish(sourceId, item, take) {
   for (const r of records) if (r.api) r.api.setStats({ annotations: records.length, followers: 0 });
   if (tabById(active).kind === 'ann') drawSide(tabById(active));
   log('Published ' + permalink);
-  if (Prefs.get().afterPublish === 'close') { if (floatApi) floatApi.collapse(); else setPanel(false); }
   return { tabId: t.id, id, permalink };
 }
 // Links to an annotation open it from the top, not wherever it was last scrolled.

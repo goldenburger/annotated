@@ -1,0 +1,14 @@
+# Security headers for every page Netlify serves. The edge function that adds link-preview tags copies the
+# headers of the response it rewrites, so these reach annotation pages as well.
+#
+# The policy below is what the site actually loads. Scripts are all files of our own, which is why no page
+# carries a script written inside it. Styles need the inline allowance because a poll bar sets its own width.
+# Pictures come from anywhere, because an annotation carries the source's preview image, the author's photo
+# from Google and a GIF from GIPHY, and a picture cannot run anything. Nothing here may be put in a frame.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://efuotxdeifqzdfsavekb.supabase.co https://api.giphy.com; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin

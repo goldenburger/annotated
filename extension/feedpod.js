@@ -43,7 +43,7 @@ const FeedPod = (() => {
   // rss.podscribe.ai/p/traffic.megaphone.fm/episode.mp3. When a tracker is down the audio itself is still there,
   // so these are the addresses hidden inside this one, innermost first.
   const AUDIO_FILE = /\.(mp3|m4a|mp4|aac|ogg|opus|wav)$/i;
-  const HOSTLIKE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+$/i;
+  const HOSTLIKE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*\.[a-z]{2,}$/i;
   function inside(url) {
     let u;
     try { u = new URL(url); } catch { return []; }
@@ -75,11 +75,15 @@ const FeedPod = (() => {
     const r = await openStart(url);
     const type = (r.headers.get('content-type') || '').toLowerCase();
     const cr = r.headers.get('content-range');
-    const total = cr ? Number(cr.split('/')[1]) : Number(r.headers.get('content-length')) || 0;
+    // A server may answer "bytes 0-131071/*" when it will not say how long the file is. Carrying on from
+    // that gave every time a byte position of one, so the clip came out cut in the wrong place and said
+    // nothing about it.
+    const total = Number(cr ? cr.split('/')[1] : r.headers.get('content-length'));
     const ranges = r.status === 206;
     const b = new Uint8Array(await r.arrayBuffer());
     const finalUrl = r.url || url;
     if (!ranges) throw new Error("This show's server doesn't allow downloading part of an episode.");
+    if (!Number.isFinite(total) || total <= 0) throw new Error("This show's server did not say how long the episode's file is, so it cannot be clipped part by part.");
     let audioStart = 0;
     if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) audioStart = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]) + ((b[5] & 0x10) ? 10 : 0);
     let head = b;
@@ -150,15 +154,19 @@ const FeedPod = (() => {
       busy = true;
       try {
         for (const s of need.slice(0, 3)) {
-          done.add(s);
-          const cut = await slice(p, s, Math.min(p.duration, s + 30));
-          const pk = await Waveform.fromArrayBuffer(await cut.blob.arrayBuffer(), pps);
-          // Raw levels (not normalized per window), so windows line up with each other.
-          const scale = pk.peak || 1;
-          for (let k = 0; k < pk.data.length && s * pps + k < n; k++) data[s * pps + k] = pk.data[k] * scale;
-          w.onupdate && w.onupdate();
+          // Marked done only once it worked. Marking it first meant one hiccup left that stretch of the
+          // waveform blank for good, because it was never asked for again.
+          try {
+            const cut = await slice(p, s, Math.min(p.duration, s + 30));
+            const pk = await Waveform.fromArrayBuffer(await cut.blob.arrayBuffer(), pps);
+            // Raw levels (not normalized per window), so windows line up with each other.
+            const scale = pk.peak || 1;
+            for (let k = 0; k < pk.data.length && s * pps + k < n; k++) data[s * pps + k] = pk.data[k] * scale;
+            done.add(s);
+            w.onupdate && w.onupdate();
+          } catch { /* try this window again next time */ }
         }
-      } catch { /* leave the window empty */ } finally { busy = false; }
+      } finally { busy = false; }
     };
     return w;
   }

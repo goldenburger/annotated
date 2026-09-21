@@ -268,7 +268,7 @@ const PanelKit = (() => {
       pop.innerHTML = `<h2>Display</h2>
         ${seg('display', 'Show annotated as', [['side', 'Side panel'], ['float', 'Floating']], p.display)}
         <p class="note dmHint">${p.display === 'float' ? 'Drag the top bar to move it and a bottom corner to resize. Shrink it to a button when you are reading.' : sideHint}</p>
-        ${seg('afterPublish', 'After publishing', [['stay', 'Stay here'], ['page', 'Open the page'], ['close', p.display === 'float' ? 'Shrink' : 'Close']], p.afterPublish)}
+        ${seg('afterPublish', 'After publishing', [['stay', 'Stay here'], ['page', 'Open the page']], p.afterPublish)}
         ${seg('snap', 'What a selection captures', [['exact', 'Exactly what I select'], ['sentences', 'The whole sentence']], p.snap)}
         <fieldset><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
           `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>

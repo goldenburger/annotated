@@ -2,6 +2,10 @@
 // Prefs.init(backend) -> Promise<prefs>. Prefs.set(key, value). Prefs.onChange(fn).
 const Prefs = (() => {
   const DEFAULTS = { display: 'side', afterPublish: 'stay', density: 'comfortable', theme: 'system', pageButton: true, snap: 'exact', pen: 'chisel' };
+  // "After publishing" was three choices once, and the third closed the panel. Staying where you are is what
+  // people wanted, so there are two now, and a choice saved from before that is not "Open the page" is read as
+  // staying here rather than as whatever used to sit in that slot.
+  const tidy = (o) => { const p = { ...DEFAULTS, ...(o || {}) }; if (p.afterPublish !== 'page') p.afterPublish = 'stay'; return p; };
   let backend = null, cur = { ...DEFAULTS };
   const subs = [];
   function apply() {
@@ -18,8 +22,8 @@ const Prefs = (() => {
   }
   async function init(b) {
     backend = b;
-    try { cur = { ...DEFAULTS, ...((await b.load()) || {}) }; } catch { cur = { ...DEFAULTS }; }
-    if (b.watch) b.watch((v) => { cur = { ...DEFAULTS, ...(v || {}) }; apply(); subs.forEach((f) => f(cur)); });
+    try { cur = tidy(await b.load()); } catch { cur = { ...DEFAULTS }; }
+    if (b.watch) b.watch((v) => { cur = tidy(v); apply(); subs.forEach((f) => f(cur)); });
     apply();
     return cur;
   }

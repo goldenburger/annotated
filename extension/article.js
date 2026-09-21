@@ -118,14 +118,22 @@
     }
     return r;
   }
+  // How much writing is on the page, which is only used to guess whether this looks like a podcast and is
+  // read when a panel is first made. Measuring it asks the page for a full layout, and the panel asks for
+  // this two and a half times a second, so it is measured now and then rather than every time.
+  let textLen = -1, textAt = 0;
+  function pageTextLen() {
+    const now = Date.now();
+    if (textLen < 0 || now - textAt > 10000) { textLen = (document.body.innerText || '').length; textAt = now; }
+    return textLen;
+  }
   function podInfo() {
     const a = pickAudio();
     if (!a) return { ok: false, found: false };
     // Some players only load the episode on play. Ask for its length without starting it.
     if (!isFinite(a.duration) && a.readyState === 0 && a.paused && a.preload === 'none') { a.preload = 'metadata'; try { a.load(); } catch {} }
     const type = metaContent('meta[property="og:type"]').toLowerCase();
-    const textLen = (document.body.innerText || '').length;
-    const likely = /podcast|episode|audio|music/.test(type + ' ' + location.pathname.toLowerCase()) || textLen < 2500;
+    const likely = /podcast|episode|audio|music/.test(type + ' ' + location.pathname.toLowerCase()) || pageTextLen() < 2500;
     return { ...pod.info(), found: true, src: a.currentSrc || a.src || (a.querySelector('source') || {}).src || '', likely, route: route(a) };
   }
 
@@ -175,12 +183,17 @@
         if (tall) window.scrollBy(0, -64);
         // The post settles, then the pen crosses the words that were quoted, and the picture waits for it.
         // Drawing it finished for the picture and again afterwards marked the passage twice over.
+        // The reply is sent whatever happens in here. Without this, anything that threw left the panel
+        // waiting on a reply that was never going to come, sitting on Capturing for good.
         requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
-          const drawing = page.paintTaken();
+          let drawing = 0;
+          try { drawing = page.paintTaken(); } catch (e) { reply({ ok: false, error: e.message }); return; }
           setTimeout(() => {
-            const b = r.el.getBoundingClientRect();
-            const { el, ...rest } = r;
-            reply({ ok: true, ...rest, clip: { x: b.left, y: b.top, w: b.width, h: b.height }, vw: window.innerWidth });
+            try {
+              const b = r.el.getBoundingClientRect();
+              const { el, ...rest } = r;
+              reply({ ok: true, ...rest, clip: { x: b.left, y: b.top, w: b.width, h: b.height }, vw: window.innerWidth });
+            } catch (e) { reply({ ok: false, error: e.message }); }
           }, drawing + 40);
         }, 150)));
         return true;

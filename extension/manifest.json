@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "annotated",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "description": "Highlight a passage, clip a video or podcast, or save a post, then say what you think. Every annotation links back to its source.",
   "permissions": [
     "sidePanel",
@@ -75,10 +75,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "sidepanel.html",
-        "*.js",
-        "*.css",
-        "fonts/*"
+        "sidepanel.html"
       ],
       "matches": [
         "<all_urls>"

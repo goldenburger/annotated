@@ -131,7 +131,7 @@
       onComments: async (list, change = {}) => {
         if (needSignIn()) return;
         try {
-          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text);
+          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text, change.added.gif);
           if (change.removed && change.removed.dbId) await Cloud.deleteComment(change.removed.dbId);
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
         } catch (e) { alert('That did not save. ' + (e.message || '')); }

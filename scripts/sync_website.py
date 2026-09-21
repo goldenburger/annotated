@@ -5,7 +5,7 @@ Run: python scripts/sync_website.py
 """
 import pathlib, shutil
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SHARED = ['annotation-page.js', 'gifmaker.js', 'cloud.js', 'ui.css', 'brand.js', 'prefs.js', 'emoji-data.js', 'emojikit.js', 'waveform.js',
+SHARED = ['annotation-page.js', 'gifmaker.js', 'giphy.js', 'cloud.js', 'ui.css', 'brand.js', 'prefs.js', 'emoji-data.js', 'emojikit.js', 'waveform.js',
           'compose.js', 'panel-kit.js', 'fonts.css']
 pub = ROOT / 'website' / 'public'
 for f in SHARED:

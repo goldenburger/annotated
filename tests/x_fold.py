@@ -35,7 +35,11 @@ async def main():
     pan=await ctx.new_page(); await pan.set_viewport_size({'width':400,'height':900})
     pan.on('pageerror',lambda e: errs.append('PANEL '+str(e)))
     await pan.goto(f'chrome-extension://{extid}/sidepanel.html?tab={tid}'); await asyncio.sleep(1.5)
-    await pan.click('#postMode .pGrab')
+    # The post has to be the tab in front, because that is the only tab Chrome will give a picture of and
+    # the panel now refuses rather than taking a picture of somewhere else. Clicking through evaluate keeps
+    # the post in front while the panel's own button is pressed.
+    await pg.bring_to_front()
+    await pan.evaluate("() => document.querySelector('#postMode .pGrab').click()")
     await pan.wait_for_selector('#postMode .ctxthumb:not([hidden])',timeout=20000); await asyncio.sleep(.6)
     shot=await pan.evaluate("(()=>{const i=document.querySelector('#postMode .shot');return i&&i.naturalWidth?i.naturalHeight/i.naturalWidth:0})()")
     print('screenshot shape %.3f' % shot)

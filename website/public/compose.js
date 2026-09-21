@@ -44,9 +44,15 @@ const Compose = (() => {
           <span class="tfTools">
             <span class="emojiSlot"></span>
             <button type="button" class="quiet pollBtn hasTip" data-tooltip="Add a poll" aria-label="Add a poll" aria-pressed="false">${Brand.icon('poll')}</button>
+            <button type="button" class="quiet gifBtn hasTip" data-tooltip="Add a GIF" aria-label="Add a GIF" aria-pressed="false" hidden>${Brand.icon('image')}</button>
             <button type="button" class="quiet recBtn hasTip" data-tooltip="Record up to 60 seconds">${Brand.icon('mic')} Voice note</button>
           </span>
         </div>
+      </div>
+      <div class="gifPick" hidden></div>
+      <div class="gifChosen" hidden>
+        <img class="gcImg" alt="">
+        <button type="button" class="quiet gcRemove">${Brand.icon('trash')} Remove the GIF</button>
       </div>
       <div class="pollEdit" hidden>
         <div class="peHead"><b>Poll</b><button type="button" class="quiet peRemove">${Brand.icon('trash')} Remove poll</button></div>
@@ -71,7 +77,7 @@ const Compose = (() => {
       <div class="pubBar">
         <p class="pubSignIn">Signed out, this is saved only on this computer. <button type="button" class="link pubSignInBtn">Sign in to publish it for everyone</button></p>
         <button type="button" class="primary publish" disabled>Publish</button>
-        <p class="hint publishHint">Add a written take, a voice note or a poll.</p>
+        <p class="hint publishHint">Add a written take, a voice note, a poll or a GIF.</p>
       </div>`;
 
     // Shown only while signed out in the extension (the panel marks the page). The preview has no accounts.
@@ -111,6 +117,40 @@ const Compose = (() => {
       if (on && !q('.peOpt')) drawPoll(['Agree', 'Disagree']);
       if (on) { q('.pollEdit').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); q('.peQ').focus({ preventScroll: true }); }
     };
+    // A GIF in a take, the way you would put one in a message. The button stays hidden until there is a key
+    // to search with, so it never offers something that cannot work.
+    let gif = null;
+    const gifShown = (g) => {
+      gif = g;
+      q('.gifChosen').hidden = !g;
+      if (g) { q('.gcImg').src = g.preview || g.url; q('.gcImg').alt = g.alt || 'A GIF'; }
+      q('.gifBtn').setAttribute('aria-pressed', String(!!g));
+      validate();
+    };
+    const hasGiphy = typeof Giphy !== 'undefined' && Giphy.ready();
+    q('.gifBtn').hidden = !hasGiphy;
+    const picker = hasGiphy ? Giphy.mount(q('.gifPick'), {
+      // The picker is tall enough to push Publish below the fold, so choosing one brings it back into view
+      // rather than leaving you to hunt for the button you were on your way to.
+      onPick: (g) => {
+        gifShown(g);
+        q('.gifPick').hidden = true;
+        requestAnimationFrame(() => { if (!q('.publish').hidden) q('.publish').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+      },
+      onClose: () => { q('.gifPick').hidden = true; q('.gifBtn').focus(); },
+    }) : null;
+    q('.gifBtn').addEventListener('click', () => {
+      const box = q('.gifPick');
+      if (!picker) return;
+      box.hidden = !box.hidden;
+      if (box.hidden) return;
+      box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      picker.opened();
+    });
+    q('.gcRemove').addEventListener('click', () => { gifShown(null); q('.gifBtn').focus(); });
+    root._resetGif = () => { gifShown(null); q('.gifPick').hidden = true; if (picker) picker.clear(); };
+    root._gifValue = () => gif;
+
     q('.pollBtn').addEventListener('click', () => { setPoll(!pollOn); validate(); });
     q('.peRemove').addEventListener('click', () => { setPoll(false); q('.peOpts').innerHTML = ''; validate(); });
     q('.peAdd').addEventListener('click', () => { const o = pollOpts(); if (o.length < 4) { o.push(''); drawPoll(o); q('.peOpts').lastElementChild.querySelector('input').focus(); } validate(); });
@@ -127,15 +167,20 @@ const Compose = (() => {
     if (opts.onPublish) q('.publish').addEventListener('click', () => { if (!q('.publish').disabled) opts.onPublish(value()); });
     else { q('.publish').hidden = true; q('.publishHint').hidden = true; }
 
-    function value() { return { tag, text: q('.takeInput').value.trim(), voice, poll: root._pollValue ? root._pollValue() : null }; }
+    function value() { return { tag, text: q('.takeInput').value.trim(), voice, poll: root._pollValue ? root._pollValue() : null, gif: root._gifValue ? root._gifValue() : null }; }
     // A poll with a question is a take. Asking the room whether the clip holds up says as much as writing it
     // does, and the recording on 2026-09-21 showed a finished poll sitting next to a Publish button that
     // would not turn on and a line about written takes.
     const asked = (p) => !!(p && p.question && (p.options || []).length >= 2);
     function validate() {
-      const v = value(), ready = !busy && !rec && (v.text || v.voice || asked(v.poll));
+      const v = value(), ready = !busy && !rec && (v.text || v.voice || asked(v.poll) || v.gif);
       q('.publish').disabled = !ready;
-      q('.publishHint').textContent = rec ? 'Stop the recording to publish.' : ready ? 'Opens your annotation page in a new tab. Ctrl or Cmd + Enter works too.' : 'Add a written take, a voice note or a poll.';
+      // What happens next depends on a setting, so the line says the one that is set rather than guessing.
+      const after = typeof Prefs !== 'undefined' && Prefs.get ? Prefs.get().afterPublish : 'stay';
+      q('.publishHint').textContent = rec ? 'Stop the recording to publish.'
+        : ready ? (after === 'page' ? 'Opens your annotation page. Ctrl or Cmd + Enter works too.'
+                                    : 'You stay here, with a link to share. Ctrl or Cmd + Enter works too.')
+        : 'Add a written take, a voice note, a poll or a GIF.';
     }
     function setBusy(b) { busy = b; q('.publish').textContent = b ? 'Publishing' : 'Publish'; validate(); }
     function hideMic() { q('.micMsg').hidden = true; q('.micFix').hidden = true; }
@@ -212,6 +257,9 @@ const Compose = (() => {
       if (on) q('.voiceOut').hidden = true;
     }
     function setVoice(v) {
+      // Record again makes a new one, so the address of the old recording is given back rather than left
+      // holding it in memory for as long as the panel is open.
+      if (voice && voice.url && (!v || v.url !== voice.url)) { try { URL.revokeObjectURL(voice.url); } catch { /* already gone */ } }
       voice = v;
       q('.voiceOut').hidden = !v;
       q('.recBtn').hidden = !!v;
@@ -223,6 +271,7 @@ const Compose = (() => {
       root.querySelectorAll('.tagbtn').forEach((b) => b.setAttribute('aria-checked', 'false'));
       q('.takeInput').value = ''; q('.takeCount').textContent = '0'; q('.count').classList.remove('near', 'full'); q('.takeInput').style.height = '';
       if (root._resetPoll) root._resetPoll();
+      if (root._resetGif) root._resetGif();
       setVoice(null); hideMic(); setBusy(false);
     }
     return { reset, value, setBusy };

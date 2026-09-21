@@ -3,12 +3,13 @@
 (() => {
   if (window.__annotatedFloat) return;
   window.__annotatedFloat = true;
-  let api = null, host = null, creating = null;
+  let api = null, host = null, creating = null, myTab = null;
   const darkNow = (theme) => theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 
   async function ensure(tabId) {
     if (api) return api;
     if (creating) return creating;
+    myTab = tabId;
     creating = (async () => {
       const { floatRect, annotatedPrefs } = await chrome.storage.local.get(['floatRect', 'annotatedPrefs']);
       host = document.createElement('div');
@@ -19,8 +20,10 @@
       base.textContent = ':host { all: initial; } .ff, .ffPill { pointer-events: auto; }';
       sh.appendChild(base);
       document.documentElement.appendChild(host);
+      const key = [...crypto.getRandomValues(new Uint8Array(16))].map((n) => n.toString(16).padStart(2, '0')).join('');
+      await chrome.storage.local.set({ ['floatKey' + tabId]: key });
       const frame = document.createElement('iframe');
-      frame.src = chrome.runtime.getURL('sidepanel.html') + '?tab=' + tabId + '&embed=float';
+      frame.src = chrome.runtime.getURL('sidepanel.html') + '?tab=' + tabId + '&embed=float&k=' + key;
       frame.title = 'annotated';
       frame.allow = 'clipboard-write; microphone';
       const cmd = (c) => frame.contentWindow && frame.contentWindow.postMessage({ type: 'annotated-cmd', cmd: c }, '*');
@@ -40,7 +43,11 @@
     })();
     return creating;
   }
-  function remove() { if (api) { api.destroy(); api = null; } if (host) { host.remove(); host = null; } }
+  function remove() {
+    if (api) { api.destroy(); api = null; }
+    if (host) { host.remove(); host = null; }
+    chrome.storage.local.remove('floatKey' + myTab).catch(() => {});
+  }
 
   chrome.storage.onChanged.addListener((ch, area) => {
     if (area !== 'local' || !ch.annotatedPrefs) return;

@@ -35,7 +35,8 @@ async def main():
     # preferences
     await pg.click('.ff .ffX >> nth=0'); await asyncio.sleep(.2)
     await pg.screenshot(path='disp_menu.png')
-    await pg.check('.dmPop input[name="dm-afterPublish"][value="close"]')
+    await pg.check('.dmPop input[name="dm-afterPublish"][value="stay"]')
+    print('choices offered after publishing:', await pg.eval_on_selector_all('.dmPop input[name="dm-afterPublish"]','e=>e.map(i=>i.value)'))
     await pg.check('.dmPop input[name="dm-theme"][value="dark"]'); await asyncio.sleep(.1)
     print('dark theme applied:', await pg.evaluate("document.documentElement.getAttribute('data-theme')"), '| frame dark:', await pg.eval_on_selector('.ff','e=>e.classList.contains("dark")'))
     await pg.check('.dmPop input[name="dm-density"][value="compact"]'); print('compact:', await pg.evaluate("document.body.classList.contains('compact')"))

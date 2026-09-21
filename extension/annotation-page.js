@@ -128,7 +128,19 @@ const AnnotationPage = (() => {
       m.hidden = !open; btn.setAttribute('aria-expanded', String(open));
       if (open) { const f = m.querySelector('button, a'); if (f) f.focus(); }
     });
-    document.addEventListener('click', (e) => { if (!m.contains(e.target)) close(); });
+    // One listener for the whole document, put on once. A menu is built again on every render, and one
+    // listener per menu stayed on the document forever holding the page it came from in memory.
+    if (!document.__annMenus) {
+      document.__annMenus = true;
+      document.addEventListener('click', (e) => {
+        document.querySelectorAll('.menu:not([hidden])').forEach((x) => {
+          if (x.contains(e.target)) return;
+          x.hidden = true;
+          const b = x.parentElement && x.parentElement.querySelector('[aria-haspopup="menu"]');
+          if (b) b.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
     m.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); btn.focus(); } });
     m.addEventListener('click', (e) => { if (e.target.closest('[data-close]')) close(); });
     return m;
@@ -221,7 +233,9 @@ const AnnotationPage = (() => {
   // Reactions saved before sharing are plain emoji; shared ones carry counts. Feed pages don't load the emoji kit.
   const normR = (list) => (list || []).map((x) => (typeof x === 'string' ? { emoji: x, count: 1 } : { emoji: x.emoji, count: x.count || 1 }));
   const reactTotal = (list) => normR(list).reduce((n, r) => n + r.count, 0);
-  const reactEmojis = (list) => normR(list).map((r) => r.emoji);
+  // Escaped here rather than where they are used, because every one of these comes from someone else's
+  // account and these lists go into the page as markup.
+  const reactEmojis = (list) => normR(list).map((r) => esc(r.emoji));
   // Shared annotations come from other people's accounts, so every address is checked before it goes on the page.
   // Links must be web addresses. Images may also be data or blob addresses made by this extension.
   const safeLink = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '');
@@ -229,7 +243,11 @@ const AnnotationPage = (() => {
   const kindIcon = (item) => Brand.icon({ video: 'clip', post: 'post', article: 'article', audio: 'podcast' }[item.kind] || 'article');
 
   /* ---------------- annotation page ---------------- */
+  // Every render starts a clock that keeps the comment times current. Drawing into the same element again,
+  // which is what happens now that annotations share one tab, used to leave the old clock running forever.
+  function stopClock(container) { if (container && container.__annClock) { clearInterval(container.__annClock); container.__annClock = null; } }
   async function render(container, opts, hooks = {}) {
+    stopClock(container);
     const { item, take, permalink, backLabel } = opts;
     const records = opts.records || [];
     const showBanner = opts.showBanner !== false;
@@ -333,6 +351,8 @@ const AnnotationPage = (() => {
             <span class="tagSlot">${take.tag ? `<button type="button" class="tag tagLink" title="See all ${esc(take.tag)} annotations">${esc(take.tag)}</button>` : ''}</span>
           </header>
           <p class="take" ${take.text ? '' : 'hidden'}>${esc(take.text || '')}</p>
+          ${take.gif && safeImg(take.gif.url) ? `<figure class="takeGif"><img src="${esc(safeImg(take.gif.url))}" alt="${esc(take.gif.alt || 'A GIF')}" loading="lazy">
+            <figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}
           <div class="editBox" hidden></div>
           ${voiceUrl ? `<div class="vnote">${Brand.icon('mic')}<audio class="pageVoice" controls src="${esc(voiceUrl)}"></audio></div>` : ''}
           <div class="mediaUnit ${isVideo || isAudio ? 'av' : ''}">
@@ -353,7 +373,11 @@ const AnnotationPage = (() => {
         <section class="comments" aria-label="Comments">
           <h3 class="cTitle">Comments</h3>
           <textarea class="cText" rows="2" aria-label="Add a comment" placeholder="Add a comment. Type : for emoji. Ctrl or Cmd + Enter posts it."></textarea>
-          <div class="cRow"><span class="cEmojiSlot"></span><button type="button" class="strong sm cPost">Comment</button></div>
+          <div class="cRow"><span class="cEmojiSlot"></span>
+            <button type="button" class="quiet cGifBtn hasTip" data-tooltip="Add a GIF" aria-label="Add a GIF" hidden>${Brand.icon('image')}</button>
+            <button type="button" class="strong sm cPost">Comment</button></div>
+          <div class="gifPick cGifPick" hidden></div>
+          <div class="gifChosen cGifChosen" hidden><img class="gcImg" alt=""><button type="button" class="quiet gcRemove">${Brand.icon('trash')} Remove the GIF</button></div>
           <ul class="cList"></ul>
           <button type="button" class="link cMore" hidden></button>
         </section>
@@ -599,7 +623,7 @@ const AnnotationPage = (() => {
       q('.cList').innerHTML = list.length ? shown.map((c) => `
         <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p><div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeImg(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeImg(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
         : '<li class="empty">No comments yet. Start the conversation.</li>';
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
@@ -628,12 +652,35 @@ const AnnotationPage = (() => {
       }));
     };
     q('.cMore').addEventListener('click', () => { showAll = !showAll; drawComments(); });
+    // A GIF can go in a comment the same way it goes in a take, through the same picker.
+    let cGif = null;
+    const cGifShown = (g) => {
+      cGif = g;
+      q('.cGifChosen').hidden = !g;
+      if (g) { q('.cGifChosen .gcImg').src = g.preview || g.url; q('.cGifChosen .gcImg').alt = g.alt || 'A GIF'; }
+    };
+    const cHasGiphy = typeof Giphy !== 'undefined' && Giphy.ready();
+    q('.cGifBtn').hidden = !cHasGiphy;
+    const cPicker = cHasGiphy ? Giphy.mount(q('.cGifPick'), {
+      onPick: (g) => { cGifShown(g); q('.cGifPick').hidden = true; },
+      onClose: () => { q('.cGifPick').hidden = true; q('.cGifBtn').focus(); },
+    }) : null;
+    q('.cGifBtn').addEventListener('click', () => {
+      const box = q('.cGifPick');
+      box.hidden = !box.hidden;
+      if (!box.hidden) { box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); cPicker.opened(); }
+    });
+    q('.cGifChosen .gcRemove').addEventListener('click', () => { cGifShown(null); q('.cGifBtn').focus(); });
     const post = () => {
       const txt = q('.cText').value.trim();
-      if (!txt) return;
-      const added = { text: txt, t: Date.now(), mine: true };
+      // A GIF on its own is a reply, the same as a word is.
+      if (!txt && !cGif) return;
+      const added = { text: txt, gif: cGif || null, t: Date.now(), mine: true };
       comments.push(added);
       q('.cText').value = '';
+      cGifShown(null);
+      if (cPicker) cPicker.clear();
+      q('.cGifPick').hidden = true;
       drawComments();
       hooks.onComments && hooks.onComments(comments.slice(), { added });
     };
@@ -669,7 +716,11 @@ const AnnotationPage = (() => {
     drawPollBox();
     q('.cText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); post(); } });
     drawComments();
-    setInterval(() => { drawComments(); q('.when').textContent = relTime(created); }, 30000);
+    container.__annClock = setInterval(() => {
+      if (!container.isConnected) return stopClock(container);
+      drawComments();
+      q('.when').textContent = relTime(created);
+    }, 30000);
 
     // Source links jump back to the original when the shell can do it (the preview), otherwise they open normally.
     if (jump) container.querySelectorAll('.srcJump').forEach((b) => b.addEventListener('click', () => hooks.onOpenSource(item)));
@@ -683,7 +734,7 @@ const AnnotationPage = (() => {
   // Which source a card is about. Empty when there is nothing to go on, so those are never grouped.
   // What to call an annotation in a list. A poll is a take of its own now, so it is named by its question
   // rather than being filed under Untitled.
-  const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '');
+  const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '') || (t && t.gif ? 'A GIF' : '');
   const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || '')
     : it.kind === 'audio' ? 'a:' + (it.url || '')
       : it.kind === 'post' ? 'p:' + (it.id || it.url || '')
@@ -710,6 +761,7 @@ const AnnotationPage = (() => {
     .filter(Boolean).map((para) => `<p>${para}</p>`).join('');
 
   function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true }) {
+    stopClock(container);
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
@@ -753,7 +805,15 @@ const AnnotationPage = (() => {
           const key = srcKey(it), again = !!key && key === lastKey;
           lastKey = key;
           // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
-          const thumb = safeImg(it.kind === 'video' ? it.poster : it.kind === 'audio' ? (it.artwork || it.poster) : it.kind === 'post' ? null : (it.meta.image || it.shotThumb || it.shot));
+          // A post is shown by its screenshot, the same as an article is. Posts were the one kind with no
+          // picture at all, and a column of cards all from X had nothing for the eye to catch.
+          const thumb = safeImg(it.kind === 'video' ? it.poster
+            : it.kind === 'audio' ? (it.artwork || it.poster)
+            : it.kind === 'post' ? (it.shotThumb || it.shot)
+            : ((it.meta && it.meta.image) || it.shotThumb || it.shot));
+          // A screenshot is read from its top left corner. A preview image made for sharing is composed to
+          // be seen whole, so that one stays centred.
+          const fromShot = it.kind !== 'video' && it.kind !== 'audio' && !(it.meta && it.meta.image);
           // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
           const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
           const brief = (it.end - it.start) < 10;
@@ -779,9 +839,9 @@ const AnnotationPage = (() => {
               <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
             </span>
-            ${thumb && !playable ? `<span class="cthumb"><img src="${esc(thumb)}" alt=""></span>` : thumb ? '<span class="cthumb ghost" aria-hidden="true"></span>' : ''}
+            ${thumb && !playable ? `<span class="cthumb"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy"></span>` : thumb ? '<span class="cthumb ghost" aria-hidden="true"></span>' : ''}
           </button>
-          ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt=""><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
+          ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt="" loading="lazy"><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
         }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
       rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
@@ -852,6 +912,7 @@ const AnnotationPage = (() => {
   // panel rather than taking a tab. Opening one annotation is a page, because that is where its comments,
   // its source and the conversation live, and that page still shares the one annotated tab.
   function renderBrowse(container, { title, records, note = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true }) {
+    stopClock(container);
     const list = records.slice().sort((a, b) => b.created - a.created);
     container.innerHTML = `<div class="annside browse">
       <div class="browseHead"><button type="button" class="browseBack" aria-label="Back to this page">${Brand.icon('arrowLeft')}</button>
@@ -875,6 +936,7 @@ const AnnotationPage = (() => {
   }
 
   function renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware = false }) {
+    stopClock(container);
     const list = records.slice().sort((a, b) => b.created - a.created);
     const statsOf = (r) => {
       const nC = (r.comments || []).length, nR = reactTotal(r.reactions), bits = [];
