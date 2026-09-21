@@ -19,7 +19,7 @@ const ArticleCore = (() => {
     for (const h of root.querySelectorAll('h1, [itemprop="headline"]')) {
       if (range.intersectsNode(h)) return { state: 'error', text, len: text.length, error: 'Pick a passage from the story, not the headline.' };
     }
-    if (text.length < MIN_CHARS) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range), error: 'Select a little more. A passage should be at least a full sentence.' };
+    if (text.length < MIN_CHARS && !coversWholeBlock(range)) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range), error: 'Select a little more. A passage should be at least a full sentence.' };
     if (text.length > MAX_CHARS) return { state: 'error', text, len: text.length, error: `That is ${text.length.toLocaleString()} characters. Trim it to ${MAX_CHARS.toLocaleString()} or fewer.` };
     return { state: 'ok', text, len: text.length, aligned: isSentenceAligned(range) };
   }
@@ -139,7 +139,8 @@ const ArticleCore = (() => {
 
 
   // ---------- sentences ----------
-  const BLOCKS = 'p, li, blockquote, dd, figcaption, h2, h3, h4, h5, h6, td, pre';
+  // A post on X is one block, so its whole text snaps and counts as a paragraph would.
+  const BLOCKS = 'p, li, blockquote, dd, figcaption, h2, h3, h4, h5, h6, td, pre, [data-testid="tweetText"]';
   function blockOf(node) {
     const el = node.nodeType === 1 ? node : node.parentElement;
     return el.closest(BLOCKS) || el;
@@ -188,6 +189,19 @@ const ArticleCore = (() => {
   }
   function trimmedEnd(text, pos) { while (pos > 0 && /\s/.test(text[pos - 1])) pos--; return pos; }
   function trimmedStart(text, pos) { while (pos < text.length && /\s/.test(text[pos])) pos++; return pos; }
+  // True when the range already holds a whole paragraph or a whole post, so there is nothing more to select.
+  // A short post like "44 days until the midterm elections" is a complete thought and should be allowed.
+  function coversWholeBlock(range) {
+    try {
+      const r = expandToWords(range.cloneRange());
+      const b1 = blockOf(r.startContainer), b2 = blockOf(r.endContainer);
+      if (b1 !== b2) return true;
+      const idx = textIndex(b1);
+      const s = trimmedStart(idx.text, offsetIn(idx, r.startContainer, r.startOffset));
+      const e = trimmedEnd(idx.text, offsetIn(idx, r.endContainer, r.endOffset));
+      return s <= trimmedStart(idx.text, 0) && e >= trimmedEnd(idx.text, idx.text.length);
+    } catch { return false; }
+  }
   function isSentenceAligned(range) {
     try {
       const r = expandToWords(range.cloneRange());
@@ -422,9 +436,12 @@ const ArticlePage = (() => {
     }
 
     // The words picked inside one element (a post on X), then the highlight is cleared so screenshots stay clean.
+    // Snapped to whole sentences the same way a passage is, so the quote matches the highlight drawn on the page.
     function takeWithin(el) {
       const raw = currentRange();
-      const r = raw ? ArticleCore.expandToWords(raw.cloneRange()) : null;
+      const d = raw ? evaluate(raw) : null;
+      const picked = (d && d.range) || raw;
+      const r = picked ? ArticleCore.expandToWords(picked.cloneRange()) : null;
       let text = '';
       pendingAnnotate = false;
       if (r && el.contains(r.commonAncestorContainer)) text = r.toString().replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();

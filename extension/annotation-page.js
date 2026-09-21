@@ -525,7 +525,12 @@ const AnnotationPage = (() => {
         const body = [take.text ? `"${take.text}"` : `An annotation of ${title}`, `On: ${title}`, '', permalink, '',
           'annotated lets you highlight a passage, clip a video or podcast, or save a post, and say what you think. Every annotation links back to its source.',
           origin ? `Get it here: ${origin}/install` : ''].join('\n');
-        location.href = `mailto:${encodeURIComponent(email.value)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        // An anchor rather than replacing the address, so this page stays where it is and a test can see the
+        // invite without the computer's mail program opening a window.
+        const a = document.createElement('a');
+        a.href = `mailto:${encodeURIComponent(email.value)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+        a.rel = 'noopener'; a.style.display = 'none';
+        document.body.appendChild(a); a.click(); a.remove();
         imsg.textContent = `Your email app opened with an invite to ${email.value}. Send it from there.`; imsg.className = 'note inviteMsg'; imsg.hidden = false; email.value = '';
       });
     }

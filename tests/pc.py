@@ -7,7 +7,7 @@ async def main():
     for scheme in ['light','dark']:
       ctx=await b.new_context(viewport={'width':1440,'height':860},color_scheme=scheme); pg=await ctx.new_page()
       errs=[]; pg.on('pageerror',lambda e: errs.append(str(e)))
-      await pg.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}"); await pg.goto(PREVIEW)
+      await pg.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}"); await pg.add_init_script(NO_MAILTO); await pg.goto(PREVIEW)
       await pg.wait_for_selector('#videoMode:not([hidden]) .vTitle')
       V='#videoMode '; A='#articleMode '; ANN='.annpage:not([hidden]) '
       await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','46'); await pg.press(V+'.rEnd','Enter')
@@ -24,6 +24,9 @@ async def main():
       print('toast:', (await pg.inner_text(ANN+'.toastRow')).replace('\n',' '), '| invite hidden:', not await pg.is_visible(ANN+'.invite'))
       await pg.click(ANN+'.inviteOpen'); await pg.click(ANN+'.inviteBtn'); print('invite error:', await pg.inner_text(ANN+'.inviteMsg'))
       await pg.fill(ANN+'.inviteEmail','sam@example.com'); await pg.press(ANN+'.inviteEmail','Enter'); print('invite ok:', await pg.inner_text(ANN+'.inviteMsg'))
+      mt = await pg.evaluate('window.__mailto || ""')
+      print('invite mail address:', mt.split('?')[0], '| has subject and body:', 'subject=' in mt and 'body=' in mt)
+      if 'sam%40example.com' not in mt: errs.append('the invite did not open a mail to the address typed')
       print('rail:', (await pg.inner_text(ANN+'.rail')).replace('\n',' | ')[:260])
       print('who-to-follow hidden in demo:', not await pg.is_visible(ANN+'.rail .railcard.dbg'))
       await pg.evaluate("document.getElementById('pane').scrollTop=500"); await asyncio.sleep(.3)

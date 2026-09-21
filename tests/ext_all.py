@@ -24,7 +24,7 @@ async def main():
   async with async_playwright() as p:
     ctx=await p.chromium.launch_persistent_context(prof('prof3'),headless=True,executable_path=CHROME,
       args=[f'--disable-extensions-except={EXT}',f'--load-extension={EXT}',LOADEXT,'--autoplay-policy=no-user-gesture-required','--headless=new','--window-size=1100,900','--use-fake-ui-for-media-stream','--use-fake-device-for-media-stream'],no_viewport=True)
-    await ctx.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}")
+    await ctx.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}"); await ctx.add_init_script(NO_MAILTO)
     errs=[]
     ctx.on('weberror', lambda e: errs.append(str(e.error)))
     await ctx.route('https://www.youtube.com/**',yt_route)

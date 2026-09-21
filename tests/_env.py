@@ -15,6 +15,12 @@ CHROME = os.environ.get('ANNOTATED_CHROME') or None
 LOADEXT = '--disable-features=DisableLoadExtensionCommandLineSwitch'
 # Some podcast hosts refuse the HeadlessChrome user agent, so tests that reach real hosts pretend to be Chrome.
 REAL_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36'
+# An invite opens the computer's mail program, which puts a window on the screen of whoever is running the tests.
+# Tests add this so the invite is recorded on window.__mailto and nothing opens.
+NO_MAILTO = '''document.addEventListener("click", (e) => {
+  const a = e.target && e.target.closest && e.target.closest('a[href^="mailto:"]');
+  if (a) { e.preventDefault(); window.__mailto = a.getAttribute("href"); }
+}, true);'''
 def prof(name):
     # A fresh browser profile folder for one test.
     import shutil
