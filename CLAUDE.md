@@ -80,7 +80,19 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   and a whole paragraph or post passes at any length through `coversWholeBlock`.
 - **Articles and X**: `article-core.js` handles selection, the Annotate button, sentence snapping, the held
   highlight (cleared by clicking elsewhere or Escape), and screenshots. A selection inside a post on X becomes an
-  annotation of that post, with the selected words as its quote.
+  annotation of that post, with the selected words as its quote. The Annotate button only uses the margin beside
+  the passage when that margin is empty, checked with `elementFromPoint`, otherwise it sits above the first line.
+  Capturing a post again with nothing selected keeps the words the last capture quoted, remembered as words and
+  found again with `findText`, because a range drifts every time the page is marked and unmarked.
+- **The highlighter**: `highlightRange` wraps one word per `<mark>`, each word carrying the space after it, then
+  `shapeRun` gives every mark its line's width and offset so the gradient runs across the line rather than
+  restarting at each word, and caps the ends of each line. `sweep` then grows a layer behind each word with a
+  transform, staggered word by word. The transform matters. A stroke drawn by widening a background runs on the
+  page's own thread, the page is busy capturing at that moment, and the stroke arrived finished every time, which
+  is why three rounds of recordings showed no animation at all. The sweep runs on `fold-restore`, once the
+  screenshot has been taken, so the screenshot holds a finished stroke and the drawing happens when the page has
+  nothing else to do. Pale text on a dark page keeps the page's own colour until the pen reaches it (`hl-lit`,
+  then `hl-inked`).
 - **Local storage** (`store.js`): IndexedDB `annotated` version 2 with two stores. `annotations` holds everything
   including clips and screenshots. `meta` holds light copies (no files, a small `shotThumb`) for lists, feeds and
   duplicate checks. A change stamp in `chrome.storage` lets the panel skip rereads.

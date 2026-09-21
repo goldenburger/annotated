@@ -3,6 +3,7 @@
 //   adapter: { info() -> { ok, error, text, author, handle, posted, url }, capture() -> { ok, error, ..., image, clip, bounds, shotError } }
 //   opts: { log, onPublish(item, take) -> Promise<ref>, onView(ref), findDuplicate(item) -> ref|null, onMicBlocked }
 const PostPanel = (() => {
+  const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const fmtDate = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''; };
   let n = 0;
 
@@ -42,7 +43,14 @@ const PostPanel = (() => {
       <section class="pPublished" hidden></section>
       <div class="pNewSel" hidden role="status"><span>You selected new words on the page.</span><button type="button" class="primary sm pNewSelGo">Quote them in a new annotation</button></div>`;
     const q = (s) => root.querySelector(s);
-    q('.pQuoteX').addEventListener('click', () => { if (result) result.quote = ''; q('.pQuoteBox').hidden = true; });
+    // Removing the quote takes the stroke off the page as well. Leaving it there said the whole post was
+    // marked while the panel said nothing was quoted.
+    q('.pQuoteX').addEventListener('click', () => {
+      if (result) result.quote = '';
+      q('.pQuoteBox').hidden = true;
+      q('.resLabel').textContent = "You're annotating";
+      if (ad.clearCaptured) ad.clearCaptured();
+    });
     const status = PanelKit.status(q('.pStatus'), log);
     const compose = Compose.create(q('.pCompose'), {
       placeholder: 'What should people notice in this post?',
@@ -114,6 +122,8 @@ const PostPanel = (() => {
       result = { kind: 'post', text: r.text, author: r.author, handle: r.handle, posted: r.posted, url: r.url, id: r.id, shot: shot && shot.dataUrl, quote: r.quote || '', captured: Date.now() };
       q('.pQuoteBox').hidden = !result.quote;
       q('.pQuote').textContent = result.quote || '';
+      // This capture is the newest thing that happened, so any warning about other words is out of date.
+      q('.resLabel').textContent = "You're annotating";
       q('.pResult').hidden = false;
       q('.ctxthumb').hidden = !shot;
       if (shot) q('.shot').src = shot.dataUrl;
@@ -177,9 +187,11 @@ const PostPanel = (() => {
         const fresh = !!(sel && sel.state && sel.state !== 'empty');
         q('.pNewSel').hidden = !(published && fresh);
         // Before publishing, the capture below is about to be replaced, so say so rather than leave a stale quote
-        // sitting next to a fresh selection with no explanation.
-        if (result && !published) q('.resLabel').textContent = fresh
-          ? 'You selected new words. Capture the post again to quote them instead.'
+        // sitting next to a fresh selection with no explanation. Words that are already the quote are not new,
+        // and neither is the stroke left on the page by the capture itself.
+        const same = !fresh || norm(sel.text) === norm(result && result.quote);
+        if (result && !published) q('.resLabel').textContent = fresh && !same
+          ? 'You selected different words. Capture the post again to quote those instead.'
           : "You're annotating";
       },
     };

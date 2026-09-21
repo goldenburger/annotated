@@ -340,7 +340,7 @@ const article = ArticlePanel.create($('#articleMode'), {
       // html2canvas paints inline highlights badly, so render without them and draw the boxes from the real layout.
       const canvas = await html2canvas(root, {
         backgroundColor: getComputedStyle(pane).backgroundColor, scale: shotScale, logging: false,
-        onclone: (doc) => doc.querySelectorAll('mark.annotated-hl').forEach((m) => { m.style.background = 'transparent'; m.style.boxShadow = 'none'; m.style.color = 'inherit'; }),
+        onclone: (doc) => doc.querySelectorAll('mark.annotated-hl').forEach((m) => { m.classList.add('hl-off'); m.style.color = 'inherit'; }),
       });
       const sr = root.getBoundingClientRect();
       const g = canvas.getContext('2d');

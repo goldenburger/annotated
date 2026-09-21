@@ -12,28 +12,40 @@
   // The pens, with their colours written out. This sits on pages we do not own, so nothing here fades to
   // transparent, which would vanish on a dark page, and nothing uses a blend mode.
   const HI = '#FFE14A', DEEP = '#F2C600', LIFT = '#FFEE9E';
-  // background-image rather than the background shorthand. The shorthand resets background-size to auto, and
-  // with !important on it neither the longhand below nor the keyframes could ever widen the stroke.
+  // Each pen is a layer that sits behind one word. t and b are how far it reaches above and below the line,
+  // o is how far it runs past the first and last word, and the four radii are the corners of the stroke.
   const PENS = {
-    chisel: `background-image:linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)!important;padding:1px 5px 3px 3px!important;margin:0 -2px!important;border-radius:4px 11px 5px 12px!important`,
-    wet: `background-image:radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:3px 10px 4px 9px!important`,
-    twice: `background-image:linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)!important;padding:2px 6px 3px!important;margin:0 -3px!important;border-radius:5px 12px 6px 11px!important`,
-    streak: `background-image:repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})!important;padding:1px 6px 3px!important;margin:0 -3px!important;border-radius:4px 10px 5px 11px!important`,
-    flat: `background-image:linear-gradient(${HI},${HI})!important;padding:1px 2px!important;border-radius:2px!important;box-shadow:0 0 0 2px ${HI}!important`,
+    chisel: { img: `linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)`, t: -1, b: -3, o: 3, tl: 4, tr: 11, br: 5, bl: 12 },
+    wet: { img: `radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)`, t: -1, b: -3, o: 3, tl: 3, tr: 10, br: 4, bl: 9 },
+    twice: { img: `linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)`, t: -2, b: -3, o: 3, tl: 5, tr: 12, br: 6, bl: 11 },
+    streak: { img: `repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})`, t: -1, b: -3, o: 3, tl: 4, tr: 10, br: 5, bl: 11 },
+    flat: { img: `linear-gradient(${HI},${HI})`, t: -3, b: -3, o: 2, tl: 2, tr: 2, br: 2, bl: 2 },
   };
-  // The pen runs across the words once, per line, the first time the mark appears.
-  const DRAW = '@keyframes annotated-draw{from{background-size:0% 100%}to{background-size:100% 100%}}'
-    + '@media (prefers-reduced-motion:reduce){mark.annotated-hl{animation:none!important}}';
-  // A passage can land in more than one piece when the page splits its text. Only the ends of the run are
-  // capped, so the pieces between them butt together and read as one stroke.
-  const JOIN = 'mark.annotated-hl:not(.hl-a){border-top-left-radius:0!important;border-bottom-left-radius:0!important;'
-    + 'padding-left:0!important;margin-left:0!important}'
-    + 'mark.annotated-hl:not(.hl-z){border-top-right-radius:0!important;border-bottom-right-radius:0!important;'
-    + 'padding-right:0!important;margin-right:0!important}';
-  const penCss = (name) => `mark.annotated-hl{${PENS[name] || PENS.chisel};color:#1C2433!important;`
-    + 'background-repeat:no-repeat!important;background-size:100% 100%;'
-    + 'animation:annotated-draw .72s cubic-bezier(.45,.05,.25,1) both;'
-    + '-webkit-box-decoration-break:clone;box-decoration-break:clone}' + JOIN + DRAW;
+  // The pen runs across one word at a time. It is a transform on a layer, which the browser's compositor
+  // draws by itself. Widening a background instead put the stroke on the page's own thread, and the page is
+  // busy taking a screenshot at exactly that moment, so the stroke arrived finished and nobody ever saw it.
+  const SWEEP = '@keyframes annotated-sweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}'
+    + '@media (prefers-reduced-motion:reduce){mark.annotated-hl.hl-go::before{animation:none}}';
+  const penCss = (name) => {
+    const p = PENS[name] || PENS.chisel;
+    return 'mark.annotated-hl{background:none!important;color:#1C2433!important;position:relative!important;'
+      + 'isolation:isolate!important;padding:0!important;margin:0!important;border-radius:0!important;'
+      + 'text-shadow:none!important;text-decoration-color:currentColor}'
+      // Pale words on a dark page would go to ink before the pen reached them, so they keep the page's own
+      // colour until it does.
+      + 'mark.annotated-hl.hl-lit{color:inherit!important}'
+      + 'mark.annotated-hl.hl-lit.hl-inked{color:#1C2433!important}'
+      + `mark.annotated-hl::before{content:"";position:absolute;z-index:-1;pointer-events:none;left:0;right:0;`
+      + `top:${p.t}px;bottom:${p.b}px;background-image:${p.img};background-repeat:no-repeat;`
+      + 'background-size:var(--bw,100%) 100%;background-position:var(--bx,0) 0;transform-origin:left center}'
+      // A hair of overlap between words, so no seam shows where two layers meet.
+      + 'mark.annotated-hl:not(.hl-z)::before{right:-.6px}'
+      // Only the ends of the run are capped and run past the words. The pieces between butt together.
+      + `mark.annotated-hl.hl-a::before{left:-${p.o}px;border-top-left-radius:${p.tl}px;border-bottom-left-radius:${p.bl}px}`
+      + `mark.annotated-hl.hl-z::before{right:-${p.o}px;border-top-right-radius:${p.tr}px;border-bottom-right-radius:${p.br}px}`
+      + 'mark.annotated-hl.hl-go::before{animation:annotated-sweep var(--sw,160ms) cubic-bezier(.32,.62,.45,1) var(--d,0ms) both}'
+      + SWEEP;
+  };
   // The faint one while you are still dragging uses the browser's own highlight API, which takes a colour and
   // nothing else, so it stays flat whichever pen is chosen.
   // What would be taken if you captured now. A paler tint of the same yellow with the same ink, so it reads
@@ -114,7 +126,7 @@
     switch (msg?.type) {
       case 'aping': reply({ ok: true }); return;
       case 'pod-info': reply(podInfo()); return;
-      case 'clear-captured': ArticleCore.clearHighlights(document); reply({ ok: true }); return;
+      case 'clear-captured': ArticleCore.clearHighlights(document); page.forgetTaken(); reply({ ok: true }); return;
       case 'pod-seek': pod.seek(msg.t); reply({ ok: true }); return;
       case 'pod-preview': pod.preview(msg.start, msg.end); reply({ ok: true }); return;
       case 'pod-pause': pod.pause(); reply({ ok: true }); return;

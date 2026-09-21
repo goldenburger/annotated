@@ -364,6 +364,7 @@ function makePost(tid, url) {
   $('#postMode').appendChild(el);
   const api = PostPanel.create(el, {
     info: () => sendTo(tid, { type: 'p-info' }).catch(() => null),
+    clearCaptured: () => sendTo(tid, { type: 'clear-captured' }).catch(() => {}),
     async capture() {
       const r = await sendTo(tid, { type: 'capture-post' });
       if (!r || !r.ok) return r || { ok: false };

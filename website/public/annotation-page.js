@@ -665,7 +665,7 @@ const AnnotationPage = (() => {
   // Home shows everything on annotated, your profile shows yours, and a tag shows one tag. Follows need accounts.
   // social (optional): { you, people, trending, onFollow, onPerson, personStats, followsPerson,
   //   tabs: { current: 'foryou' | 'following' | 'everyone', onTab, note } } for the home feed's tabs.
-  function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile }) {
+  function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null }) {
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll });
     // Most discussed: comments and reactions together, newest first on ties.
@@ -687,7 +687,11 @@ const AnnotationPage = (() => {
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
                <div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${social && social.personStats ? social.personStats.followers : 0}</span> follower${social && social.personStats && social.personStats.followers === 1 ? '' : 's'}, ${social && social.personStats ? social.personStats.following : 0} following</div>
-               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
+               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
+               ${onDeleteAll && !person && records.length ? `<div class="delAll"><button type="button" class="link delAllOpen">Delete all your annotations</button>
+                 <div class="delAllAsk" hidden role="alertdialog"><p>${plural(records.length, 'annotation')} will be deleted${(() => { const n = records.filter((r) => r.cloud || r.author).length; return n ? `, including ${n} published for everyone` : ''; })()}. This cannot be undone.</p>
+                   <div class="row"><button type="button" class="ghost sm delAllNo">Keep them</button><button type="button" class="primary sm delAllYes">Delete ${plural(records.length, 'annotation')}</button></div>
+                   <p class="note delAllMsg" role="status"></p></div></div>` : ''}`
             : `<h1>Home</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
@@ -710,7 +714,9 @@ const AnnotationPage = (() => {
           const range = `${fmt(it.start, brief)} to ${fmt(it.end, brief)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
           const snippet = it.kind === 'video' ? `YouTube${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
             : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
-            : it.kind === 'post' ? (it.text ? `"${cut(it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
+            // The words the person picked out are the point of the annotation, so the card shows those and
+            // falls back to the post itself only when the whole post was taken.
+            : it.kind === 'post' ? ((it.quote || it.text) ? `"${cut(it.quote || it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
           const srcTitle = it.kind === 'post' ? `${it.author}${it.handle ? ' ' + it.handle : ''}` : it.kind === 'article' && it.meta.site ? `${it.meta.site}: ${titleOf(it)}` : titleOf(it);
           const playable = (it.kind === 'video' || it.kind === 'audio') && (it.blob || it.mediaUrl || it.hasMedia);
           // Stats row: reactions, poll and comments, each only when there is something to count.
@@ -733,6 +739,21 @@ const AnnotationPage = (() => {
           </li>`;
         }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`}</ul>`;
       rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
+      // Deleting everything at once, rather than opening each annotation to delete it. Two steps, because it
+      // cannot be undone, and the second one says how many and how many of them other people can see.
+      const dOpen = main.querySelector('.delAllOpen');
+      if (dOpen) {
+        const ask = main.querySelector('.delAllAsk'), msg = main.querySelector('.delAllMsg');
+        dOpen.addEventListener('click', () => { ask.hidden = false; dOpen.hidden = true; main.querySelector('.delAllNo').focus(); });
+        main.querySelector('.delAllNo').addEventListener('click', () => { ask.hidden = true; dOpen.hidden = false; dOpen.focus(); });
+        main.querySelector('.delAllYes').addEventListener('click', async (e) => {
+          const b = e.currentTarget; b.disabled = true; b.textContent = 'Deleting';
+          try {
+            const failed = await onDeleteAll((done, total) => { msg.textContent = `Deleted ${done} of ${total}.`; });
+            if (failed && failed.length) msg.textContent = `${plural(failed.length, 'annotation')} could not be deleted. ${failed[0]}`;
+          } catch (err) { b.disabled = false; b.textContent = 'Delete them'; msg.textContent = 'Nothing was deleted. ' + (err.message || ''); }
+        });
+      }
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));

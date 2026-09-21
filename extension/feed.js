@@ -61,6 +61,21 @@
       onAll: () => { location.hash = ''; },
       onHome: () => { location.hash = ''; },
       onProfile: () => { location.hash = 'profile'; },
+      // Deleting one at a time meant opening every annotation and coming back. This deletes the whole list.
+      // A published one goes from the database and the media bucket first, so nothing is left online.
+      onDeleteAll: mineOnly ? async (progress) => {
+        const all = records.slice(), failed = [];
+        let done = 0;
+        for (const r of all) {
+          if ((r.cloud || r.author) && me) {
+            try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+          }
+          await Store.del(r.id).catch(() => {});
+          progress(++done, all.length);
+        }
+        await load();
+        return failed;
+      } : null,
     });
   };
   window.addEventListener('hashchange', load);

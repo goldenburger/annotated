@@ -70,6 +70,9 @@ var ArticleCore = (() => {
     while (nodes.length && !nodes[nodes.length - 1].nodeValue.trim()) nodes.pop();
 
     const marks = [];
+    // One word to a mark, each word carrying the space after it so no gap opens between them. The pen that
+    // draws the stroke is placed over one mark, and a single word never breaks across two lines, so every
+    // stroke covers exactly one rectangle and can be drawn by the compositor.
     for (const n of nodes) {
       let node = n;
       let start = n === range.startContainer ? range.startOffset : 0;
@@ -77,15 +80,75 @@ var ArticleCore = (() => {
       if (start >= end) continue;
       if (end < node.nodeValue.length) node.splitText(end);
       if (start > 0) node = node.splitText(start);
-      const mk = document.createElement('mark');
-      mk.className = 'annotated-hl';
-      node.parentNode.insertBefore(mk, node);
-      mk.appendChild(node);
-      marks.push(mk);
+      const parts = node.nodeValue.match(/\S+\s*|\s+/g) || [];
+      let piece = node;
+      for (let i = 0; i < parts.length; i++) {
+        const rest = i < parts.length - 1 ? piece.splitText(parts[i].length) : null;
+        const mk = document.createElement('mark');
+        mk.className = 'annotated-hl';
+        piece.parentNode.insertBefore(mk, piece);
+        mk.appendChild(piece);
+        marks.push(mk);
+        if (rest) piece = rest;
+      }
     }
-    // Only the ends of the run are capped, so pieces in the middle butt together as one stroke.
-    if (marks.length) { marks[0].classList.add('hl-a'); marks[marks.length - 1].classList.add('hl-z'); }
+    // A stroke that starts or ends on a space hangs off the words into empty paper.
+    const unwrap = (mk) => { const par = mk.parentNode; while (mk.firstChild) par.insertBefore(mk.firstChild, mk); par.removeChild(mk); };
+    while (marks.length && !marks[0].textContent.trim()) unwrap(marks.shift());
+    while (marks.length && !marks[marks.length - 1].textContent.trim()) unwrap(marks.pop());
+    shapeRun(marks);
     return marks;
+  }
+
+  // The words are marked one at a time, but the ink is one stroke. Each word's pen layer is given the width
+  // of its whole line and pushed sideways, so the gradient runs across the line instead of starting again at
+  // every word. Each line is capped at its own ends, the way a highlighter lifts at the end of a line.
+  function shapeRun(marks) {
+    if (!marks.length) return;
+    const boxes = marks.map((m) => m.getBoundingClientRect());
+    let i = 0;
+    while (i < marks.length) {
+      let j = i;
+      while (j + 1 < marks.length && Math.abs(boxes[j + 1].top - boxes[i].top) < 2) j += 1;
+      const x0 = boxes[i].left, wide = Math.max(1, boxes[j].right - x0);
+      for (let k = i; k <= j; k++) {
+        marks[k].style.setProperty('--bw', Math.round(wide) + 'px');
+        marks[k].style.setProperty('--bx', -Math.round(boxes[k].left - x0) + 'px');
+        marks[k].classList.remove('hl-a', 'hl-z');
+      }
+      marks[i].classList.add('hl-a');
+      marks[j].classList.add('hl-z');
+      i = j + 1;
+    }
+  }
+
+  // Draw the stroke on, word by word. The pen is a layer behind each word that grows from nothing to full
+  // width, which the compositor can do on its own. A stroke animated on the page's own thread is skipped
+  // whenever that thread is busy, and capturing keeps it busy, which is why the stroke used to arrive finished.
+  function sweep(marks) {
+    if (!marks || !marks.length) return;
+    const n = marks.length;
+    const total = Math.min(900, 260 + n * 45);
+    const per = Math.min(230, Math.max(110, Math.round(total * 0.45)));
+    const step = n > 1 ? (total - per) / (n - 1) : 0;
+    // Pale text on a dark page would be invisible the moment it turns to ink, before the pen reaches it.
+    // Those words keep the page's own colour and turn as the pen passes them.
+    let lit = false;
+    try {
+      const par = marks[0].parentElement;
+      const m = par && getComputedStyle(par).color.match(/\d+/g);
+      if (m) lit = (0.299 * +m[0] + 0.587 * +m[1] + 0.114 * +m[2]) / 255 > 0.55;
+    } catch { /* the page moved on */ }
+    marks.forEach((mk, i) => {
+      const at = Math.round(i * step);
+      mk.style.setProperty('--d', at + 'ms');
+      mk.style.setProperty('--sw', per + 'ms');
+      mk.classList.add('hl-go');
+      if (lit) {
+        mk.classList.add('hl-lit');
+        setTimeout(() => mk.classList.add('hl-inked'), at + Math.round(per * 0.55));
+      }
+    });
   }
 
   function clearHighlights(root = document, keep = []) {
@@ -279,7 +342,7 @@ var ArticleCore = (() => {
     return r.collapsed ? null : r;
   }
 
-  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MIN_EXACT, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, clearHighlights, unionRect, fragmentUrl, extractMeta };
+  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MIN_EXACT, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, shapeRun, sweep, clearHighlights, unionRect, fragmentUrl, extractMeta };
 })();
 
 
@@ -317,6 +380,21 @@ var ArticlePage = (() => {
     moreBtn.addEventListener('click', () => { setExact(false); moreBtn.hidden = true; });
     const hideButton = () => { host.style.display = 'none'; };
 
+    // Is that patch of margin empty? A wide page can have another column sitting in it, and on X the button
+    // landed on the navigation beside the post, which read as part of X rather than as part of the passage.
+    function clearSpace(x, y, w, h, blockEl) {
+      const was = host.style.display;
+      host.style.display = 'none';
+      let free = true;
+      for (const [px, py] of [[x + 4, y + h / 2], [x + w - 4, y + h / 2], [x + w / 2, y + 4], [x + w / 2, y + h - 4]]) {
+        const el = document.elementFromPoint(px, py);
+        // Empty means the page itself, or something the passage sits inside, is all that is under the point.
+        if (!el || !(el === document.body || el === document.documentElement || el.contains(blockEl))) { free = false; break; }
+      }
+      host.style.display = was;
+      return free;
+    }
+
     // Put the button in the margin beside the passage so it never covers text.
     // Falls back to above the first line, then below the last line.
     function positionButton(range, d) {
@@ -327,10 +405,12 @@ var ArticlePage = (() => {
       if (!first) return hideButton();
       host.style.display = 'block';
       const bw = host.offsetWidth || 110, bh = host.offsetHeight || 32, W = window.innerWidth, H = window.innerHeight;
-      const block = ArticleCore.blockOf(range.startContainer).getBoundingClientRect();
+      const blockEl = ArticleCore.blockOf(range.startContainer);
+      const block = blockEl.getBoundingClientRect();
+      const mid = first.top + (first.height - bh) / 2;
       let x, y;
-      if (block.left - bw - 14 >= 8) { x = block.left - bw - 14; y = first.top + (first.height - bh) / 2; }
-      else if (block.right + bw + 14 <= W - 8) { x = block.right + 14; y = first.top + (first.height - bh) / 2; }
+      if (block.left - bw - 14 >= 8 && clearSpace(block.left - bw - 14, mid, bw, bh, blockEl)) { x = block.left - bw - 14; y = mid; }
+      else if (block.right + bw + 14 <= W - 8 && clearSpace(block.right + 14, mid, bw, bh, blockEl)) { x = block.right + 14; y = mid; }
       else if (first.top - bh - 8 >= 8) { x = first.left; y = first.top - bh - 8; }
       else { x = lastR.left; y = lastR.bottom + 8; }
       host.style.left = Math.max(8, Math.min(W - bw - 8, x)) + 'px';
@@ -451,6 +531,9 @@ var ArticlePage = (() => {
       const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(ArticleCore.rangeText(range));
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
+      // The stroke is drawn on afterwards, once the screenshot is taken and the page has nothing else to do.
+      // The screenshot itself wants it finished, which is how it is until the sweep starts.
+      taken = range.cloneRange();
       pinned = null; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
       if (postEl) unfold(postEl);
@@ -510,25 +593,45 @@ var ArticlePage = (() => {
     // The words picked inside one element (a post on X), then the highlight is cleared so screenshots stay clean.
     // Snapped to whole sentences the same way a passage is, so the quote matches the highlight drawn on the page.
     let taken = null;
+    // What the last capture quoted, kept as words rather than as a place in the page. A range drifts every
+    // time the words around it are split and put back together, which is what marking and unmarking does.
+    let lastText = '';
     // Draws the highlight over the words a post capture quoted. The screenshot is taken without it, so this runs
     // afterwards and gives a captured post the same mark a captured passage gets.
     function paintTaken() {
       if (!taken) return;
-      try { ArticleCore.clearHighlights(document, ArticleCore.highlightRange(taken)); } catch { /* the page moved on */ }
+      try {
+        const marks = ArticleCore.highlightRange(taken);
+        ArticleCore.clearHighlights(document, marks);
+        ArticleCore.sweep(marks);
+      } catch { /* the page moved on */ }
       taken = null;
     }
     function takeWithin(el) {
+      // Any earlier stroke comes off first, so the screenshot shows this capture and nothing before it.
       const raw = currentRange();
       const d = raw ? evaluate(raw) : null;
       const picked = (d && d.range) || raw;
-      const r = picked ? ArticleCore.expandToWords(picked.cloneRange()) : null;
+      let r = picked ? ArticleCore.expandToWords(picked.cloneRange()) : null;
+      // Nothing selected, but this post was captured with a quote a moment ago. Capturing again keeps it
+      // rather than quietly falling back to the whole post.
+      if (!r && lastText) { const back = ArticleCore.findText(el, lastText); if (back) r = back; }
+      if (r && !inside(r, el)) r = null;
       let text = '';
       pendingAnnotate = false;
-      taken = r && el.contains(r.commonAncestorContainer) ? r.cloneRange() : null;
-      if (r && el.contains(r.commonAncestorContainer)) text = ArticleCore.rangeText(r).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      if (r) text = ArticleCore.rangeText(r).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
       clear();
+      try { ArticleCore.clearHighlights(document); } catch { /* the page moved on */ }
+      // Reading the words again after the strokes came off catches a range the tidying moved.
+      if (r && ArticleCore.norm(ArticleCore.rangeText(r)) !== ArticleCore.norm(text)) {
+        const again = ArticleCore.findText(el, text);
+        r = again || r;
+      }
+      taken = r;
+      lastText = text;
       return text;
     }
+    const inside = (r, el) => { try { return el.contains(r.commonAncestorContainer); } catch { return false; } };
     // The post on X that holds the current selection, if any (a reply on a post page, say).
     function selectedPost() {
       const r = currentRange();
@@ -536,7 +639,10 @@ var ArticlePage = (() => {
       const n = r.commonAncestorContainer;
       return (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
     }
-    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, paintTaken, selectedPost, unfold, refold, destroy };
+    // Taking the stroke off the page also drops the words it stood for, so capturing again does not bring
+    // back a quote the person just removed.
+    function forgetTaken() { taken = null; lastText = ''; }
+    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, paintTaken, forgetTaken, selectedPost, unfold, refold, destroy };
   }
   return { create };
 })();

@@ -82,7 +82,17 @@
     const social = soc ? { ...soc, you: youOf(soc, me && me.id === p.id ? records.length : 0) } : null;
     if (social && !person) { social.onFollow = null; social.personStats = soc.personStats; }
     document.title = `${p.display_name || p.handle} | annotated`;
-    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, ...nav });
+    const deleteAll = me && me.id === p.id ? async (progress) => {
+      const all = records.slice(), failed = [];
+      let done = 0;
+      for (const r of all) {
+        try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+        progress(++done, all.length);
+      }
+      if (!failed.length) location.reload();
+      return failed;
+    } : null;
+    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav });
     headerAccount();
     if (me && me.id === p.id) {
       const out = document.createElement('button');

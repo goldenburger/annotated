@@ -1204,7 +1204,7 @@ body.signedOut .pubSignIn { display: block; }
 :root[data-pen="flat"] .annCard .take::after { background: linear-gradient(var(--hi), var(--hi)); }
 /* Swatches in the settings menu, drawn with the same pens. */
 .penRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
-.penRow button { flex: 1 1 78px; display: grid; gap: 5px; justify-items: center; padding: 7px 6px 6px; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); cursor: pointer; font: 500 11px/1.2 var(--sans); color: var(--ink-2); }
+.penRow button { flex: 1 1 78px; display: grid; gap: 5px; justify-items: center; padding: 7px 6px 6px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet); cursor: pointer; font: 500 11px/1.2 var(--sans); color: var(--ink-2); }
 .penRow button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); }
 .penRow .penInk { width: 100%; height: 13px; }
 .penRow .penInk.chisel { background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%); border-radius: 4px 11px 5px 12px; }
@@ -1212,3 +1212,14 @@ body.signedOut .pubSignIn { display: block; }
 .penRow .penInk.twice { background: linear-gradient(101deg, var(--hi-lift) 0 18%, var(--hi) 34% 70%, var(--hi-deep) 78%, var(--hi) 100%); border-radius: 5px 12px 6px 11px; }
 .penRow .penInk.streak { background: repeating-linear-gradient(94deg, transparent 0 11px, var(--hi-lift) 11px 13px, transparent 13px 27px), linear-gradient(180deg, var(--hi-lift), var(--hi) 46%, var(--hi-deep)); border-radius: 4px 10px 5px 11px; }
 .penRow .penInk.flat { background: linear-gradient(var(--hi), var(--hi)); border-radius: 2px; }
+
+/* Delete all your annotations, on your own profile. Quiet until you ask for it, then it says what it will do. */
+.delAll { margin: 10px 0 0 }
+.delAll .delAllOpen { color: var(--ink-3); font-size: var(--t-s) }
+.delAll .delAllOpen:hover { color: var(--red) }
+.delAllAsk { margin: 8px 0 0; padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet); max-width: 460px }
+.delAllAsk p { margin: 0 0 10px; font-size: var(--t-m) }
+.delAllAsk .row { display: flex; gap: 8px }
+.delAllAsk .delAllYes { background: var(--red); border-color: var(--red) }
+.delAllAsk .delAllMsg:empty { display: none }
+.delAllAsk .delAllMsg { margin: 10px 0 0 }
