@@ -206,7 +206,12 @@ const Cloud = (() => {
     return {
       foryou: { records: forYou(records, { followed: soc.followed, myTags, mySources, myId: me && me.id }), note: 'Picked for you: newer and more discussed first, with a lift for people you follow and the tags and sources you annotate.' },
       following: { records: records.filter((r) => r.author && soc.followed.has(r.author.id)), note: soc.followed.size ? `Annotations from the ${soc.followed.size === 1 ? 'person' : soc.followed.size + ' people'} you follow.` : 'Follow people to see their annotations here.' },
-      everyone: { records, note: `${records.length} annotation${records.length === 1 ? '' : 's'} from everyone, newest first.` },
+      // Everyone means what everyone published. Annotations saved only on this computer are in nobody else's
+      // feed, so counting them here told you the site held things it did not.
+      everyone: (() => {
+        const out = records.filter((r) => r.cloud || r.author);
+        return { records: out, note: `${out.length} annotation${out.length === 1 ? '' : 's'} from everyone, newest first.` };
+      })(),
     };
   }
 

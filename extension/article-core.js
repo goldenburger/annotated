@@ -1,6 +1,6 @@
 // Passage highlighting and metadata. Shared by the extension content script and the preview.
 // No extension APIs in here.
-const ArticleCore = (() => {
+var ArticleCore = (() => {
   const MIN_CHARS = 40;
   const MAX_CHARS = 1200;
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
@@ -273,7 +273,7 @@ const ArticleCore = (() => {
 // Page-side controller for article passages: tracks the selection, expands it to whole sentences by default,
 // holds on to the last good one, shows the floating Annotate button, and captures.
 // Shared by the extension content script and the preview.
-const ArticlePage = (() => {
+var ArticlePage = (() => {
   function create({ root, metaRoot, loc, send, scrollBy, viewport, buttonEnabled = () => true }) {
     let pinned = null, exact = false, last = { state: 'empty' }, pendingAnnotate = false, timer = null;
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));

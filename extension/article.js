@@ -1,7 +1,10 @@
 // Content script for any non-YouTube page. Wires the shared ArticlePage controller to extension messaging.
 (() => {
-  if (window.__annotatedArticle) return;
-  window.__annotatedArticle = true;
+  // Reloading the extension leaves an older copy of this script on the page with a dead connection. The newest
+  // copy claims the page and the older one stays quiet, so the panel works again without reloading the page.
+  const mine = {};
+  window.__annotatedArticle = mine;
+  const orphaned = () => window.__annotatedArticle !== mine;
   const style = document.createElement('style');
   style.textContent = 'mark.annotated-hl{background:#FFE14A!important;color:#1C2433!important;border-radius:2px;box-shadow:0 0 0 2px #FFE14A!important}' +
     '::highlight(annotated-pending){background-color:rgba(255,225,74,.55);color:inherit}';
@@ -74,6 +77,7 @@
   }
 
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
+    if (orphaned()) return;
     switch (msg?.type) {
       case 'aping': reply({ ok: true }); return;
       case 'pod-info': reply(podInfo()); return;

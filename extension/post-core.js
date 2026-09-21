@@ -1,6 +1,6 @@
 // X (Twitter) posts: finds the main post on a status page and reads it. Page side, no extension APIs.
 // Shared by the extension content script and the preview, which uses the same data-testid markers.
-const PostCore = (() => {
+var PostCore = (() => {
   const isStatusUrl = (u) => { try { const x = new URL(u); return /(^|\.)(x|twitter)\.com$/.test(x.hostname) && /\/status\/\d+/.test(x.pathname); } catch { return false; } };
   const statusId = (u) => { const m = String(u).match(/\/status\/(\d+)/); return m ? m[1] : null; };
 

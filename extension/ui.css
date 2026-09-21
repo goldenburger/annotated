@@ -1178,3 +1178,8 @@ body.signedOut .pubSignIn { display: block; }
 
 /* While a handle is being dragged its time bubble would sit on top of the scale below the track. */
 .track[data-drag] + .scale { visibility: hidden; }
+
+/* Saved here and nowhere else. Says so wherever it sits next to things that are published. */
+.localTag { display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--rule); border-radius: 999px; background: var(--newsprint); color: var(--ink-soft); font: 500 11px/1.6 var(--sans); vertical-align: middle; white-space: nowrap; }
+/* A feed reloading after a tab change, so the old list does not read as the new tab's answer. */
+.busy .cards, .busy .feedSortRow { opacity: .35; pointer-events: none; }

@@ -1,7 +1,7 @@
 // Records a segment of a <video> at 240p, or of an <audio> player as sound only. Page side, no extension APIs.
 // ClipEngine.create({ getVideo, adShowing, meta, send, audioOnly }) where send(msg) delivers
 // capture-progress, capture-done (with a Blob) and capture-error messages.
-const ClipEngine = (() => {
+var ClipEngine = (() => {
   const MAX_CLIP = 90, TARGET_H = 240;
   const MIMES = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   const AUDIO_MIMES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];

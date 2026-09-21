@@ -511,6 +511,7 @@ async function refresh() {
       annKey = key;
       const records = await Store.allMeta().catch(() => []);
       const curId = tab.url.includes('annotation.html#') ? decodeURIComponent(tab.url.split('#')[1]) : null;
+      const who = await Backend.profile().catch(() => null);
       AnnotationPage.renderSide($('#annMode'), {
         current: records.find((r) => r.id === curId) || null, records,
         permalinkOf: (id) => { const r = records.find((x) => x.id === id); return Backend.permalink(id, r && r.author && r.author.handle); },
@@ -518,6 +519,18 @@ async function refresh() {
         onOpen: (id) => openExtPage('annotation.html#' + id),
         onFeed: () => openExtPage('feed.html#profile'),
         onDelete: (id) => deleteAnnotation(id),
+        // Publishing without leaving the panel. The annotation page offers the same thing.
+        onPublishNow: who ? async (id) => {
+          const full = await Store.get(id);
+          if (!full) throw new Error('That annotation is no longer saved here.');
+          const author = await Cloud.publish(id, full.item, full.take);
+          if (!author) throw new Error('Sign in first.');
+          await Store.update(id, { cloud: true, author });
+          await Cloud.carryOver(id, author.id, full.comments || [], full.reactions || [])
+            .catch((e) => log('The annotation is shared, but its earlier comments did not copy over. ' + e.message));
+          annKey = null;
+          refresh();
+        } : null,
       });
       return;
     }

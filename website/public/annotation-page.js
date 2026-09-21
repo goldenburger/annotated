@@ -137,6 +137,8 @@ const AnnotationPage = (() => {
   }
   // Only your own. A feed or a shared list also holds other people's annotations.
   const mineCount = (records) => records.filter((r) => r.mine || !r.author).length;
+  // Saved on this computer and nowhere else, so nobody else's feed has it.
+  const onlyHere = (r) => !r.cloud && !r.author;
   function railYou(stats) {
     return `<section class="railcard"><div class="who">${av('')}<div><div class="name">${esc(me.name)} <span class="uname">${esc(meHandle())}</span></div>
       <div class="stats">${statsLine(stats)}</div></div></div></section>`;
@@ -704,7 +706,8 @@ const AnnotationPage = (() => {
           const thumb = safeImg(it.kind === 'video' ? it.poster : it.kind === 'audio' ? (it.artwork || it.poster) : it.kind === 'post' ? null : (it.meta.image || it.shotThumb || it.shot));
           // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
           const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
-          const range = `${fmt(it.start)} to ${fmt(it.end)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
+          const brief = (it.end - it.start) < 10;
+          const range = `${fmt(it.start, brief)} to ${fmt(it.end, brief)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
           const snippet = it.kind === 'video' ? `YouTube${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
             : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
             : it.kind === 'post' ? (it.text ? `"${cut(it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
@@ -719,7 +722,7 @@ const AnnotationPage = (() => {
           if (r.take.voice) stats.push(`<span class="fStat" aria-label="Voice note">${Brand.icon('mic')}Voice</span>`);
           return `<li class="cardItem"><button type="button" class="card ${thumb ? '' : 'nothumb'}" data-id="${esc(r.id)}">
             <span class="cbody">
-              <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}</span>
+              <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(r.take.text || (r.take.voice ? 'Voice note' : ''))}</span>
               <span class="csource">${kindIcon(it)}<span><span class="cst">${esc(srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
@@ -728,7 +731,7 @@ const AnnotationPage = (() => {
           </button>
           ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt=""><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
-        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${{ all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`}</ul>`;
+        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`}</ul>`;
       rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
@@ -767,7 +770,7 @@ const AnnotationPage = (() => {
 
   // Side panel view while an annotation page is the active tab: share tools and your other annotations.
   // localAware: the extension knows which annotations are only saved locally. The preview does not.
-  function renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete, localAware = false }) {
+  function renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware = false }) {
     const list = records.slice().sort((a, b) => b.created - a.created);
     const statsOf = (r) => {
       const nC = (r.comments || []).length, nR = reactTotal(r.reactions), bits = [];
@@ -784,7 +787,8 @@ const AnnotationPage = (() => {
         ${statsOf(current)}
         ${!localAware || current.cloud || current.author ? `<div class="row"><button type="button" class="ghost sm sideCopy">${Brand.icon('link')} <span>Copy link</span></button>
           <a class="ghost sm" target="_blank" rel="noopener" href="${xUrl(current.item, current.take, permalinkOf(current.id))}">${Brand.icon('x')} Post to X</a></div>`
-          : `<p class="note snLocal">${Brand.icon('info')} Only on this computer, so there is no link to share yet.</p>`}
+          : `<p class="note snLocal">${Brand.icon('info')} Only on this computer, so there is no link to share yet.</p>
+          ${onPublishNow ? '<p class="row"><button type="button" class="strong sm sidePub">Publish it now</button></p>' : ''}`}
         ${onDelete ? '<p class="sideDel"><button type="button" class="link sideDelBtn">Delete this annotation</button></p>' : ''}
       </section>` : ''}
       <div class="sideListHead"><h2>Your annotations</h2><button type="button" class="link sideFeed">Open your profile</button></div>
@@ -792,10 +796,15 @@ const AnnotationPage = (() => {
         const now = current && r.id === current.id;
         return `<li><button type="button" data-id="${esc(r.id)}" ${now ? 'aria-current="page"' : ''}>
           <span class="rlKind">${kindIcon(r.item)}</span>
-          <span class="rlText"><span class="rlTake">${esc(r.take.text || (r.take.voice ? 'Voice note' : 'Untitled'))}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
+          <span class="rlText"><span class="rlTake">${esc(r.take.text || (r.take.voice ? 'Voice note' : 'Untitled'))}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
           ${now ? '<span class="nowBadge">Viewing</span>' : ''}</button></li>`;
       }).join('')}</ul>
     </div>`;
+    const pub = container.querySelector('.sidePub');
+    if (pub) pub.addEventListener('click', async () => {
+      pub.disabled = true; pub.textContent = 'Publishing';
+      try { await onPublishNow(current.id); } catch (e) { pub.disabled = false; pub.textContent = 'Publish it now'; alert('Publishing failed. ' + (e.message || '')); }
+    });
     const cp = container.querySelector('.sideCopy');
     if (cp) cp.addEventListener('click', async () => {
       const lab = cp.querySelector('span');

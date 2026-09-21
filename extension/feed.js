@@ -41,15 +41,15 @@
       signIn,
       onPerson: (handle) => { Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.hash = 'user=' + encodeURIComponent(data.id); }); },
     });
-    const social = { ...soc, you: me && soc.youCounts ? { annotations: records.filter((r) => r.mine || !r.author).length, ...soc.youCounts } : null };
+    const social = { ...soc, you: me && soc.youCounts ? { annotations: records.filter((r) => r.mine).length, ...soc.youCounts } : null };
     if (mode === 'home' && !tag) {
       const tabs = Cloud.homeTabs(records, soc, me, records.filter((r) => r.mine || !r.author));
       const cur = tabs[tab] ? tab : 'foryou';
       records = tabs[cur].records;
-      social.tabs = { current: cur, note: tabs[cur].note, onTab: (k) => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch {} load(); } };
+      social.tabs = { current: cur, note: tabs[cur].note, onTab: (k) => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch {} el.classList.add('busy'); load(); } };
     }
     document.title = tag ? `${tag} | annotated` : person ? `${person.name} | annotated` : mode === 'profile' ? 'You | annotated' : 'annotated';
-    el.className = '';
+    el.className = '';   // also clears the busy mark a tab switch puts there
     AnnotationPage.renderFeed(el, {
       records, tag, mode, person, social,
       getMedia: async (id) => { const r = await Store.get(id).catch(() => null); return r && r.item ? r.item.blob || null : null; },
