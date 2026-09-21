@@ -92,18 +92,64 @@ var ArticleCore = (() => {
         if (rest) piece = rest;
       }
     }
-    // A stroke that starts or ends on a space hangs off the words into empty paper.
-    const unwrap = (mk) => { const par = mk.parentNode; while (mk.firstChild) par.insertBefore(mk.firstChild, mk); par.removeChild(mk); };
-    while (marks.length && !marks[0].textContent.trim()) unwrap(marks.shift());
-    while (marks.length && !marks[marks.length - 1].textContent.trim()) unwrap(marks.pop());
     shapeRun(marks);
     return marks;
+  }
+
+  const unwrapMark = (mk) => { const par = mk.parentNode; if (!par) return; while (mk.firstChild) par.insertBefore(mk.firstChild, mk); par.removeChild(mk); };
+
+  // No mark may cross a line. The pen layer is laid over the whole mark, and a mark with a piece on two lines
+  // gives one box reaching from the end of one line to the start of the next, which showed up as a bar of ink
+  // hanging down the page. The space a line breaks on leaves the stroke, a word too long for its line is cut
+  // where the line turns, and whitespace that draws nothing at all comes out.
+  function fitToLines(marks) {
+    for (let pass = 0; pass < 4; pass++) {
+      let changed = false;
+      for (let i = 0; i < marks.length; i++) {
+        const mk = marks[i];
+        const t = mk.firstChild;
+        const blank = !mk.textContent.trim();
+        let rects = mk.getClientRects();
+        if (rects.length === 0 || (blank && rects.length > 1)) {
+          unwrapMark(mk); marks.splice(i, 1); i -= 1; changed = true; continue;
+        }
+        if (rects.length < 2 || !t || t.nodeType !== 3) continue;
+        const tail = t.nodeValue.match(/\s+$/);
+        if (tail && tail[0].length < t.nodeValue.length) {
+          mk.parentNode.insertBefore(t.splitText(t.nodeValue.length - tail[0].length), mk.nextSibling);
+          changed = true;
+          if (mk.getClientRects().length < 2) continue;
+        }
+        const str = t.nodeValue, r = document.createRange();
+        let top = null, cut = -1;
+        for (let k = 0; k < str.length; k++) {
+          r.setStart(t, k); r.setEnd(t, k + 1);
+          const b = r.getBoundingClientRect();
+          if (!b.width && !b.height) continue;
+          if (top === null) top = b.top;
+          else if (Math.abs(b.top - top) > 2) { cut = k; break; }
+        }
+        if (cut > 0 && cut < str.length) {
+          const next = document.createElement('mark');
+          next.className = 'annotated-hl';
+          mk.parentNode.insertBefore(next, mk.nextSibling);
+          next.appendChild(t.splitText(cut));
+          marks.splice(i + 1, 0, next);
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+    // A stroke that starts or ends on a space hangs off the words into empty paper.
+    while (marks.length && !marks[0].textContent.trim()) unwrapMark(marks.shift());
+    while (marks.length && !marks[marks.length - 1].textContent.trim()) unwrapMark(marks.pop());
   }
 
   // The words are marked one at a time, but the ink is one stroke. Each word's pen layer is given the width
   // of its whole line and pushed sideways, so the gradient runs across the line instead of starting again at
   // every word. Each line is capped at its own ends, the way a highlighter lifts at the end of a line.
   function shapeRun(marks) {
+    fitToLines(marks);
     if (!marks.length) return;
     const boxes = marks.map((m) => m.getBoundingClientRect());
     let i = 0;
@@ -149,6 +195,13 @@ var ArticleCore = (() => {
         setTimeout(() => mk.classList.add('hl-inked'), at + Math.round(per * 0.55));
       }
     });
+    // Each word being drawn gets its own layer in the browser's compositor. Once the stroke is down they are
+    // pure cost, so the drawing comes off and the finished stroke is left as ordinary paint.
+    setTimeout(() => marks.forEach((mk) => {
+      mk.classList.remove('hl-go');
+      mk.style.removeProperty('--d');
+      mk.style.removeProperty('--sw');
+    }), total + 120);
   }
 
   function clearHighlights(root = document, keep = []) {

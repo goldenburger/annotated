@@ -86,7 +86,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   found again with `findText`, because a range drifts every time the page is marked and unmarked.
 - **The highlighter**: `highlightRange` wraps one word per `<mark>`, each word carrying the space after it, then
   `shapeRun` gives every mark its line's width and offset so the gradient runs across the line rather than
-  restarting at each word, and caps the ends of each line. `sweep` then grows a layer behind each word with a
+  restarting at each word, and caps the ends of each line. Before that, `fitToLines` makes sure no mark has a
+  piece on two lines, because the pen is one box laid over the whole mark and a mark that wraps paints a bar of
+  ink hanging from one line to the next. X writes a post as one run of text with real newlines in it under
+  `white-space: pre-wrap`, which is where that shows up. `sweep` then grows a layer behind each word with a
   transform, staggered word by word. The transform matters. A stroke drawn by widening a background runs on the
   page's own thread, the page is busy capturing at that moment, and the stroke arrived finished every time, which
   is why three rounds of recordings showed no animation at all. The sweep runs on `fold-restore`, once the

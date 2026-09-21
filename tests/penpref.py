@@ -24,16 +24,19 @@ SWEEP = """async (a) => {
     const widthOf = (m) => { const t = getComputedStyle(m, '::before').transform;
       const g = t.match(/matrix\\(([-\\d.]+)/); return g ? Math.round(+g[1] * 100) : (t === 'none' ? 100 : -1); };
     const seen = marks.map(() => []);
-    const names = () => marks.map((m) => getComputedStyle(m, '::before').animationName);
     ArticleCore.sweep(marks);
+    // Read while the pen is still moving. The drawing is taken off the marks once the stroke is down, so
+    // reading this at the end would say nothing is being drawn, which is the point of taking it off.
+    const names = marks.map((m) => getComputedStyle(m, '::before').animationName);
+    const delays = marks.map((m) => m.style.getPropertyValue('--d'));
     const t0 = performance.now();
     // A timer rather than a frame callback, because a page nobody is looking at gets no frames.
     const id = setInterval(() => {
       marks.forEach((m, i) => seen[i].push(widthOf(m)));
       if (performance.now() - t0 > 1200) {
         clearInterval(id);
-        done({ words: marks.map((m) => m.textContent), names: names(),
-               delays: marks.map((m) => m.style.getPropertyValue('--d')),
+        done({ words: marks.map((m) => m.textContent), names,
+               delays, held: marks.filter((m) => m.classList.contains('hl-go')).length,
                steps: seen.map((s) => [...new Set(s)].length), first: seen.map((s) => s[0]), last: seen.map((s) => s[s.length - 1]),
                ends: marks.map((m) => [m.classList.contains('hl-a'), m.classList.contains('hl-z')]) });
       }
@@ -78,6 +81,9 @@ async def main():
     if min(r['first'])>25: errs.append(f'every word already stood at {min(r["first"])} percent on the first look')
     if min(r['last'])<100: errs.append('a word was left unfinished')
     if r['ends'][0]!=[True,False] or r['ends'][-1]!=[False,True]: errs.append('the caps are not on the ends of the run')
+    # The layer each word borrows from the compositor goes back once the stroke is down.
+    print('words still being drawn when it was over:',r['held'])
+    if r['held']: errs.append(f"{r['held']} words were still holding a compositor layer after the stroke was down")
 
     start=await pg.evaluate(INK)
     print('page starts with:',start)
