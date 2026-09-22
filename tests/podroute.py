@@ -59,6 +59,12 @@ async def main():
     print('an app with no player at all:',mode2)
     if not mode2['feed']: errs.append('an app with no player to read did not fall back to the feed')
     if "app's player" in mode2['note']: errs.append('the feed panel still blames the app rather than the player')
+    # And it says the true thing. iHeart records fine, so telling someone its player cannot be recorded when
+    # the episode simply has not started is both wrong and no help, because starting it is what they can do.
+    if 'cannot be recorded' in mode2['note']:
+        errs.append('the feed panel says the player cannot be recorded, which is not true of an app whose episode has not started')
+    if 'Nothing is playing' not in mode2['note']:
+        errs.append(f'the feed panel did not say why there is a search box: {mode2["note"][:90]!r}')
 
     print('errors:',errs)
     await ctx.close()

@@ -11,7 +11,7 @@ async def main():
     print('no scrollbar when content fits:', not await sb())
     print('bar tooltip only on grip:', await pg.eval_on_selector('.ffBar','e=>!e.hasAttribute("title")'), await pg.eval_on_selector('.ffGrip','e=>!!e.title'))
     V='#videoMode '; A='#articleMode '; ANN='.annpage:not([hidden]) '
-    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','42'); await pg.press(V+'.rEnd','Enter')
+    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','44'); await pg.press(V+'.rEnd','Enter')
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000); await asyncio.sleep(.6)
     print('no scrollbar in take step:', not await sb())
     h0=await pg.eval_on_selector('.ff','e=>e.getBoundingClientRect().height')

@@ -728,6 +728,12 @@ body.debug .status.quietOk { display: block; }
 .pubBar { position: sticky; bottom: -24px; z-index: 4; margin: 14px -16px -24px; padding: 10px 16px 14px; background: var(--paper); border-top: 1px solid var(--rule); box-shadow: 0 -8px 16px -14px rgba(0, 0, 0, .3); }
 .pubBar .publishHint { margin: 6px 0 0; }
 @media (max-width: 360px) { .pubBar { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } }
+/* The clip is at its shortest, so an end that will not move any further says why. */
+.rLen.floor { color: var(--warn-ink, #8a5a00); }
+.rFloor { margin: 4px 0 0; }
+/* A take box worth writing in. It stops well short of pushing Publish off the bottom of the panel. */
+.compose .takefield textarea { min-height: 132px; }
+
 /* Tooltips that also show on keyboard focus */
 .hasTip { position: relative; }
 .hasTip::after { content: attr(data-tooltip); position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 10; padding: 5px 8px; border-radius: 6px; background: var(--ink); color: var(--paper); font: 500 11.5px/1.2 var(--sans); white-space: nowrap; pointer-events: none; opacity: 0; transform: translateY(3px); transition: opacity .12s, transform .12s; }
@@ -1241,8 +1247,13 @@ body.signedOut .pubSignIn { display: block; }
 .delAllAsk .delAllMsg { margin: 10px 0 0 }
 
 /* A quote that begins or ends mid sentence. Said once, quietly, and it never stops you publishing. */
-.hint.frag { margin: 6px 0 0; color: var(--ink-3); font-size: var(--t-s); }
-.hint.frag::before { content: ""; display: inline-block; width: 3px; height: 1em; margin-right: 7px;
+/* A quote that is not a whole thought is the one line on that screen worth reading, so it is no longer the
+   faintest thing on it. */
+.frag { margin: 6px 0 0; color: var(--ink-soft); font-size: var(--t-s); font-weight: 500; }
+/* The quote's own buttons sit on a line of their own with room between them. Run together they read as one
+   sentence, "Use the whole sentence Remove the quote". */
+.quoteActs { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; }
+.frag::before { content: ""; display: inline-block; width: 3px; height: 1em; margin-right: 7px;
   vertical-align: -2px; border-radius: 2px; background: var(--hi-edge); }
 
 /* The second and third take on one source name it once. The quote below still differs on every card. */

@@ -158,6 +158,7 @@
       case 'set-snap': page.setSnap(msg.exact); reply({ ok: true }); return;
       case 'set-pen': style.textContent = penCss(msg.pen) + PENDING; reply({ ok: true }); return;
       case 'clear-selection': page.clear(); reply({ ok: true }); return;
+      case 'widen-quote': { const t = page.widen(!!msg.peek); reply({ ok: !!t, text: t || '' }); return; }
       case 'pin-and-annotate': page.requestAnnotate(); reply({ ok: true }); return;
       case 'p-info': {
         const r = PostCore.extract(document, location);

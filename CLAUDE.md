@@ -73,6 +73,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **The clip range**: a player goes on reporting the video you just left for a moment after a change, so a
   range read from it can sit outside the video that is now loaded. `videopanel.js` brings the range back
   inside as soon as the real length arrives, rather than trusting the length it had when the video changed.
+- **How short a clip can be**: `MIN` in `videopanel.js` is three seconds. It was one, and two clips in a row
+  in the recording of 2026-09-22 came out at exactly one second, because dragging an end until it stops is
+  silent. The handles still clamp there, and now the length turns amber and a line says it is as short as a
+  clip goes. Typed times keep the clip's previous length instead, so they cannot reach the floor at all.
 - **Video capture** (`capture-engine.js`): plays the range and records a 240p canvas with MediaRecorder, capped at
   90 seconds. Some browsers paint video frames blank on canvas, so it picks a method (canvas drawing or VideoFrame),
   rechecks every second, switches if frames go blank, and stops with a message if both are blank. The panel then
@@ -86,6 +90,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   boundaries with no re-encoding. An app whose player turns out to be unreadable falls back to the same place, and
   "Clip a podcast by name" reaches it from anywhere. Encrypted audio is never recorded, on purpose. Routing every
   app to the feed, which is what it used to do, meant searching for an episode that was already playing.
+  The feed picker says why it is there, and only a service that really encrypts its audio is told its player
+  cannot be recorded. An app with nothing playing is told that instead, because starting the episode is the
+  thing the person can actually do.
+- **A quote that starts or ends mid sentence** says so, and offers to grow it beside that line. `capture` and
+  `takeWithin` keep the range they used (`lastRange`), and `widen` holds those words again with sentence
+  snapping on, so the panel simply captures a second time. `widen(true)` peeks instead, which is how the
+  button knows to say **Use the whole post** rather than **Use the whole sentence** on a post with no full
+  stop in it, and how it stays hidden when growing the quote would change nothing. While the panel is doing
+  this it sets `widening`, because otherwise its own change reads as you selecting new words and the panel
+  says to capture again, which is the very thing already happening. It is still never a block, and a passage
+  that has moved too far says so rather than doing nothing.
 - **Selections**: what you select is what is captured. The sentence around it is offered, never assumed, through
   the link beside the quote, and that offer lasts for one capture. Anyone who wants sentences every time sets it in
   Display settings. Exact selections only have to clear `MIN_EXACT`, twelve characters, rather than `MIN_CHARS`,
@@ -157,13 +172,19 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   that picture to a bucket that is public by link. `tabShot` now refuses when the front tab is not the one
   being annotated, and the annotation is saved without a picture and says why. `shottab.py` proves it with a
   solid red decoy page, so the answer is in the pixels rather than in a message.
+- **On X the panel says what works there**: the timeline is not a story and it is not one post, so
+  `makeArticle` passes `xHost` and the empty state reads "Quote a post" with a line about selecting words
+  inside a post. Only a `/status/` address gets the post panel proper.
 - **Where things open**: annotated's own reading pages live in one tab. Home, a profile and every annotation
   move that tab (`openExtPage`), and leaving annotated, a source or a post on X, opens a tab of its own.
   Publishing stays where you are. The panel shows the published card with the link and View page, and Display
   settings offers Open the page for anyone who wants Jason's "go straight to the page" instead.
 - **The panel's own Home and profile**: `PanelKit.topLinks` puts them in the top bar in every mode, and they
-  read inside the panel through `AnnotationPage.renderBrowse` rather than taking a tab. `refresh` pauses while
-  the panel is browsing and Back resumes it, so a take in progress is untouched. "See all annotations" opens
+  read inside the panel through `AnnotationPage.renderBrowse` rather than taking a tab. Home holds only while
+  you are still on the page you opened it from (`browseFrom`), so a take in progress is never pulled out from
+  under you. Change tab, or let the page go somewhere else, and `refresh` drops browsing and comes back to
+  what you are looking at. Waiting for Back left the panel on a stale list for a whole minute in the recording
+  of 2026-09-22, including on a post it should have been offering to annotate. "See all annotations" opens
   the full page for what the panel is too narrow for. The pages inside the extension pass `siteNav: false`,
   because the panel beside them already carries Home and You; the website keeps its nav, having no panel.
   Deleting every annotation at once is offered both there and on the profile page, from one piece of code.

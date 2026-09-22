@@ -10,7 +10,7 @@ async def main():
     await pg.wait_for_selector('#videoMode:not([hidden]) .vTitle')
     V='#videoMode '; A='#articleMode '; ANN='.annpage:not([hidden]) '
     await pg.evaluate('document.getElementById("vid").currentTime=66'); await asyncio.sleep(.8); await pg.click(V+'.setStart')
-    await pg.evaluate('document.getElementById("vid").currentTime=68'); await asyncio.sleep(.8); await pg.click(V+'.setEnd')
+    await pg.evaluate('document.getElementById("vid").currentTime=70'); await asyncio.sleep(.8); await pg.click(V+'.setEnd')
     await asyncio.sleep(.6)
     print('zoom window:', (await pg.inner_text(V+'.scale')).replace('\n',' to '))
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)

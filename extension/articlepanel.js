@@ -20,8 +20,10 @@ const ArticlePanel = (() => {
       <section class="passage">
         <div class="emptyState selHint">
           ${PanelKit.illo('article')}
-          <p class="esTitle">Highlight a passage</p>
-          <p>Select a sentence or a few paragraphs in the story, then click Annotate beside it. Right-clicking the selection works too.</p>
+          <p class="esTitle">${opts.xHost ? 'Quote a post' : 'Highlight a passage'}</p>
+          <p>${opts.xHost
+            ? 'Select the words you want inside a post, then click Annotate beside them. The annotation is of that post and links back to it. Right-clicking the selection works too.'
+            : 'Select a sentence or a few paragraphs in the story, then click Annotate beside it. Right-clicking the selection works too.'}</p>
           ${opts.onFindPodcast ? `<p class="fpLinkRow">${Brand.icon('podcast')} <button type="button" class="link fpFind">Clip a podcast episode instead</button></p>` : ''}
           ${opts.pasteForm ? opts.pasteForm() : ''}
         </div>
@@ -37,7 +39,8 @@ const ArticlePanel = (() => {
       <section class="aResult result" hidden>
         <p class="resLabel">You're annotating</p>
         <blockquote class="quote capQuote"></blockquote>
-        <p class="hint frag aFrag" hidden></p>
+        <p class="frag aFrag" hidden></p>
+        <p class="quoteActs"><button type="button" class="link aFragFix" hidden>Use the whole sentence</button></p>
         <button type="button" class="quiet ctxthumb" aria-label="See the screenshot of the passage">${Brand.icon('image')} See screenshot<img class="shot" alt="" hidden></button>
         <div class="aStatus"></div>
       </section>
@@ -51,7 +54,8 @@ const ArticlePanel = (() => {
       log, onMicBlocked: opts.onMicBlocked,
       onPublish: opts.onPublish ? publish : null,
     });
-    let busy = false, result = null, lastSel = { state: 'empty' }, published = false;
+    let busy = false, result = null, lastSel = { state: 'empty' }, published = false, widening = false;
+    const norm = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
     PanelKit.setStep(root, 1);
     if (opts.switchTo) PanelKit.modeSwitch(root, 'text', opts.switchTo.onClick);
     if (opts.onFindPodcast) q('.fpFind').addEventListener('click', opts.onFindPodcast);
@@ -60,6 +64,21 @@ const ArticlePanel = (() => {
     q('.grab').addEventListener('click', grab);
     q('.selClear').addEventListener('click', () => ad.clear());
     q('.exactBtn').addEventListener('click', () => ad.setExact(q('.exactBtn').dataset.exact === '1'));
+    // Hold the same words again, grown to their sentence, then capture them. Nothing happens if the page
+    // has moved on far enough that the passage can no longer be found.
+    q('.aFragFix').addEventListener('click', async () => {
+      const b = q('.aFragFix');
+      if (!ad.widen || b.disabled) return;
+      b.disabled = true;
+      // The panel is about to change the words itself, so the watcher must not read that as you selecting
+      // something new and send the panel back to Capture to do what it is already doing.
+      widening = true;
+      const r = await ad.widen();
+      if (r && r.ok) await grab();
+      else { q('.selErr').textContent = 'That passage has moved, so select the sentence on the page.'; q('.selErr').hidden = false; }
+      widening = false;
+      b.disabled = false;
+    });
     q('.ctxthumb').addEventListener('click', () => {
       let dlg = document.getElementById('annotated-shot');
       if (!dlg) {
@@ -82,6 +101,7 @@ const ArticlePanel = (() => {
       PanelKit.setStep(root, 1);
     }
     function update(s) {
+      if (widening) return;
       if (busy || !s) return;
       lastSel = s;
       // After publishing, a new selection starts a fresh annotation.
@@ -164,6 +184,14 @@ const ArticlePanel = (() => {
       const frag = PanelKit.fragmentNote(r.text);
       q('.aFrag').textContent = frag;
       q('.aFrag').hidden = !frag;
+      // The note says what is wrong with the quote. This does something about it, in one click, rather than
+      // leaving you to find the passage and select it a second time. It is offered only when growing the
+      // quote would actually change it.
+      q('.aFragFix').hidden = true;
+      if (frag && ad.widen) {
+        const peek = await ad.widen(true).catch(() => null);
+        if (peek && peek.ok && norm(peek.text) !== norm(r.text)) q('.aFragFix').hidden = false;
+      }
       q('.ctxthumb').hidden = !shot;
       if (shot) q('.shot').src = shot.dataUrl;
 

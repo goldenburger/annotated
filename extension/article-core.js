@@ -413,6 +413,8 @@ var ArticleCore = (() => {
 var ArticlePage = (() => {
   function create({ root, metaRoot, loc, send, scrollBy, viewport, buttonEnabled = () => true }) {
     let pinned = null, exact = true, defaultExact = true, last = { state: 'empty' }, pendingAnnotate = false, timer = null;
+    // The range the last capture used, kept so the quote can be grown to its sentence without selecting again.
+    let lastRange = null;
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     // Floating button, in a shadow root so page styles cannot touch it.
@@ -632,6 +634,7 @@ var ArticlePage = (() => {
       const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(ArticleCore.rangeText(range));
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
+      lastRange = range.cloneRange();
       pinned = null; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
       if (postEl) unfold(postEl);
@@ -652,6 +655,28 @@ var ArticlePage = (() => {
       const post = postEl ? (() => { const { el, ...p } = PostCore.read(postEl, loc()); return p; })() : null;
       last = { state: 'empty' }; push();
       return { ok: true, text, meta, post, fragmentUrl: ArticleCore.fragmentUrl(meta.url || loc().href, text), clip, viewport: viewport(), marks };
+    }
+
+    // Hold the words that were captured again, grown to the sentence around them. The panel offers this
+    // beside the line that says the quote starts or ends in the middle of one, so the fix is one click
+    // rather than finding the passage and selecting it a second time.
+    // peek asks what the words would grow to without touching anything, so the panel can say whether the
+    // button gives you the sentence or the whole post before you press it.
+    function widen(peek) {
+      if (!lastRange) return '';
+      let base;
+      try { base = lastRange.cloneRange(); } catch { return ''; }
+      const was = exact;
+      exact = false;
+      const d = evaluate(base);
+      if (!d || d.state !== 'ok') { exact = was; return ''; }
+      const text = ArticleCore.rangeText(d.range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      if (peek) { exact = was; return text; }
+      pinned = base;
+      ArticleCore.showPending(d.range);
+      last = { ...d, pinned: true };
+      push();
+      return text;
     }
 
     function clear() {
@@ -739,6 +764,7 @@ var ArticlePage = (() => {
       }
       taken = r;
       lastText = text;
+      if (r) lastRange = r.cloneRange();
       return text;
     }
     const inside = (r, el) => { try { return el.contains(r.commonAncestorContainer); } catch { return false; } };
@@ -752,7 +778,7 @@ var ArticlePage = (() => {
     // Taking the stroke off the page also drops the words it stood for, so capturing again does not bring
     // back a quote the person just removed.
     function forgetTaken() { taken = null; lastText = ''; }
-    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, paintTaken, forgetTaken, selectedPost, unfold, refold, destroy };
+    return { capture, setExact, setSnap, clear, info, requestAnnotate, takeWithin, paintTaken, forgetTaken, selectedPost, unfold, refold, widen, destroy };
   }
   return { create };
 })();

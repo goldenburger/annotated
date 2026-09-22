@@ -12,7 +12,7 @@ async def main():
     print('frame starts below site headers and fits content:', await fr())
     print('inner wordmark row hidden:', not await pg.is_visible('.ffBody .brand'))
     V='#videoMode '; ANN='.annpage:not([hidden]) '
-    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','42'); await pg.press(V+'.rEnd','Enter')
+    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','44'); await pg.press(V+'.rEnd','Enter')
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000); await asyncio.sleep(.6)
     print('frame grew with the take step:', await fr())
     # frame bar gear and help

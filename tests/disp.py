@@ -30,7 +30,7 @@ async def main():
     print('restored after reload:', [round(v) for v in ff4])
     # capture works in floating mode
     V='#videoMode '; ANN='.annpage:not([hidden]) '
-    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','42'); await pg.press(V+'.rEnd','Enter')
+    await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','44'); await pg.press(V+'.rEnd','Enter')
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
     # preferences
     await pg.click('.ff .ffX >> nth=0'); await asyncio.sleep(.2)

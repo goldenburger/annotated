@@ -5,7 +5,7 @@
 // The shell calls panel.update(info) with fresh player info, and panel.engine(msg) for capture messages.
 const VideoPanel = (() => {
   const { clamp, fmt } = PanelKit;
-  const MAX = 90, MIN = 1, DEFAULT_LEN = 30;
+  const MAX = 90, MIN = 3, DEFAULT_LEN = 30;
   const snap = (t) => Math.round(t * 10) / 10;
 
   // opts.kind 'audio' makes this the podcast panel: the same trimmer over a waveform, recording sound only.
@@ -24,6 +24,7 @@ const VideoPanel = (() => {
           <div class="rField"><span class="k">End ${nudge('end')}</span><input class="v rEnd num" inputmode="decimal" aria-label="End time" spellcheck="false"></div>
           <div class="lenbox"><span class="k">Length</span><span class="v rLen num"></span></div>
         </div>
+        <p class="note rFloor" hidden>Three seconds is as short as a clip goes.</p>
         <div class="track" role="group" aria-label="Clip range">
           ${isAudio ? '<canvas class="wave" aria-hidden="true"></canvas>' : '<canvas class="film" aria-hidden="true"></canvas>'}
           <div class="ticks" aria-hidden="true"></div>
@@ -194,6 +195,9 @@ const VideoPanel = (() => {
       }
       q('.rLen').textContent = `${len.toFixed(1)}s`;
       q('.rLen').classList.toggle('over', len > MAX);
+      // Dragging an end until it stops is silent otherwise, and the clip that comes out is a second long.
+      q('.rLen').classList.toggle('floor', len <= MIN + 0.05);
+      q('.rFloor').hidden = len > MIN + 0.05;
       q('.range').style.left = pctView(sel.start) + '%';
       q('.range').style.width = (pctView(sel.end) - pctView(sel.start)) + '%';
       q('.hStart').style.left = pctView(sel.start) + '%';

@@ -27,6 +27,7 @@ const PostPanel = (() => {
           </div>
         </fieldset>
         <p class="hint tip" data-tip="showas">A screenshot keeps the post even if it is deleted. The embed shows its text and links to the live post.</p>
+        <p class="hint showAsWas" hidden></p>
         <p class="hint quoteHint">To quote part of the post or a reply, select those words first.</p>
         <p class="error pErr" hidden></p>
         <button type="button" class="primary pGrab">Capture post</button>
@@ -34,8 +35,9 @@ const PostPanel = (() => {
       <section class="pResult result" hidden>
         <p class="resLabel">You're annotating</p>
         <div class="pQuoteBox" hidden><p class="k">Quoting</p><blockquote class="quote pQuote"></blockquote>
-          <p class="hint frag pFrag" hidden></p>
-          <button type="button" class="link pQuoteX">Remove the quote</button></div>
+          <p class="frag pFrag" hidden></p>
+          <p class="quoteActs"><button type="button" class="link pFragFix" hidden>Use the whole sentence</button>
+          <button type="button" class="link pQuoteX">Remove the quote</button></p></div>
         <button type="button" class="quiet ctxthumb" aria-label="See the screenshot of the post">${Brand.icon('image')} See screenshot<img class="shot" alt="" hidden></button>
         <div class="pStatus"></div>
       </section>
@@ -46,6 +48,20 @@ const PostPanel = (() => {
     const q = (s) => root.querySelector(s);
     // Removing the quote takes the stroke off the page as well. Leaving it there said the whole post was
     // marked while the panel said nothing was quoted.
+    // Hold the same words again, grown to their sentence, then capture the post with them.
+    q('.pFragFix').addEventListener('click', async () => {
+      const b = q('.pFragFix');
+      if (!ad.widen || b.disabled) return;
+      b.disabled = true;
+      // The panel is about to change the words itself. Without this the watcher reads that as you selecting
+      // something new and says to capture the post again, which is exactly what is already happening.
+      widening = true;
+      const r = await ad.widen();
+      if (r && r.ok) await grab();
+      else { q('.pErr').textContent = 'Those words have moved, so select the sentence on the post.'; q('.pErr').hidden = false; }
+      widening = false;
+      b.disabled = false;
+    });
     q('.pQuoteX').addEventListener('click', () => {
       if (result) result.quote = '';
       q('.pQuoteBox').hidden = true;
@@ -57,7 +73,7 @@ const PostPanel = (() => {
       placeholder: 'What should people notice in this post?',
       log, onMicBlocked: opts.onMicBlocked, onPublish: opts.onPublish ? publish : null,
     });
-    let result = null, busy = false, published = false, pubRef = null;
+    let result = null, busy = false, published = false, pubRef = null, widening = false;
     PanelKit.setStep(root, 1);
     PanelKit.initTips(root);
     const display = () => (root.querySelector(`input[name="${group}"]:checked`) || {}).value || 'screenshot';
@@ -78,6 +94,7 @@ const PostPanel = (() => {
     function startFresh() {
       result = null; published = false;
       q('.pBody').classList.remove('folded'); q('.pNewSel').hidden = true; q('.pQuoteX').hidden = false;
+      q('.showAs').hidden = false; q('.showAsWas').hidden = true; q('.hint.tip').hidden = false;
       q('.pBody').insertBefore(q('.showAs'), q('.hint.tip'));
       q('.pResult').hidden = true; q('.pCompose').hidden = true; q('.pDup').hidden = true; q('.pPublished').hidden = true;
       compose.reset(); status.reset();
@@ -126,6 +143,16 @@ const PostPanel = (() => {
       const frag = PanelKit.fragmentNote(result.quote);
       q('.pFrag').textContent = frag;
       q('.pFrag').hidden = !frag;
+      // The note says what is wrong with the quote. This does something about it, in one click, and it says
+      // which it is, because on a post with no full stop in it the sentence is the whole post.
+      q('.pFragFix').hidden = true;
+      if (frag && ad.widen) {
+        const peek = await ad.widen(true).catch(() => null);
+        if (peek && peek.ok && norm(peek.text) !== norm(result.quote)) {
+          q('.pFragFix').textContent = norm(peek.text) === norm(result.text) ? 'Use the whole post' : 'Use the whole sentence';
+          q('.pFragFix').hidden = false;
+        }
+      }
       // This capture is the newest thing that happened, so any warning about other words is out of date.
       q('.resLabel').textContent = "You're annotating";
       q('.pResult').hidden = false;
@@ -170,6 +197,10 @@ const PostPanel = (() => {
         published = true;
         q('.pCompose').hidden = true;
         q('.pQuoteX').hidden = true;
+        q('.pFragFix').hidden = true;
+        const was = { screenshot: 'Shown as a screenshot.', embed: 'Shown as an embed.', both: 'Shown as a screenshot and an embed.' }[item.display];
+        q('.showAs').hidden = true; q('.hint.tip').hidden = true;
+        q('.showAsWas').textContent = was || ''; q('.showAsWas').hidden = !was;
         PanelKit.setStep(root, 4);
         PanelKit.published(q('.pPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local),
           permalink: pubRef && pubRef.permalink,
@@ -188,6 +219,7 @@ const PostPanel = (() => {
       refresh, reset: startFresh,
       captureNow() { if (busy) return; if (published || result) startFresh(); grab(); },
       onSelection(sel) {
+        if (widening) return;
         const fresh = !!(sel && sel.state && sel.state !== 'empty');
         q('.pNewSel').hidden = !(published && fresh);
         // Before publishing, the capture below is about to be replaced, so say so rather than leave a stale quote

@@ -26,7 +26,7 @@ async def main():
     print('podcast panel states after switching:', sorted(set(states)))
     # publish two and check side view
     await asyncio.sleep(1.5)
-    await pg.fill(P+'.rStart','50'); await pg.press(P+'.rStart','Enter'); await pg.fill(P+'.rEnd','52'); await pg.press(P+'.rEnd','Enter')
+    await pg.fill(P+'.rStart','50'); await pg.press(P+'.rStart','Enter'); await pg.fill(P+'.rEnd','54'); await pg.press(P+'.rEnd','Enter')
     await pg.click(P+'.capBtn'); await pg.wait_for_selector(P+'.vCompose:not([hidden])',timeout=20000)
     await pg.fill(P+'.takeInput','Podcast take'); await pg.click(P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.6)
     print('side view:', (await pg.inner_text('#annMode .sideNow')).replace('\n',' | '))

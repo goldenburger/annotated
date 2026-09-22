@@ -9,7 +9,7 @@ async def main():
     await pg.add_init_script(INIT); await pg.goto(PREVIEW); await asyncio.sleep(1)
     V='#videoMode '; A='#articleMode '; P='#podcastMode '; ANN='.annpage:not([hidden]) '
     # take step appears immediately with "Checking the clip"
-    await pg.fill(V+'.rStart','35'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','37'); await pg.press(V+'.rEnd','Enter')
+    await pg.fill(V+'.rStart','35'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','39'); await pg.press(V+'.rEnd','Enter')
     await pg.click(V+'.capBtn')
     await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
     print('video: take step shown with trimmer folded:', not await pg.is_visible(V+'.clipper'), '| meta at that moment:', await pg.inner_text(V+'.ccMeta'))
@@ -19,7 +19,7 @@ async def main():
     print('-> after first frame:', await pg.eval_on_selector(ANN+'.clipVideo','v=>v.controls'))
     # podcast
     await pg.click('.tab >> nth=3'); await asyncio.sleep(1.5)
-    await pg.fill(P+'.rStart','50'); await pg.press(P+'.rStart','Enter'); await pg.fill(P+'.rEnd','52'); await pg.press(P+'.rEnd','Enter')
+    await pg.fill(P+'.rStart','50'); await pg.press(P+'.rStart','Enter'); await pg.fill(P+'.rEnd','54'); await pg.press(P+'.rEnd','Enter')
     await pg.click(P+'.capBtn'); await pg.wait_for_selector(P+'.vCompose:not([hidden])',timeout=20000)
     print('podcast: trimmer folded at take step:', not await pg.is_visible(P+'.clipper'), '| capture-again hidden:', not await pg.is_visible(P+'.capBtn'), '|', await pg.inner_text(P+'.ccMeta'))
     await pg.fill(P+'.takeInput','typed during checks')

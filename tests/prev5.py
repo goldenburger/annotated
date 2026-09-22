@@ -19,7 +19,7 @@ async def main():
     rng=await pg.locator(V+'.range').bounding_box(); tr=await pg.locator(V+'.track').bounding_box()
     print('range inside track after release:', rng['x']>=tr['x']-2 and rng['x']+rng['width']<=tr['x']+tr['width']+8)
     await pg.evaluate('document.getElementById("vid").currentTime=64'); await asyncio.sleep(.8); await pg.click(V+'.setStart')
-    await pg.evaluate('document.getElementById("vid").currentTime=65'); await asyncio.sleep(.8); await pg.click(V+'.setEnd')
+    await pg.evaluate('document.getElementById("vid").currentTime=68'); await asyncio.sleep(.8); await pg.click(V+'.setEnd')
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000); await asyncio.sleep(1)
     print('summary:', await pg.inner_text(V+'.csText'), '| trimmer hidden:', not await pg.is_visible(V+'.clipper'))
     st=await pg.eval_on_selector(V+'.vPreview','v=>[v.currentTime, v.duration, v.style.visibility]')

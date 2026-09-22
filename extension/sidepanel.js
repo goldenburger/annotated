@@ -212,12 +212,19 @@ const episodeGuess = (title) => {
   return APP_CHROME.test(t) ? '' : t;
 };
 
-function makeFeedPod(tid, url, pageTitle) {
+function makeFeedPod(tid, url, pageTitle, why = 'protected') {
   const el = document.createElement('div');
   $('#podcastMode').appendChild(el);
+  // Why you are looking at a search box rather than a trimmer. Saying a player cannot be recorded when it
+  // simply has not started is both untrue and unhelpful, because starting it is the thing you can do.
+  const WHY = {
+    protected: 'This player cannot be recorded, but most shows publish their episodes openly. annotated finds that original audio.',
+    quiet: 'Nothing is playing on this page yet. Open an episode and press play and annotated clips what you hear. Or find it below and clip it from the show\'s own feed.',
+    asked: 'Most shows publish their episodes openly. Name the episode and annotated finds that original audio.',
+  };
   el.innerHTML = `<section class="fpPick">
       <div class="fpHead"><span class="fpKind">${Brand.icon('podcast')}</span><div><b class="fpTitle">Find the episode</b>
-        <p class="note fpNote">This player cannot be recorded, but most shows publish their episodes openly. annotated finds that original audio.</p></div></div>
+        <p class="note fpNote">${WHY[why] || WHY.protected}</p></div></div>
       <form class="fpSearch" role="search"><input class="fpQ" type="search" placeholder="Episode or show name" aria-label="Search for an episode"><button class="strong sm">Search</button></form>
       <p class="note fpStatus" role="status"></p>
       <ul class="fpList"></ul>
@@ -346,6 +353,8 @@ function makePodcast(tid, url, src) {
   return p;
 }
 
+// A post on X is not a story, and the timeline is not one post, so the panel says what works there instead.
+const onXHost = (u) => { try { return /(^|\.)(x|twitter)\.com$/.test(new URL(u).hostname); } catch { return false; } };
 function makeArticle(tid, url, hasAudio = false) {
   const el = document.createElement('div');
   $('#articleMode').appendChild(el);
@@ -357,6 +366,7 @@ function makeArticle(tid, url, hasAudio = false) {
     onSelection(cb) { p.selCb = cb; },
     info: () => sendTo(tid, { type: 'a-info' }).catch(() => null),
     setExact: (v) => sendTo(tid, { type: 'set-exact', exact: v }).catch(() => {}),
+    widen: (peek) => sendTo(tid, { type: 'widen-quote', peek }).then((r) => r || { ok: false }).catch(() => ({ ok: false })),
     clear: () => sendTo(tid, { type: 'clear-selection' }).catch(() => {}),
     clearCaptured: () => sendTo(tid, { type: 'clear-captured' }).catch(() => {}),
     async capture() {
@@ -368,7 +378,7 @@ function makeArticle(tid, url, hasAudio = false) {
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked,
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
     onFindPodcast: () => { feedAsked.add(tid); drop(tid); refresh(); },
-    pasteForm, wirePaste });
+    xHost: onXHost(url), pasteForm, wirePaste });
   return p;
 }
 
@@ -401,6 +411,7 @@ function makePost(tid, url) {
   $('#postMode').appendChild(el);
   const api = PostPanel.create(el, {
     info: () => sendTo(tid, { type: 'p-info' }).catch(() => null),
+    widen: (peek) => sendTo(tid, { type: 'widen-quote', peek }).then((r) => r || { ok: false }).catch(() => ({ ok: false })),
     clearCaptured: () => sendTo(tid, { type: 'clear-captured' }).catch(() => {}),
     async capture() {
       const r = await sendTo(tid, { type: 'capture-post' });
@@ -459,18 +470,27 @@ function wirePaste(root) {
 // Home and your profile read inside the panel. A menu shows its contents where you are, and opening a tab
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
-let browsing = null, browseTab = 'foryou';
+let browsing = null, browseTab = 'foryou', browseFrom = null;
 async function openBrowse(kind) {
   browsing = kind;
+  // Where you were when you opened it. Moving off that page is what puts the panel back.
+  browseFrom = await activeTabNow().then((t) => (t ? { id: t.id, url: t.url } : null)).catch(() => null);
   for (const [, q] of panels) q.el.hidden = true;
   ['#videoMode', '#articleMode', '#postMode', '#podcastMode', '#annMode', '#empty'].forEach((s) => { $(s).hidden = true; });
   $('#browseMode').hidden = false;
   await drawBrowse();
 }
 function closeBrowse() {
-  browsing = null;
+  browsing = null; browseFrom = null;
   $('#browseMode').hidden = true;
   return refresh();
+}
+// The tab the panel should be following. Pinned by ?tab= in the tests, otherwise whatever is in front.
+async function activeTabNow() {
+  const pinned = Number(new URLSearchParams(location.search).get('tab'));
+  if (pinned) return chrome.tabs.get(pinned).catch(() => null);
+  const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return t || null;
 }
 // Annotating something while the panel is showing Home or your profile puts it back on what you are
 // annotating, because that is plainly what you just asked it for. The panel for that tab may not have been
@@ -578,14 +598,20 @@ async function inject(tid, files, ping) {
 
 let busyRefresh = false;
 async function refresh() {
-  // While the panel is showing Home or your profile it stays on them. Back puts the page you are on back.
-  if (browsing) return;
   if (busyRefresh) return;
   busyRefresh = true;
   try {
     // Test hook: sidepanel.html?tab=<id> pins the panel to one tab.
     const pinned = Number(new URLSearchParams(location.search).get('tab'));
     const [tab] = pinned ? [await chrome.tabs.get(pinned).catch(() => null)] : await chrome.tabs.query({ active: true, currentWindow: true });
+    // Home and your profile hold while you are still on the page you opened them from, so a take you are
+    // part way through is never pulled out from under you. Go to another tab, or let this one go somewhere
+    // else, and the panel comes back to what you are looking at instead of waiting to be sent back.
+    if (browsing) {
+      if (browseFrom && tab && tab.id === browseFrom.id && tab.url === browseFrom.url) return;
+      browsing = null; browseFrom = null;
+      $('#browseMode').hidden = true;
+    }
     const cur = activeTab != null && panels.get(activeTab);
     if (cur && cur.kind === 'video' && cur.api.capturing && tab?.id !== activeTab) return;
     if (!tab) return show(null);
@@ -620,13 +646,14 @@ async function refresh() {
     // A service that encrypts its audio can never be recorded, whoever is asking, so those go straight to the
     // show's public feed. Every other podcast app gets its own player tried first, because most of them play
     // an ordinary audio file and clipping what you are listening to beats searching for it again.
-    const feedPanel = () => {
+    const feedPanel = (why) => {
       const url = tab.url.split('#')[0];
       if (p && (!p.feed || p.url !== url)) { drop(tab.id); p = null; }
-      if (!p) { p = makeFeedPod(tab.id, url, feedAsked.has(tab.id) && !isPodcastApp(tab.url) ? '' : tab.title); panels.set(tab.id, p); }
+      if (!p) { p = makeFeedPod(tab.id, url, feedAsked.has(tab.id) && !isPodcastApp(tab.url) ? '' : tab.title, why); panels.set(tab.id, p); }
       show(tab.id);
     };
-    if ((isPodcastApp(tab.url) && protectedService(tab.url)) || feedAsked.has(tab.id)) return feedPanel();
+    if (isPodcastApp(tab.url) && protectedService(tab.url)) return feedPanel('protected');
+    if (feedAsked.has(tab.id)) return feedPanel('asked');
     const service = protectedService(tab.url);
     if (service) { if (p) { drop(tab.id); p = null; } return showProtected(tab, service); }
     if (isWeb(tab.url)) {
@@ -637,7 +664,7 @@ async function refresh() {
       const pod = await sendTo(tab.id, { type: 'pod-info' }).catch(() => null);
       const hasAudio = !!(pod && pod.found && pod.route !== 'protected');
       // A podcast app whose player turns out to be unreadable falls back to the show's public feed.
-      if (!hasAudio && isPodcastApp(tab.url)) return feedPanel();
+      if (!hasAudio && isPodcastApp(tab.url)) return feedPanel(protectedService(tab.url) ? 'protected' : 'quiet');
       const want = modeOverride.get(tab.id + ' ' + url) || (hasAudio && pod.likely ? 'audio' : 'article');
       if (p && (p.kind !== want || p.url !== url)) { drop(tab.id); p = null; }
       if (want === 'audio') {
