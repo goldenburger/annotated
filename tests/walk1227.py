@@ -142,13 +142,14 @@ async def main():
     print('11. the post card picture in its scene is', h, 'px tall')
     if not h or h > 200: errs.append(f'the post card picture swamps its scene at {h}px')
     # 10. Scroll a scene to just entering, then to mid screen.
-    def frac(sel): return f"(() => {{ const m = new DOMMatrix(getComputedStyle(document.querySelector('{sel}')).transform); return +m.a.toFixed(2); }})()"
-    top = await pg.evaluate("document.querySelector('.sc-article').getBoundingClientRect().top + scrollY")
+    # The scenes work by hand now, so what plays by scrolling is the real card each one ends on.
+    frac = "(() => +getComputedStyle(document.querySelector('.sc-video .scCard')).opacity)()"
+    top = await pg.evaluate("document.querySelector('.sc-video').getBoundingClientRect().top + scrollY")
     await pg.evaluate(f"scrollTo(0, {top} - innerHeight + 120)"); await asyncio.sleep(.5)
-    entering = await pg.evaluate(frac('.sc-article .a-hl'))
+    entering = await pg.evaluate(frac)
     await pg.evaluate(f"scrollTo(0, {top} - innerHeight * .3)"); await asyncio.sleep(.5)
-    middle = await pg.evaluate(frac('.sc-article .a-hl'))
-    print('10. the passage stroke is drawn', entering, 'entering and', middle, 'mid screen')
+    middle = await pg.evaluate(frac)
+    print('10. the clip scene card is shown', entering, 'entering and', middle, 'mid screen')
     if entering > 0.3 or middle < 0.95: errs.append(f'the scene played at the wrong point: {entering} entering, {middle} mid screen')
     # 12.
     await pg.evaluate("document.querySelector('#get').scrollIntoView()")

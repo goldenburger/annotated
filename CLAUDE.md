@@ -331,6 +331,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   pixels, and downloading ticks the first install step with a Copy button for `chrome://extensions`.
   `scripts/serve_website.py` serves the site locally as Netlify does, routing `/@...`, sending `_headers`, and
   caching nothing.
+- **The four scenes work** (`website/public/scenetry.js`, `tests/scenetry.py`). Each scene's drawing is a small
+  working version of the tool, labelled Example throughout and sending nothing. A passage and a post are
+  selected and marked with the real pen (the post also offers Use the whole post). A YouTube clip and a
+  podcast moment are cut with a trimmer over a filmstrip or a waveform: a window of two and a half or three
+  minutes around the clip, with the whole length as a thin bar under it, because a 42 second clip is a
+  sliver of a 12 minute bar. The handles drag, and so does the middle. They keep between 3 and 90 seconds and
+  say when they stop, and the arrow keys move them by a second, five with Shift. The podcast's Play selection
+  runs a silent playhead across the stretch and says the panel plays it with sound. Each ends in a take and
+  the card it becomes, with Start over and Make another. The drawn SVG is only the fallback if the pen did not
+  load, and the static Example card beside a working scene is gone, because the scene makes its own. A real
+  published annotation of that kind still sits beside it.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

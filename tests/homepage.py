@@ -111,16 +111,16 @@ async def main():
     # 2.
     rows['list'] = ALL[:2]
     await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(3)
-    two = await pg.evaluate("({ real: document.querySelectorAll('.scCard.real').length, examples: document.querySelectorAll('.scenes .exCard').length })")
+    two = await pg.evaluate("({ real: document.querySelectorAll('.scCard.real').length, examples: document.querySelectorAll('.scenes .exCard').length, working: document.querySelectorAll('.scenes .sceneTry').length })")
     print('2. with two kinds published:', two)
-    if two != {'real': 2, 'examples': 2}: errs.append(f'with two kinds the scenes showed {two}')
+    if two != {'real': 2, 'examples': 0, 'working': 4}: errs.append(f'with two kinds the scenes showed {two}')
 
     # Asked for less motion: nothing tilts, the headline stays, the example does not run, and the scenes are finished.
     rm = await ctx.new_page(); await rm.emulate_media(reduced_motion='reduce')
     await rm.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(1.2)
     await rm.mouse.move(1250, 200); await asyncio.sleep(5.5)
     calm = await rm.evaluate("""() => ({ tilt: document.querySelector('.tiTilt').style.transform, word: document.querySelector('.heroMark').textContent,
-      example: !document.querySelector('.tiLift').hidden, anim: getComputedStyle(document.querySelector('.sc-article .a-hl')).animationName })""")
+      example: !document.querySelector('.tiLift').hidden, anim: getComputedStyle(document.querySelector('.sc-video .scCard')).animationName })""")
     print('   with less motion:', calm)
     if calm['tilt'] or calm['word'] != 'anything' or calm['example'] or calm['anim'] not in ('none', ''): errs.append(f'reduced motion still moved: {calm}')
     await rm.close()

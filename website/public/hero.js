@@ -189,18 +189,21 @@ var Hero = (() => {
     box.className = 'scenes';
     box.setAttribute('aria-label', 'What annotated takes');
     box.innerHTML = `<div class="scHead"><h2 class="drawLine">Articles, YouTube, podcasts and posts on X</h2>
-      <p class="note">One pen for all four. Every annotation links back to where it came from.</p></div>
+      <p class="note">Try each one here. One pen for all four, and every annotation links back to where it came from.</p></div>
       ${SCENES.map((s, i) => `<div class="scene sc-${s.kind}${i % 2 ? ' flip' : ''}">
         <div class="scArt" aria-hidden="true">${s.art()}</div>
         <div class="scText"><p class="scKind">${s.label}</p><h3>${s.line}</h3><div class="scCard"></div></div></div>`).join('')}`;
+    const slots = [...box.querySelectorAll('.scCard')];
     SCENES.forEach((s, i) => {
-      const slot = box.querySelectorAll('.scCard')[i];
+      const slot = slots[i];
       const li = picks[i] && [...tmp.querySelectorAll('.cards > .cardItem')].find((c) => { const k = c.querySelector('.card'); return k && k.dataset.id === picks[i].id; });
       if (li) { slot.appendChild(li); slot.classList.add('real'); return; }
+      if (typeof SceneTry !== 'undefined' && typeof ArticleCore !== 'undefined') { slot.remove(); return; }
       slot.innerHTML = `<div class="exCard"><p class="tiExample">Example</p><p class="exTake"></p><p class="exSrc">${Brand.icon(s.kind === 'video' ? 'clip' : s.kind === 'audio' ? 'podcast' : s.kind === 'post' ? 'post' : 'article')} <span></span></p></div>`;
       slot.querySelector('.exTake').textContent = s.ex;
       slot.querySelector('.exSrc span').textContent = s.exSrc;
     });
+    if (typeof SceneTry !== 'undefined') SCENES.forEach((s, i) => SceneTry.mount(box.querySelectorAll('.scArt')[i], s.kind));
     grid.parentNode.insertBefore(box, grid);
     const shown = new Set(picks.filter(Boolean).map((r) => r.id));
     grid.querySelectorAll('.cards > .cardItem').forEach((li) => { const c = li.querySelector('.card'); if (c && shown.has(c.dataset.id)) li.remove(); });
