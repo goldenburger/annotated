@@ -91,9 +91,14 @@ var Hero = (() => {
           <button type="button" class="link heroLook">Look around first</button></p>
         <p class="note heroWhere">Any article, YouTube, most podcasts, and posts on X.</p>
       </div>`;
-    hero.appendChild(build());
+    // The visitor makes an annotation right here, with the extension's own pen. The scripted loop of a
+    // made-up article is the fallback, for a page where the shared highlighter did not load.
     grid.parentNode.insertBefore(hero, grid);
-    const stop = run(hero);
+    const side = document.createElement('div'); side.className = 'heroTry';
+    hero.appendChild(side);
+    const tried = typeof TryIt !== 'undefined' && TryIt.mount(side);
+    if (!tried) { side.remove(); hero.appendChild(build()); }
+    const stop = tried ? () => {} : run(hero);
     hero.querySelector('.heroLook').addEventListener('click', () => {
       onLook && onLook();
       grid.scrollIntoView({ block: 'start', behavior: 'smooth' });

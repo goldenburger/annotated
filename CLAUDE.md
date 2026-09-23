@@ -283,6 +283,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   "Publish it from its page" above a Sign in and publish button that could not work. An unreachable server
   with the browser still online keeps the button live, since no `online` event would ever come. The poll
   question's hint is "Ask a question (optional)", because the longer one was cut off in its box.
+- **The front page's try-it** (`website/public/tryit.js`, `tests/tryit.py`). The hero is the annotated.com brief,
+  quoted word for word from annotated.lovable.app and linked. A visitor selects words, presses its Annotate
+  button (in the bar under the text, where it cannot cover a line), the extension's real pen crosses them
+  (`ArticleCore.highlightRange`, `sweep`, and `ArticleCore.penCss`, which moved there from `article.js` so both
+  share it), and a take makes the card an annotation becomes. Nothing is sent. Left alone for a few seconds it
+  marks one phrase itself. The last one made is kept in the page's `annotated-tryit`, and with the extension
+  installed `article.js` hands it to `annotatedTryit` in `chrome.storage.local`, only from
+  `https://annotated-app.netlify.app`, so no other site can put words in front of a Publish button. The
+  panel's Home then offers "You made this on annotated's front page" with Publish it (`drawTryit`). The
+  extension's own Annotate button keeps out of `[data-annotated-self]`. The scripted bus loop in `hero.js` is
+  now only the fallback if the highlighter did not load. Publishing the handed-over draft has no test yet.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

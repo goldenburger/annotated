@@ -905,7 +905,44 @@ async function drawBrowse() {
     st.innerHTML = (bare ? '<p class="startHint">Open a YouTube video, an article, a podcast episode or a post on X in this tab and annotated is ready to annotate it. Or start here.</p>' : '') + startHtml();
     $('#browseMode .browseHead').after(st);
     wireStart(st, true);
+    // Above the start page, since it is yours and waiting.
+    await drawTryit();
   }
+}
+// The annotation someone made in the try-it on annotated's front page, before they had the extension. The
+// page's own script hands it over (annotatedTryit), and Home offers to publish it, so the first thing a new
+// person made is not thrown away. It is always the brief's words, with the brief as its source.
+const TRY_SOURCE = { title: 'The annotated.com brief', site: 'This Week in Startups', url: 'https://annotated.lovable.app/' };
+async function drawTryit() {
+  const { annotatedTryit: d } = await chrome.storage.local.get('annotatedTryit').catch(() => ({}));
+  if (!d || !d.quote || !d.take) return;
+  const box = document.createElement('section');
+  box.className = 'tryitCarry';
+  box.innerHTML = `<p class="tcLabel">You made this on annotated's front page</p><p class="tcTake"></p><blockquote class="quote tcQuote"></blockquote>
+    <p class="tcRow"><button type="button" class="primary sm tcPub">Publish it</button><button type="button" class="link tcNo">Not now</button></p>
+    <p class="note tcMsg" role="status"></p>`;
+  box.querySelector('.tcTake').textContent = d.take;
+  box.querySelector('.tcQuote').textContent = d.quote;
+  const head = $('#browseMode .browseHead');
+  if (!head) return;
+  head.after(box);
+  box.querySelector('.tcNo').addEventListener('click', () => { chrome.storage.local.remove('annotatedTryit'); box.remove(); });
+  box.querySelector('.tcPub').addEventListener('click', async () => {
+    const b = box.querySelector('.tcPub'), msg = box.querySelector('.tcMsg');
+    b.disabled = true; b.textContent = 'Publishing'; msg.textContent = '';
+    try {
+      const item = { kind: 'article', text: d.quote, meta: { ...TRY_SOURCE, author: '', published: '', image: '', description: '' },
+        fragmentUrl: `${TRY_SOURCE.url}#:~:text=${encodeURIComponent(d.quote.slice(0, 80))}` };
+      const ref = await publish(null, item, { text: d.take, tag: null, voice: null, poll: null, gif: null, upload: null });
+      if (ref.local) await publishSaved(ref.id);
+      await chrome.storage.local.remove('annotatedTryit');
+      box.innerHTML = '<p class="tcLabel">Published</p><p class="note">It has a page of its own now.</p><p class="tcRow"><button type="button" class="primary sm tcView">View page</button></p>';
+      box.querySelector('.tcView').addEventListener('click', () => viewPublished({ id: ref.id }, { justPublished: false }));
+    } catch (e) {
+      b.disabled = false; b.textContent = 'Publish it';
+      msg.textContent = (e && e.message) || 'It could not be published just now.';
+    }
+  });
 }
 // The last tab that had something to annotate, so the panel beside annotated's own pages can offer the
 // way back to what you were reading.

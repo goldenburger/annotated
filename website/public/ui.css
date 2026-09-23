@@ -1487,3 +1487,12 @@ body.signedOut .steps .stSave { display: inline; }
 .acctPop .acctFoot { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--rule); justify-items: center; }
 .acctPop .acctFoot .acctDelAll { width: auto; font-size: var(--t-xs); color: var(--red); }
 .acctHandle .acctHLink[hidden] { display: none; }
+
+/* The annotation made on the front page before the extension was installed, offered on Home. */
+.tryitCarry { margin: 0 0 14px; padding: 12px 14px; border: 1px solid var(--rule); border-left: 3px solid var(--hi); border-radius: var(--r-m); background: var(--sheet); }
+.tryitCarry .tcLabel { margin: 0 0 6px; font: 600 var(--t-xs)/1.3 var(--sans); color: var(--ink-3); }
+.tryitCarry .tcTake { margin: 0 0 8px; font: 600 var(--t-m)/1.4 var(--serif); }
+.tryitCarry .tcQuote { margin: 0 0 10px; }
+.tryitCarry .tcRow { display: flex; align-items: center; gap: 14px; margin: 0; }
+.tryitCarry .tcRow .primary { width: auto; }
+.tryitCarry .tcMsg:empty { display: none; }

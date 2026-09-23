@@ -17,42 +17,8 @@
   // transparent, which would vanish on a dark page, and nothing uses a blend mode.
   // The panel sends the chosen colour with set-pen. These are the classic ones, used until it does.
   let INK = { hi: '#FFE14A', deep: '#F2C600', lift: '#FFEE9E', pending: '#FFF0A8' };
-  // Each pen is a layer that sits behind one word. t and b are how far it reaches above and below the line,
-  // o is how far it runs past the first and last word, and the four radii are the corners of the stroke.
-  const pensFor = ({ hi: HI, deep: DEEP, lift: LIFT }) => ({
-    chisel: { img: `linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)`, t: -1, b: -3, o: 3, tl: 4, tr: 11, br: 5, bl: 12 },
-    wet: { img: `radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)`, t: -1, b: -3, o: 3, tl: 3, tr: 10, br: 4, bl: 9 },
-    twice: { img: `linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)`, t: -2, b: -3, o: 3, tl: 5, tr: 12, br: 6, bl: 11 },
-    streak: { img: `repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})`, t: -1, b: -3, o: 3, tl: 4, tr: 10, br: 5, bl: 11 },
-    flat: { img: `linear-gradient(${HI},${HI})`, t: -3, b: -3, o: 2, tl: 2, tr: 2, br: 2, bl: 2 },
-  });
-  // The pen runs across one word at a time. It is a transform on a layer, which the browser's compositor
-  // draws by itself. Widening a background instead put the stroke on the page's own thread, and the page is
-  // busy taking a screenshot at exactly that moment, so the stroke arrived finished and nobody ever saw it.
-  const SWEEP = '@keyframes annotated-sweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}'
-    + '@media (prefers-reduced-motion:reduce){mark.annotated-hl.hl-go::before{animation:none}}';
   let penName = 'chisel';
-  const penCss = (name) => {
-    const pens = pensFor(INK);
-    const p = pens[name] || pens.chisel;
-    return 'mark.annotated-hl{background:none!important;color:#1C2433!important;position:relative!important;'
-      + 'isolation:isolate!important;padding:0!important;margin:0!important;border-radius:0!important;'
-      + 'text-shadow:none!important;text-decoration-color:currentColor}'
-      // Pale words on a dark page would go to ink before the pen reached them, so they keep the page's own
-      // colour until it does.
-      + 'mark.annotated-hl.hl-lit{color:inherit!important}'
-      + 'mark.annotated-hl.hl-lit.hl-inked{color:#1C2433!important}'
-      + `mark.annotated-hl::before{content:"";position:absolute;z-index:-1;pointer-events:none;left:0;right:0;`
-      + `top:${p.t}px;bottom:${p.b}px;background-image:${p.img};background-repeat:no-repeat;`
-      + 'background-size:var(--bw,100%) 100%;background-position:var(--bx,0) 0;transform-origin:left center}'
-      // A hair of overlap between words, so no seam shows where two layers meet.
-      + 'mark.annotated-hl:not(.hl-z)::before{right:-.6px}'
-      // Only the ends of the run are capped and run past the words. The pieces between butt together.
-      + `mark.annotated-hl.hl-a::before{left:-${p.o}px;border-top-left-radius:${p.tl}px;border-bottom-left-radius:${p.bl}px}`
-      + `mark.annotated-hl.hl-z::before{right:-${p.o}px;border-top-right-radius:${p.tr}px;border-bottom-right-radius:${p.br}px}`
-      + 'mark.annotated-hl.hl-go::before{animation:annotated-sweep var(--sw,160ms) linear var(--d,0ms) both}'
-      + SWEEP;
-  };
+  const penCss = (name) => ArticleCore.penCss(name, INK);
   // The faint one while you are still dragging uses the browser's own highlight API, which takes a colour and
   // nothing else, so it stays flat whichever pen is chosen.
   // What would be taken if you captured now. A paler tint of the same yellow with the same ink, so it reads
@@ -72,6 +38,20 @@
     if (!alive()) return retire();
     try { chrome.runtime.sendMessage(m).catch(() => { if (!alive()) retire(); }); } catch { retire(); }
   };
+  // An annotation made in the try-it on annotated's front page, kept in that page's storage. Only our own
+  // site is read, because this is offered in the panel to publish, and a page anyone else writes must never
+  // be able to put words in front of someone with a Publish button under them.
+  const TRY_ORIGIN = 'https://annotated-app.netlify.app';
+  const handTryit = () => {
+    if (location.origin !== TRY_ORIGIN || !alive()) return;
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch { return; }
+    if (!d || typeof d.quote !== 'string' || typeof d.take !== 'string' || !d.quote.trim() || !d.take.trim()) return;
+    const draft = { quote: d.quote.slice(0, 600), take: d.take.slice(0, 280), at: Number(d.at) || Date.now() };
+    try { chrome.storage.local.set({ annotatedTryit: draft }); } catch { /* the extension went away */ }
+  };
+  handTryit();
+  document.addEventListener('annotated-tryit-made', handTryit);
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
   chrome.storage.local.get('annotatedPrefs').then((o) => { if (o.annotatedPrefs) pageButton = o.annotatedPrefs.pageButton !== false; }).catch(() => {});
