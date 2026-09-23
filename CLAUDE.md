@@ -270,6 +270,13 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   part of one. The article panel offers clipping a podcast only on a page with audio of its own. Your profile
   and Following signed out explain themselves and offer "Sign in with Google" (`action` in `renderBrowse`). The
   first welcome beside a new tab ends on "Show me where to start", and Home stays hidden behind the welcome.
+- **The second UX audit of 2026-09-23** (`tests/uxaudit2.py`). An annotation kept on this computer has one
+  notice on its page, "Only on this computer. Nobody else can see it yet.", with "Sign in and publish" that
+  signs in on the page itself (`shareNeedsSignIn`, `onShareNow` in `annotation.js`) and says so when the
+  sign-in does not finish. The toast saying Saved on this computer above it is not drawn for such annotations.
+  The Home page's empty tabs say the tab's own reason (`tabs.empty`) and offer "See your N annotations" when
+  you have some. Your own profile page leaves out the rail's You card, and signed out its header says how many
+  are saved on this computer and offers Sign in (`onSignIn` from `feed.js`) instead of follower counts.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

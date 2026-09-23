@@ -65,7 +65,7 @@ async def main():
     print('ann url:', ann.url.split('/')[-1])
     print('video ready:', await ann.eval_on_selector('.clipVideo','v=>v.readyState'), 'errors shown:', await ann.locator('.mediaErr').count())
     print('published card:', await panel.inner_text('.vPublished'))
-    print('local-only: share hidden', not await ann.is_visible('.shareBtn'), '| banner:', await ann.inner_text('.toastText'))
+    print('local-only: share hidden', not await ann.is_visible('.shareBtn'), '| one notice, no toast:', not await ann.is_visible('.toastText'))
     await ann.keyboard.press('Escape')
     if await ann.locator('.inviteOpen').count() and await ann.is_visible('.inviteOpen'):
       await ann.click('.inviteOpen'); await ann.click('.inviteBtn'); print('invite err:', await ann.inner_text('.inviteMsg')); await ann.fill('.inviteEmail','a@b.co'); print('msg hidden after typing:', not await ann.is_visible('.inviteMsg'))

@@ -317,7 +317,9 @@ const AnnotationPage = (() => {
     // Straight after publishing, Back already returns to the page you annotated (backIsSource), so the source
     // control beside it is left out. Two controls to one place under two names read as two different places.
     const records = opts.records || [];
-    const showBanner = opts.showBanner !== false;
+    // An annotation kept on this computer has one notice, the one that can do something about it. The toast
+    // saying Saved on this computer sat right above it and said the same thing.
+    const showBanner = opts.showBanner !== false && !opts.localOnly;
     let stats = opts.stats || { annotations: mineCount(records, opts.youId) || 1, followers: 0 };
     const isVideo = item.kind === 'video', isPost = item.kind === 'post', isAudio = item.kind === 'audio';
     const srcUrl = safeLink(srcUrlOf(item)) || '#', title = titleOf(item);
@@ -419,7 +421,7 @@ const AnnotationPage = (() => {
             ? `<button type="button" class="quiet toSource srcJump">${esc(sourceLabel(item))} ${Brand.icon('external')}</button>`
             : `<a class="quiet toSource" href="${esc(srcUrl)}" target="_blank" rel="noopener">${esc(sourceLabel(item))} ${Brand.icon('external')}</a>`) : ''}
         </div>
-        ${opts.localOnly ? `<p class="localNote" role="status">${Brand.icon('info')} <span>This annotation is only on this computer.</span>${hooks.onShareNow ? '<button type="button" class="strong sm shareNow">Publish it now</button>' : '<span class="note">Sign in from the panel to share it.</span>'}</p>` : ''}
+        ${opts.localOnly ? `<p class="localNote" role="status">${Brand.icon('info')} <span>Only on this computer. Nobody else can see it yet.</span>${hooks.onShareNow ? `<button type="button" class="strong sm shareNow">${hooks.shareNeedsSignIn ? 'Sign in and publish' : 'Publish it now'}</button>` : ''}</p><p class="error shareErr" role="alert" hidden></p>` : ''}
         <article class="annCard">
           <header class="who">
             <button type="button" class="avatar asLink profileLink ${(opts.author || me).avatar ? 'hasImg' : ''}" aria-label="${opts.author && !opts.mine ? esc(pName(opts.author)) + "'s profile" : 'Your profile'}">${opts.author ? pInner(opts.author) : avInner()}</button>
@@ -489,8 +491,12 @@ const AnnotationPage = (() => {
       q('.xshotMore').addEventListener('click', () => { const f = q('.xshotFrame'); const open = f.classList.toggle('open'); f.classList.toggle('tall', !open); q('.xshotMore').textContent = open ? 'Show less' : 'Show the whole post'; });
     }
     if (q('.shareNow')) q('.shareNow').addEventListener('click', async (e) => {
-      const b = e.currentTarget; b.disabled = true; b.textContent = 'Publishing';
-      try { await hooks.onShareNow(); } catch (err) { b.disabled = false; b.textContent = 'Publish it now'; alert('Sharing failed. ' + (err.message || '')); }
+      const b = e.currentTarget, was = b.textContent, err = q('.shareErr');
+      b.disabled = true; b.textContent = 'Publishing'; if (err) err.hidden = true;
+      try { await hooks.onShareNow(); } catch (x) {
+        b.disabled = false; b.textContent = was;
+        if (err) { err.textContent = (x && x.message) || 'It could not be published just now.'; err.hidden = false; }
+      }
     });
     const share = menu(q('.shareBtn'), `
       <button type="button" role="menuitem" class="copyBtn">${Brand.icon('link')} <span class="cpText">Copy link</span></button>
@@ -908,7 +914,7 @@ const AnnotationPage = (() => {
 
   // yours is everything of yours, before a tab narrowed the list. Your card and your tags describe you, not
   // the tab you are on, and counting the tab's list said nought annotations on Following.
-  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true }) {
+  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null }) {
     stopClock(container);
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll, siteNav });
@@ -933,7 +939,8 @@ const AnnotationPage = (() => {
         <header class="feedHead">
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
-               <div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>
+               ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div><button type="button" class="strong sm pSignIn">Sign in with Google</button>`
+                 : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
                ${onDeleteAll && !person && records.length ? delAllBox(records) : ''}`
             : `<h1>Home</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
@@ -999,9 +1006,23 @@ const AnnotationPage = (() => {
           </button>
           ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt="" loading="lazy"><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
-        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? esc(social.tabs.empty || 'Follow someone and their annotations show up here.') : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
-      rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(yours || records, social && social.youId), followers: 0 }) + railTrending(social, null, mode === 'profile' && !person ? records : []) + railFollow(social) + railTags(yours || records) + railAbout();
+        }).join('') : (() => {
+          // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
+          // the panel" under For you to someone with two annotations saved, which are on their profile.
+          const mineHere = mode === 'home' && !tag && (yours || []).length;
+          const tabs = social && social.tabs;
+          const why = tabs && tabs.current === 'following' ? (tabs.empty || 'Follow someone and their annotations show up here.')
+            : tabs && tabs.empty && filter === 'all' ? tabs.empty
+            : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter];
+          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}</li>`;
+        })(); })()}</ul>`;
+      const ownProfile = mode === 'profile' && !person;
+      rail.innerHTML = (ownProfile ? '' : railYou(social && social.you ? social.you : { annotations: mineCount(yours || records, social && social.youId), followers: 0 })) + railTrending(social, null, mode === 'profile' && !person ? records : []) + railFollow(social) + railTags(yours || records) + railAbout();
       wireDelAll(main, onDeleteAll);
+      const esMine = main.querySelector('.esMine');
+      if (esMine) esMine.addEventListener('click', () => onProfile());
+      const signInBtn = main.querySelector('.pSignIn');
+      if (signInBtn) signInBtn.addEventListener('click', () => onSignIn());
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));

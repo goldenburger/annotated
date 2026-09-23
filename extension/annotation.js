@@ -152,10 +152,17 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         nudgePanel();
       },
       onClaim: shared ? (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }) : null,
-      // Saved here but not shared (signed out at the time, or the upload failed): share it now.
-      onShareNow: !shared && local && me ? async () => {
+      // Saved here but not shared (signed out at the time, or the upload failed): share it now. Signed out,
+      // this page signs you in itself. It used to send you to the panel to do that.
+      shareNeedsSignIn: !me,
+      onShareNow: !shared && local ? async () => {
+        if (!me) {
+          try { await Backend.signIn(); } catch { /* cancelled, or the window was closed */ }
+          me = await Backend.profile().catch(() => null);
+          if (!me) throw new Error('Sign-in did not finish, so it is still only on this computer.');
+        }
         const author = await Cloud.publish(id, local.item, local.take);
-        if (!author) throw new Error('Sign in from the panel first.');
+        if (!author) throw new Error('Sign-in did not finish, so it is still only on this computer.');
         await Store.update(id, { cloud: true, author });
         // Comments and reactions made while it was only on this computer come along.
         await Cloud.carryOver(id, author.id, local.comments || [], local.reactions || []).catch((e) => { console.warn('carryOver', e); alert('The annotation is shared, but its earlier comments did not come across with it.'); });

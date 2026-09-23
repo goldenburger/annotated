@@ -38,7 +38,7 @@ async def main():
     print('panel card:', (await pan.inner_text('#articleMode .pubcard')).replace('\n',' | ')[:160], '| copy/X buttons:', await pan.locator('#articleMode .pubcard .pcopy').count())
     print('page kind label and author line:', (await ann.inner_text('.srccard, .xcard, .xshot')).replace('\n',' | ')[:120] if await ann.locator('.srccard, .xcard, .xshot').count() else 'n/a')
     print('quote:', await ann.evaluate("(()=>{const q=document.querySelector('.postQuote');return q?JSON.stringify(q.innerText):'NONE '+JSON.stringify(document.querySelector('.media').innerHTML.slice(0,300))})()"))
-    print('local note:', (await ann.inner_text('.localNote')).replace('\n',' '), '| banner:', await ann.inner_text('.toastText'), '| share hidden:', not await ann.is_visible('.shareBtn'))
+    print('local note:', (await ann.inner_text('.localNote')).replace('\n',' '), '| one notice, no toast:', not await ann.is_visible('.toastText'), '| share hidden:', not await ann.is_visible('.shareBtn'))
     print('source link goes to the post:', await ann.evaluate("(document.querySelector('.srcJump,.orig,a[href*=\"/status/\"]')||{}).href||''"))
     await ann.screenshot(path='ext_x_page.png')
     # late-loading status page
