@@ -27,6 +27,10 @@ async def main():
     await ctx.route('https://works.example/**',mp3)
     await ctx.route('https://down.example/**',lambda r: r.fulfill(status=500,body='no'))
     await ctx.route('https://alsodown.example/**',lambda r: r.fulfill(status=503,body='no'))
+    # A tracker that never answers, which is what rss.podscribe.ai did for This Week in Startups on 2026-09-23.
+    async def hang(route):
+      await asyncio.sleep(60)
+    await ctx.route('https://hangs.example/**',hang)
     sw=ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     extid=sw.url.split('/')[2]
     pg=await ctx.new_page(); await pg.goto(f'chrome-extension://{extid}/sidepanel.html')
@@ -66,6 +70,13 @@ async def main():
       return {seconds:c.seconds,bytes:c.bytes};}catch(e){return {error:e.message};}}""",'https://down.example/p/audio.example/ep.mp3')
     print('clip after falling back ->',c)
     if not (4.5 < (c.get('seconds') or 0) < 5.6): errs.append(f'clip length {c.get("seconds")} is not about 5 s')
+
+    # A tracker that hangs gives way to the address inside it well before a person would give up.
+    import time
+    t0=time.time(); r=await probe('https://hangs.example/p/audio.example/ep.mp3'); took=time.time()-t0
+    print('tracker hangs ->',r,'| took',round(took,1),'s')
+    if r.get('url')!='https://audio.example/ep.mp3': errs.append(f'a hanging tracker was not skipped: {r}')
+    if took>10: errs.append(f'skipping a hanging tracker took {took:.1f} s')
 
     print('errors:',errs)
     await ctx.close()

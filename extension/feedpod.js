@@ -85,8 +85,14 @@ const FeedPod = (() => {
     for (const u of [url, ...inside(url)]) {
       if (!publicAddress(u)) { failure = failure || new Error(NOT_PUBLIC); continue; }
       let r = null;
-      try { r = await fetch(u, { headers: { Range: 'bytes=0-131071' } }); }
-      catch { failure = new Error('The audio file could not be reached.'); continue; }
+      // A tracker that is down does not always refuse. rss.podscribe.ai hung without answering for two of
+      // three This Week in Startups episodes on 2026-09-23, so without a limit the address inside it, which
+      // answered at once, was never tried. The last address gets longer, since nothing comes after it.
+      const last = u === [url, ...inside(url)].slice(-1)[0];
+      const stop = new AbortController(), t = setTimeout(() => stop.abort(), last ? 20000 : 6000);
+      try { r = await fetch(u, { headers: { Range: 'bytes=0-131071' }, signal: stop.signal }); }
+      catch { failure = new Error(stop.signal.aborted ? 'The audio file did not answer in time.' : 'The audio file could not be reached.'); continue; }
+      finally { clearTimeout(t); }
       // A redirect can land somewhere private even from a public address, so where it ended counts too.
       if (r.url && !publicAddress(r.url)) { failure = new Error(NOT_PUBLIC); continue; }
       if (r.status === 206 || r.status === 200) return r;

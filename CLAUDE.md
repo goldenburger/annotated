@@ -619,9 +619,11 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - Sign-in with X is skipped because X's API costs money. Google meets "X or Google".
 - `ui.css` has many stacked override blocks from review rounds. Consolidating it is safe only with the full test
   suite and screenshots before and after.
-- This Week in Startups cannot be clipped, which matters because it is Jason's own show. Apple's directory gives a
-  `rss.podscribe.ai` tracking address that answers 500 or 503, while the same file at `traffic.megaphone.fm`
-  answers 206. Falling back to the unwrapped address when a tracking prefix fails would fix it.
+- This Week in Startups clips (checked against the real feed on 2026-09-23). Apple's directory gives a
+  `rss.podscribe.ai` tracking address that either answers 500 or hangs without answering, so `openStart` in
+  `feedpod.js` gives each address but the last six seconds and then tries the one inside it
+  (`traffic.megaphone.fm`), which answers 206. A clip takes about seven seconds to open for that reason.
+  `tests/fp_unwrap.py` covers a tracker that hangs.
 - Amazon Music never sets a page title, even on a fresh load, so the episode box opens empty and the person types
   the name. The show name does sit in the address as a slug if a guess is ever wanted. Checked in a real browser on
   2026-09-20.
