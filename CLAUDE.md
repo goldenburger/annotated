@@ -259,6 +259,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`staleTalk`). `goTo` switches to a tab already showing the page (`sameAddress`: same video on YouTube,
   tracking tags ignored, Apple's `?i=` kept), where ten tabs had piled up. A tab still loading says "Opening
   youtube.com…" (`openingHost`) instead of flashing the empty start page.
+- **The UX audit of 2026-09-23** (`tests/uxaudit.py`). Beside a tab with nothing to annotate the panel is Home
+  (`bareTab`, the fallback at the foot of `refresh`), with a line saying what to open, where it used to be a
+  screen of its own that looked like Home and was not. Home and Your profile say where Back goes ("Back to
+  Harbor story", and "Back to Home" beside a bare tab, where Home itself has no Back), using `cleanTitle`.
+  Signed out the take box's button says "Save on this computer" and the last step reads Save (`.stSave`), and
+  the saved card leads with "Sign in and publish" (`PanelKit.setPublishLater`, `publishSaved` in
+  `sidepanel.js`), which says so when the sign-in does not finish. The take box comes before the tags, because
+  the take is the star. The whole sentence is offered once, after capture, beside the note saying the quote is
+  part of one. The article panel offers clipping a podcast only on a page with audio of its own. Your profile
+  and Following signed out explain themselves and offer "Sign in with Google" (`action` in `renderBrowse`). The
+  first welcome beside a new tab ends on "Show me where to start", and Home stays hidden behind the welcome.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

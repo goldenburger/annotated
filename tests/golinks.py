@@ -27,12 +27,12 @@ async def main():
       return tid, pan
 
     tid, pan = await panel_beside('about:blank')
-    names = await pan.eval_on_selector_all('#emptyAction .goSite', 'bs=>bs.map(b=>b.textContent.trim())')
+    names = await pan.eval_on_selector_all('#browseMode .startBlock .goSite', 'bs=>bs.map(b=>b.textContent.trim() || b.getAttribute("aria-label"))')
     print('places offered:', names)
     if names != ['YouTube', 'X', 'Spotify', 'Apple Podcasts', 'Google News']: errs.append(f'the places offered were {names}')
     await pan.screenshot(path='golinks.png')
     before = await sw.evaluate("chrome.tabs.query({}).then(t=>t.length)")
-    await pan.click('#emptyAction .goSite:has-text("YouTube")'); await asyncio.sleep(1.2)
+    await pan.click('#browseMode .startBlock .goSite:has-text("YouTube")'); await asyncio.sleep(1.2)
     now = await sw.evaluate(f"chrome.tabs.get({tid}).then(t=>t.url)")
     after = await sw.evaluate("chrome.tabs.query({}).then(t=>t.length)")
     print('the blank tab is now on:', now, '| tabs before and after:', before, after)
@@ -41,7 +41,7 @@ async def main():
 
     tid2, pan2 = await panel_beside('chrome://version/')
     before = await sw.evaluate("chrome.tabs.query({}).then(t=>t.length)")
-    await pan2.click('#emptyAction .goSite:has-text("X")'); await asyncio.sleep(1.2)
+    await pan2.click('#browseMode .startBlock .goSite[aria-label="X"]'); await asyncio.sleep(1.2)
     kept = await sw.evaluate(f"chrome.tabs.get({tid2}).then(t=>t.url)")
     urls = await sw.evaluate("chrome.tabs.query({}).then(t=>t.map(x=>x.url))")
     print('the page that was open is still on:', kept, '| an X tab exists:', any('x.com' in u for u in urls))

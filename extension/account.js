@@ -34,15 +34,16 @@ const Account = (() => {
       ? `<div class="who"><span class="avatar ${me.avatar ? 'hasImg' : ''}" aria-hidden="true">${me.avatar ? `<img src="${esc(me.avatar)}" alt="" referrerpolicy="no-referrer">` : esc(me.name.slice(0, 1))}</span>
            <div><b>${esc(me.name)}</b><span class="acctAt">${me.handle ? '@' + esc(me.handle) : ''}</span></div></div>
          ${actions.onProfile ? '<button type="button" class="ghost sm acctProfile">Your profile</button>' : ''}
-         <form class="acctHandle" novalidate><label for="acctH">Your handle</label>
-           <p class="note acctHWhat">Your name on annotated. It shows on everything you publish and in the link to your profile.</p>
+         <form class="acctHandle" novalidate><label for="acctH">Handle</label>
            <div class="row"><span class="at">@</span><input id="acctH" value="${esc(me.handle || '')}" maxlength="30" autocomplete="off" spellcheck="false" pattern="[a-z0-9_]{2,30}" aria-describedby="acctHRule acctHLink">
            <button class="strong sm acctHSave" disabled>Save</button></div>
-           <p class="note acctHLink" id="acctHLink"></p>
-           <p class="note acctHRule" id="acctHRule">2 to 30 lowercase letters, numbers or underscores.</p>
+           <p class="note acctHRule" id="acctHRule">On everything you publish. 2 to 30 lowercase letters, numbers or underscores.</p>
+           <p class="note acctHLink" id="acctHLink" hidden></p>
            <p class="note acctHMsg" role="status"></p></form>
-         ${actions.onDeleteAll ? '<button type="button" class="quiet danger sm acctDelAll">Delete all my annotations</button>' : ''}
-         <button type="button" class="ghost sm acctOut">Sign out</button>`
+         <div class="acctFoot">
+           <button type="button" class="ghost sm acctOut">Sign out</button>
+           ${actions.onDeleteAll ? '<button type="button" class="link danger acctDelAll">Delete all my annotations</button>' : ''}
+         </div>`
       : `<p class="err">${esc(errText || '')}</p><button type="button" class="ghost sm acctIn">${G} Try again</button>`;
     document.body.appendChild(pop);
     const r = btn.getBoundingClientRect();
@@ -61,11 +62,13 @@ const Account = (() => {
       const h = hIn.value.trim().toLowerCase().replace(/^@/, '');
       const ok = HANDLE.test(h), changed = h !== me.handle;
       // The link only ever shows a handle that could be saved, so it never reads as an address with a space in it.
-      pop.querySelector('.acctHLink').textContent = `${site()}/@${ok ? h : me.handle || ''}`;
+      // The link shows only once a new handle would change it, with what that costs, in two short lines.
+      pop.querySelector('.acctHLink').textContent = `New link: ${site()}/@${ok ? h : me.handle || ''}`;
+      pop.querySelector('.acctHLink').hidden = !(ok && changed);
       pop.querySelector('.acctHRule').classList.toggle('bad', !!h && !ok);
       pop.querySelector('.acctHSave').disabled = !ok || !changed;
       const m = pop.querySelector('.acctHMsg');
-      if (!m.dataset.sticky) m.textContent = ok && changed && me.handle ? `Links to @${me.handle} will stop working. Links to each annotation keep working.` : '';
+      if (!m.dataset.sticky) m.textContent = ok && changed && me.handle ? `Links to @${me.handle} will stop working.` : '';
     };
     if (hIn) { hIn.addEventListener('input', () => { pop.querySelector('.acctHMsg').dataset.sticky = ''; hLive(); }); hLive(); }
     const pr = pop.querySelector('.acctProfile');
@@ -85,7 +88,8 @@ const Account = (() => {
       const was = me.handle; me = { ...me, handle: h };
       // The first span inside .who is the avatar, so writing there put the handle inside the circle and
       // left the old one on screen underneath. The handle has a name of its own now.
-      msg.textContent = `Saved. It shows on your annotations now, and links to your old handle, @${was}, no longer work.`;
+      msg.textContent = `Saved. Links to your old handle, @${was}, no longer work.`;
+      pop.querySelector('.acctHLink').hidden = true;
       pop.querySelector('.acctAt').textContent = '@' + h;
       pop.querySelector('.acctHSave').disabled = true;
       draw();

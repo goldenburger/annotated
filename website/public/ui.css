@@ -801,7 +801,7 @@ body.debug .status.quietOk { display: block; }
 @container (max-width: 560px) { .cthumb { display: none; } .card { grid-template-columns: 1fr; } }
 
 /* ===== Second pass, Phase E: first run and small moments ===== */
-.welcoming #videoMode, .welcoming #articleMode, .welcoming #postMode, .welcoming #annMode, .welcoming #empty { display: none !important; }
+.welcoming #videoMode, .welcoming #articleMode, .welcoming #postMode, .welcoming #annMode, .welcoming #empty, .welcoming #browseMode, .welcoming #podcastMode { display: none !important; }
 .welcome { padding: 18px 2px 8px; text-align: center; }
 .welcome .wHero .illo { width: 170px; height: auto; margin: 0 auto 6px; display: block; }
 .welcome h1 { font: 600 21px/1.25 var(--serif); margin: 4px 0 8px; letter-spacing: -0.01em; }
@@ -1465,3 +1465,25 @@ body.signedOut .pubSignIn { display: block; }
 .startBlock .talked[hidden] + .goLabel, .startBlock .talked:not([hidden]) + .goLabel { margin-top: 14px; }
 .startBlock .talked[hidden] + .goLabel { margin-top: 0; }
 .mirrorStart.startBlock { margin-top: 14px; padding-top: 14px; }
+
+/* Signed out the last step is Save, because nothing is published until you sign in. */
+.steps .stSave { display: none; }
+body.signedOut .steps .stPub { display: none; }
+body.signedOut .steps .stSave { display: inline; }
+.pubcard .pubLater { margin-bottom: 8px; }
+.pubcard .pubLater + .pubLaterErr + .view, .pubcard .pubLater + .pubLaterErr[hidden] + .view { width: 100%; justify-content: center; }
+
+/* The way back in Home and Your profile, named like the one beside the feed. */
+.annside.browse .browseBack { display: flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; height: auto; padding: 7px 12px;
+  margin: 0 0 12px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); justify-content: flex-start; font: 500 var(--t-s)/1.3 var(--sans); }
+.annside.browse .browseBack span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.annside.browse .browseBack .ic { flex: 0 0 auto; width: 15px; height: 15px; }
+.browseAction { margin: 14px 0 0; }
+.browseAction .browseAct { width: 100%; }
+.startHint { margin: 0 0 14px; font-size: var(--t-s); color: var(--ink-2); text-align: left; }
+
+/* The account menu in three parts: who you are, your handle, and the account's own actions. */
+.acctPop .acctHandle { padding-top: 10px; border-top: 1px solid var(--rule); }
+.acctPop .acctFoot { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--rule); justify-items: center; }
+.acctPop .acctFoot .acctDelAll { width: auto; font-size: var(--t-xs); color: var(--red); }
+.acctHandle .acctHLink[hidden] { display: none; }

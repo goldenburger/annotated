@@ -1067,13 +1067,14 @@ const AnnotationPage = (() => {
   // The panel's own Home and profile. A menu shows you its contents where you are, so these read inside the
   // panel rather than taking a tab. Opening one annotation is a page, because that is where its comments,
   // its source and the conversation live, and that page still shares the one annotated tab.
-  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true }) {
+  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null }) {
     stopClock(container);
     // For you arrives ranked, so its order is kept. Everything else is newest first.
     const list = tabs && tabs.current === 'foryou' ? records.slice() : records.slice().sort((a, b) => b.created - a.created);
+    // The way back says where it goes, like the one beside the feed. An arrow on its own left people guessing.
     container.innerHTML = `<div class="annside browse">
-      <div class="browseHead"><button type="button" class="browseBack" aria-label="Back to this page">${Brand.icon('arrowLeft')}</button>
-        <h2>${esc(title)}</h2>
+      ${onBack ? `<button type="button" class="ghost sm browseBack" title="${esc(backTo)}">${Brand.icon('arrowLeft')}<span>${esc(backTo)}</span></button>` : ''}
+      <div class="browseHead"><h2>${esc(title)}</h2>
         ${onFull ? '<button type="button" class="link browseFull">See all annotations</button>' : ''}</div>
       ${tabs ? `<div class="seg browseTabs" role="radiogroup" aria-label="Which annotations">${tabs.options.map(([k, l]) =>
         `<label><input type="radio" name="browseTab" value="${esc(k)}" ${tabs.current === k ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>` : ''}
@@ -1082,10 +1083,14 @@ const AnnotationPage = (() => {
         <span class="rlKind">${kindIcon(r.item)}</span>
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
         </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Capture something and it shows up.')}</p></li>`}</ul>
+      ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
     </div>`;
     wireDelAll(container, onDeleteAll);
-    container.querySelector('.browseBack').addEventListener('click', () => onBack());
+    const bk = container.querySelector('.browseBack');
+    if (bk) bk.addEventListener('click', () => onBack());
+    const act = container.querySelector('.browseAct');
+    if (act) act.addEventListener('click', () => action.onClick());
     const full = container.querySelector('.browseFull');
     if (full) full.addEventListener('click', () => onFull());
     if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));

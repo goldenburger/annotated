@@ -39,9 +39,8 @@ async def main():
     quote, note, btn, _ = await sel(['a', 12, 40])
     print('default ->', repr(quote), '|', note, '|', btn)
     if quote!='met on a Tuesday to talk about': errs.append(f'the default gave {quote!r} instead of the words selected')
-    if 'exactly' not in note.lower(): errs.append(f'the note did not say it used the selection, it said {note!r}')
-    # One offer, one name, before capture and after it.
-    if btn != 'Use the whole sentence': errs.append(f'the offer read {btn!r}')
+    # The panel offers the sentence once, after capture, beside the note that says it is part of one.
+    if btn: errs.append(f'the panel offered {btn!r} before capture as well')
 
     # The same offer sits beside Annotate on the page, as a quieter second click.
     onpage = await pg.is_visible('.more')
@@ -58,10 +57,11 @@ async def main():
     print('offered on a whole sentence:', still)
     if still: errs.append('the offer was made on a selection that was already a whole sentence')
 
-    # Taking the offer in the panel does the same, and the next selection is exact again.
+    # Taking the offer in the panel after capture does the same, and the next selection is exact again.
     await sel(['a', 12, 40])
-    await pan.click('#articleMode .exactBtn'); await asyncio.sleep(.6)
-    grown=(await pan.inner_text('#articleMode .selQuote')).strip()
+    await pan.click('#articleMode .grab'); await pan.wait_for_selector('#articleMode .aFragFix:not([hidden])', timeout=15000)
+    await pan.click('#articleMode .aFragFix'); await asyncio.sleep(2.5)
+    grown=(await pan.inner_text('#articleMode .capQuote')).strip()
     print('offer taken ->', repr(grown[:52]))
     if not (grown.startswith('The council met') and grown.endswith('buses.')): errs.append(f'the offer gave {grown!r}')
     quote2, _, _, _ = await sel(['b', 4, 30])

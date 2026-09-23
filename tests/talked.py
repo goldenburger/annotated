@@ -45,7 +45,7 @@ async def main():
       return tid, pan
 
     tid, pan = await panel_beside('about:blank')
-    rows = await pan.eval_on_selector_all('#emptyAction .talkRow', 'bs=>bs.map(b=>[b.querySelector(".talkName").textContent, b.querySelector(".talkWhy").textContent, b.dataset.url])')
+    rows = await pan.eval_on_selector_all('#browseMode .startBlock .talkRow', 'bs=>bs.map(b=>[b.querySelector(".talkName").textContent, b.querySelector(".talkWhy").textContent, b.dataset.url])')
     for r in rows: print('row:', r)
     if len(rows) != 3: errs.append(f'{len(rows)} rows were shown, wanted three')
     if any('javascript' in (r[2] or '') for r in rows): errs.append('a row that is not a web page was offered')
@@ -53,11 +53,11 @@ async def main():
     if len(rows) > 1 and rows[1][2] != 'https://www.youtube.com/watch?v=abcDEF12345': errs.append(f'the video opens {rows[1][2]!r}')
     if len(rows) > 1 and rows[1][1] != '2 annotations · 1 reply': errs.append(f'the second row says {rows[1][1]!r}')
     if await pan.evaluate('!!window.__owned || !!document.querySelector(".talkRow img")'): errs.append('a title reached the panel as markup')
-    order = await pan.evaluate("[...document.querySelectorAll('#emptyAction .talked, #emptyAction .goSites, #emptyAction .pasteForm')].map(e=>e.className)")
+    order = await pan.evaluate("[...document.querySelectorAll('#browseMode .startBlock .talked, #browseMode .startBlock .goSites, #browseMode .startBlock .pasteForm')].map(e=>e.className)")
     print('order:', order)
     await pan.screenshot(path='talked.png')
 
-    await pan.click('#emptyAction .talkRow >> nth=0'); await asyncio.sleep(1.2)
+    await pan.click('#browseMode .startBlock .talkRow >> nth=0'); await asyncio.sleep(1.2)
     now = await sw.evaluate(f"chrome.tabs.get({tid}).then(t=>t.url)")
     print('the blank tab is now on:', now)
     if 'x.com/s/status/1' not in now: errs.append(f'pressing the first row went to {now}')
@@ -65,14 +65,14 @@ async def main():
     # A clean slate, beside a fresh blank tab, since the first one has gone to X.
     tid, pan = await panel_beside('about:blank')
     await pan.evaluate("Prefs.set('suggest', false)"); await asyncio.sleep(.8)
-    seen = await pan.evaluate("""() => { const vis = (s) => { const e = document.querySelector('#emptyAction ' + s); return !!e && e.offsetParent !== null; };
+    seen = await pan.evaluate("""() => { const vis = (s) => { const e = document.querySelector('#browseMode .startBlock ' + s); return !!e && e.offsetParent !== null; };
       return { talked: vis('.talked'), sites: vis('.goSites'), paste: vis('.pasteForm'), byName: vis('.fpAny') }; }""")
     print('with suggestions off:', seen)
     if seen['talked'] or seen['sites']: errs.append(f'suggestions still showed with the setting off: {seen}')
     if not (seen['paste'] and seen['byName']): errs.append(f'the tools went with the suggestions: {seen}')
     await pan.screenshot(path='talked_off.png')
     await pan.evaluate("Prefs.set('suggest', true)"); await asyncio.sleep(.8)
-    if not await pan.evaluate("document.querySelector('#emptyAction .talked').offsetParent !== null"): errs.append('the list did not come back when turned on')
+    if not await pan.evaluate("document.querySelector('#browseMode .startBlock .talked').offsetParent !== null"): errs.append('the list did not come back when turned on')
 
     # The switch itself, in Display settings.
     label = await pan.evaluate("""async () => { const g = document.querySelector('.gearBtn'); if (g) g.click();
@@ -83,8 +83,8 @@ async def main():
     # Nothing talked about: no heading over an empty box.
     answer['rows'] = []
     tid3, pan3 = await panel_beside('chrome://version/')
-    shown = await pan3.evaluate("(() => { const t = document.querySelector('#emptyAction .talked'); return t ? t.offsetParent !== null : 'missing'; })()")
-    sites = await pan3.evaluate("document.querySelectorAll('#emptyAction .goSite').length")
+    shown = await pan3.evaluate("(() => { const t = document.querySelector('#browseMode .startBlock .talked'); return t ? t.offsetParent !== null : 'missing'; })()")
+    sites = await pan3.evaluate("document.querySelectorAll('#browseMode .startBlock .goSite').length")
     print('with nothing talked about, the list shows:', shown, '| places to start:', sites)
     if shown is not False: errs.append(f'the list showed with nothing in it: {shown}')
     if sites != 5: errs.append('the places to start went with the empty list')

@@ -33,10 +33,6 @@ const Compose = (() => {
 
     root.innerHTML = `
       <h2 class="step">Add your take</h2>
-      <div class="kindLabel" id="kindLbl${++uid}">Tag <span>(optional)</span></div>
-      <div class="tags" role="radiogroup" aria-labelledby="kindLbl${uid}">
-        ${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="false">${t}</button>`).join('')}
-      </div>
       <div class="takefield">
         <textarea class="takeInput" rows="4" maxlength="${MAX_TEXT}" aria-label="Written take" placeholder="${opts.placeholder || 'What should people notice?'}"></textarea>
         <div class="tfbar">
@@ -49,6 +45,10 @@ const Compose = (() => {
             <button type="button" class="quiet recBtn hasTip" data-tooltip="Record up to 60 seconds">${Brand.icon('mic')} Voice note</button>
           </span>
         </div>
+      </div>
+      <div class="kindLabel" id="kindLbl${++uid}">Tag <span>(optional)</span></div>
+      <div class="tags" role="radiogroup" aria-labelledby="kindLbl${uid}">
+        ${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="false">${t}</button>`).join('')}
       </div>
       <input type="file" class="upFile" accept="${MEDIA_ACCEPT}" hidden>
       <div class="upChosen" hidden>
@@ -86,7 +86,7 @@ const Compose = (() => {
       </div>
       <div class="pubBar">
         <p class="pubSignIn">Signed out, this is saved only on this computer. <button type="button" class="link pubSignInBtn">Sign in to publish it for everyone</button></p>
-        <button type="button" class="primary publish" disabled>Publish</button>
+        <button type="button" class="primary publish" disabled>${typeof document !== 'undefined' && document.body.classList.contains('signedOut') ? 'Save on this computer' : 'Publish'}</button>
         <p class="hint publishHint">Add a written take, a voice note, a poll, a GIF, or a photo or video.</p>
       </div>`;
 
@@ -235,15 +235,19 @@ const Compose = (() => {
     // does, and the recording on 2026-09-21 showed a finished poll sitting next to a Publish button that
     // would not turn on and a line about written takes.
     const asked = (p) => !!(p && p.question && (p.options || []).length >= 2);
+    // Signed out nothing is published, only kept on this computer, so the button and the step say Save.
+    const signedOut = () => document.body.classList.contains('signedOut');
+    const pubLabel = () => (busy ? (signedOut() ? 'Saving' : 'Publishing') : signedOut() ? 'Save on this computer' : 'Publish');
     function validate() {
       const v = value(), ready = !busy && !rec && (v.text || v.voice || asked(v.poll) || v.gif || v.upload);
       q('.publish').disabled = !ready;
+      if (q('.publish').textContent !== pubLabel()) q('.publish').textContent = pubLabel();
       // What happens next depends on a setting, so the line says the one that is set rather than guessing.
       const after = typeof Prefs !== 'undefined' && Prefs.get ? Prefs.get().afterPublish : 'stay';
       q('.publishHint').textContent = busy ? 'Sending it now.'
         : rec ? 'Stop the recording to publish.'
         // Signed out there is no link to share, only a copy on this computer, so the line says that instead.
-        : ready ? (document.body.classList.contains('signedOut') ? 'It stays on this computer until you sign in. Ctrl or Cmd + Enter works too.'
+        : ready ? (signedOut() ? 'It stays on this computer until you sign in. Ctrl or Cmd + Enter works too.'
           : after === 'page' ? 'Opens your annotation page. Ctrl or Cmd + Enter works too.'
           : 'You stay here, with a link to share. Ctrl or Cmd + Enter works too.')
         : 'Add a written take, a voice note, a poll, a GIF, or a photo or video.';
@@ -271,7 +275,7 @@ const Compose = (() => {
     }
     // Signing in or out changes what that line should say, and it happens in the account button, not here.
     if (typeof MutationObserver !== 'undefined') new MutationObserver(() => validate()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-    function setBusy(b) { busy = b; q('.publish').textContent = b ? 'Publishing' : 'Publish'; validate(); }
+    function setBusy(b) { busy = b; validate(); }
     function hideMic() { q('.micMsg').hidden = true; q('.micFix').hidden = true; }
 
     function micError(e) {

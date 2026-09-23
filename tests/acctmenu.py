@@ -13,7 +13,7 @@ SESSION = {'access_token': 'header.e30.sig', 'refresh_token': 'r', 'token_type':
                     'app_metadata': {}, 'user_metadata': {'full_name': 'Robo Taxi'}, 'created_at': '2026-09-01T00:00:00Z'}}
 PROFILE = [{'id': UID, 'handle': 'robotaxi', 'display_name': 'Robo Taxi', 'avatar_url': ''}]
 READ = """() => { const p = document.querySelector('.acctPop'); if (!p) return null; const t = (s) => ((p.querySelector(s) || {}).textContent || '').trim();
-  return { what: t('.acctHWhat'), link: t('.acctHLink'), rule: t('.acctHRule'), ruleBad: !!p.querySelector('.acctHRule.bad'), msg: t('.acctHMsg'),
+  return { what: t('.acctHRule'), link: p.querySelector('.acctHLink').hidden ? '' : t('.acctHLink'), rule: t('.acctHRule'), ruleBad: !!p.querySelector('.acctHRule.bad'), msg: t('.acctHMsg'),
            saveOff: p.querySelector('.acctHSave').disabled, profile: !!p.querySelector('.acctProfile'), delAll: !!p.querySelector('.acctDelAll') }; }"""
 
 async def main():
@@ -42,8 +42,9 @@ async def main():
     await pg.screenshot(path='acctmenu.png')
     if not a: errs.append('the account menu did not open')
     else:
-      if 'Your name on annotated' not in a['what']: errs.append(f"it does not say what a handle is: {a['what']!r}")
-      if a['link'] != 'annotated-app.netlify.app/@robotaxi': errs.append(f"the link reads {a['link']!r}")
+      # Shortened on 2026-09-23 at David's request: one line under the box, and the link only once it would change.
+      if 'On everything you publish' not in a['what']: errs.append(f"it does not say where a handle shows: {a['what']!r}")
+      if a['link']: errs.append(f"the link showed before anything changed: {a['link']!r}")
       if '2 to 30' not in a['rule']: errs.append(f"the rules are not shown: {a['rule']!r}")
       if not a['saveOff']: errs.append('Save was on before anything changed')
       if not a['profile'] or not a['delAll']: errs.append(f'the actions are missing: {a}')
@@ -60,14 +61,14 @@ async def main():
       await pg.fill('#acctH', 'robo_taxi'); await asyncio.sleep(.2)
       b = await pg.evaluate(READ)
       print('typed a new one:', b)
-      if b['link'] != 'annotated-app.netlify.app/@robo_taxi': errs.append(f"the link did not follow the typing: {b['link']!r}")
+      if b['link'] != 'New link: annotated-app.netlify.app/@robo_taxi': errs.append(f"the link did not follow the typing: {b['link']!r}")
       if b['saveOff']: errs.append('Save stayed off for a good new handle')
       if '@robotaxi will stop working' not in b['msg']: errs.append(f"it did not warn before saving: {b['msg']!r}")
       await pg.fill('#acctH', 'Robo Taxi!'); await asyncio.sleep(.2)
       c = await pg.evaluate(READ)
       print('typed a bad one:', c)
       if not c['ruleBad'] or not c['saveOff']: errs.append(f'a bad handle was not marked: {c}')
-      if c['link'] != 'annotated-app.netlify.app/@robotaxi': errs.append(f"a bad handle made a link of its own: {c['link']!r}")
+      if c['link']: errs.append(f"a bad handle made a link of its own: {c['link']!r}")
 
     # Delete all opens your list with the question already asked.
     await pg.click('.acctDelAll'); await asyncio.sleep(1.5)

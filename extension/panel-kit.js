@@ -42,12 +42,18 @@ const PanelKit = (() => {
 
   // Confirmation once an annotation is live, with the link and sharing built in.
   // note: a line under the heading, for example when it was saved on this computer only.
-  function published(container, { permalink, xHref, onView, onNew, note = '', local = false }) {
+  // Set by the panel: signs in when needed and publishes an annotation saved on this computer, answering
+  // with its link. The preview has no accounts and never sets it.
+  let publishLater = null;
+  function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null }) {
+    const later = local && id && publishLater;
+    const out = typeof document !== 'undefined' && document.body.classList.contains('signedOut');
     container.innerHTML = `
       <div class="pubcard fresh" role="status">
         <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div></div>
         ${permalink && !local ? `<div class="publink"><span class="num">${esc(permalink.replace('https://', ''))}</span></div>` : ''}
-        <button type="button" class="primary view">View page ${Brand.icon('external')}</button>
+        ${later ? `<button type="button" class="primary pubLater">${out ? 'Sign in and publish' : 'Publish it now'}</button><p class="error pubLaterErr" role="alert" hidden></p>` : ''}
+        <button type="button" class="${later ? 'ghost sm' : 'primary'} view">View page ${Brand.icon('external')}</button>
         ${local ? '' : `<div class="row">
           ${permalink ? `<button type="button" class="ghost sm pcopy">${Brand.icon('link')} <span>Copy link</span></button>` : ''}
           ${xHref ? `<a class="ghost sm" href="${esc(xHref)}" target="_blank" rel="noopener">${Brand.icon('x')} Post to X</a>` : ''}
@@ -56,6 +62,18 @@ const PanelKit = (() => {
       </div>`;
     container.querySelector('.view').addEventListener('click', onView);
     container.querySelector('.new').addEventListener('click', onNew);
+    const pl = container.querySelector('.pubLater');
+    if (pl) pl.addEventListener('click', async () => {
+      const err = container.querySelector('.pubLaterErr');
+      pl.disabled = true; pl.textContent = 'Publishing'; err.hidden = true;
+      try {
+        const link = await publishLater(id);
+        published(container, { permalink: link, xHref: null, onView, onNew, id });
+      } catch (e) {
+        pl.disabled = false; pl.textContent = document.body.classList.contains('signedOut') ? 'Sign in and publish' : 'Publish it now';
+        err.textContent = (e && e.message) || 'It could not be published just now.'; err.hidden = false;
+      }
+    });
     const cp = container.querySelector('.pcopy');
     if (cp) cp.addEventListener('click', async () => {
       const lab = cp.querySelector('span');
@@ -89,7 +107,7 @@ const PanelKit = (() => {
     return `<header class="phead">
       <div class="ptop"><span class="pkind" title="${label}">${Brand.icon(icon)}<span class="sr">${label}</span></span><h1 class="ptitle ${titleClass}"></h1></div>
       <div class="pmeta ${metaClass}"></div>
-      <ol class="steps" aria-label="Steps"><li><i></i>Capture</li><li><i></i>Take</li><li><i></i>Publish</li></ol>
+      <ol class="steps" aria-label="Steps"><li><i></i>Capture</li><li><i></i>Take</li><li><i></i><span class="stPub">Publish</span><span class="stSave">Save</span></li></ol>
     </header>`;
   }
   // Small line illustrations for empty states.
@@ -175,7 +193,7 @@ const PanelKit = (() => {
   // One-time welcome: what annotated does in three steps, shown the first time the panel opens.
   // The "?" in the top bar brings it back.
   const WELCOME_KEY = 'annotated-welcome-seen';
-  function welcome(panel, { shortcut = '', force = false, onDisplayChoice = null } = {}) {
+  function welcome(panel, { shortcut = '', force = false, onDisplayChoice = null, bare = false } = {}) {
     let seen = false;
     try { seen = localStorage.getItem(WELCOME_KEY) === '1'; } catch {}
     const brand = panel.querySelector('.brand');
@@ -207,7 +225,7 @@ const PanelKit = (() => {
           <label><input type="radio" name="w-display" value="side" ${Prefs.get().display !== 'float' ? 'checked' : ''}><span>Side panel</span></label>
           <label><input type="radio" name="w-display" value="float" ${Prefs.get().display === 'float' ? 'checked' : ''}><span>Floating</span></label></div>
           <p class="note">You can change this any time under the gear.</p></fieldset>` : ''}
-        <button type="button" class="primary wGo">${seen ? 'Back to annotated' : 'Try it on this page'}</button>
+        <button type="button" class="primary wGo">${seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page'}</button>
         <p class="wKey">${shortcut ? `Open this panel any time with <kbd>${shortcut.split('+').join('</kbd> + <kbd>')}</kbd>.` : 'Set a keyboard shortcut to open this panel at chrome://extensions/shortcuts.'}</p>`;
       brand.insertAdjacentElement('afterend', w);
       w.querySelector('.wGo').addEventListener('click', () => {
@@ -220,7 +238,7 @@ const PanelKit = (() => {
     // Reopened: the choice shows the display in use now, not the last click.
     const cur = w.querySelector(`input[name="w-display"][value="${Prefs.get().display === 'float' ? 'float' : 'side'}"]`);
     if (cur) cur.checked = true;
-    w.querySelector('.wGo').textContent = seen ? 'Back to annotated' : 'Try it on this page';
+    w.querySelector('.wGo').textContent = seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page';
     document.body.classList.add('welcoming');
     w.querySelector('.wGo').focus({ preventScroll: true });
   }
@@ -425,5 +443,5 @@ const PanelKit = (() => {
     return '';
   }
 
-  return { fragmentFrom, clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
+  return { fragmentFrom, clamp, esc, fmt, status, published, setPublishLater: (fn) => { publishLater = fn; }, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

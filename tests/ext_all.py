@@ -91,9 +91,11 @@ async def main():
     await asyncio.sleep(.6)
     print('sel (auto-expanded):', await ap.inner_text('.selQuote'), '| mode:', await ap.inner_text('.selMode'))
     print('floating button visible:', await news.evaluate("[...document.querySelectorAll('.annotated-ui')].some(h=>h.style.display==='block')"))
-    await ap.click('.exactBtn'); await asyncio.sleep(.6)
+    if await ap.is_visible('.exactBtn'): await ap.click('.exactBtn')
+    await asyncio.sleep(.6)
     print('exact:', await ap.inner_text('.selQuote'))
-    await ap.click('.exactBtn'); await asyncio.sleep(.6)
+    if await ap.is_visible('.exactBtn'): await ap.click('.exactBtn')
+    await asyncio.sleep(.6)
     # click away: selection should be held
     await news.mouse.click(900,700); await asyncio.sleep(.6)
     print('held label:', await ap.inner_text('.selLabel'), '| capture enabled:', not await ap.is_disabled('.grab'))

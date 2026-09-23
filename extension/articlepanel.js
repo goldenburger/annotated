@@ -134,7 +134,8 @@ const ArticlePanel = (() => {
       q('.selCount').textContent = `${s.len.toLocaleString()} characters selected`;
       const eb = q('.exactBtn');
       if (s.expanded) { q('.selNote').textContent = 'Snapped to full sentences.'; eb.textContent = 'Use exactly what I selected'; eb.dataset.exact = '1'; eb.hidden = false; }
-      else if (s.exact && s.canExpand) { q('.selNote').textContent = 'Using exactly what you selected.'; eb.textContent = 'Use the whole sentence'; eb.dataset.exact = '0'; eb.hidden = false; }
+      // The whole sentence is offered once, beside the captured quote, where the note saying it is part of a
+      // sentence sits. Offering it here as well asked the same question twice in a row.
       else { q('.selNote').textContent = ''; eb.hidden = true; }
       q('.selMode').hidden = eb.hidden;
       if (s.state === 'error') { q('.selErr').textContent = s.error; q('.selErr').dataset.from = 'sel'; q('.selErr').hidden = false; }
@@ -263,7 +264,7 @@ const ArticlePanel = (() => {
         // always taken it away here, and the article panel went on offering it under a finished annotation.
         q('.aFragFix').hidden = true;
         PanelKit.setStep(root, 4);
-        PanelKit.published(q('.aPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local),
+        PanelKit.published(q('.aPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id,
           permalink: pubRef && pubRef.permalink,
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(result, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),

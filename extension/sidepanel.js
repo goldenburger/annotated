@@ -73,8 +73,7 @@ Prefs.onChange((v) => {
     sendTo(tid, { type: 'set-snap', exact: v.snap === 'exact' }).catch(() => {});
     sendTo(tid, { type: 'set-pen', pen: v.pen, ink: Prefs.inkOf(v.tint) }).catch(() => {});
   }
-  const box = $('#emptyAction');
-  if (box && box.querySelector('.suggest')) showSuggest(box);
+  document.querySelectorAll('#emptyAction, .startBlock').forEach((box) => { if (box.querySelector('.suggest')) showSuggest(box); });
 });
 Prefs.init(Prefs.chromeBackend()).then(async () => {
   if (!(await OURS)) return;
@@ -98,11 +97,13 @@ Prefs.init(Prefs.chromeBackend()).then(async () => {
       }
     },
   });
-  chrome.commands.getAll().then((cmds) => {
+  // Beside a new tab there is nothing to try, so the welcome ends on the places to start instead.
+  const bareNow = activeTabNow().then((t) => !t || bareTab(t.url)).catch(() => false);
+  Promise.all([chrome.commands.getAll().catch(() => []), bareNow]).then(([cmds, bare]) => {
     const c = cmds.find((x) => x.name === '_execute_action');
     shortcutText = (c && c.shortcut) || '';
-    PanelKit.welcome(document.body, { shortcut: shortcutText, onDisplayChoice: onDisplay });
-  }).catch(() => PanelKit.welcome(document.body, { shortcut: '', onDisplayChoice: onDisplay }));
+    PanelKit.welcome(document.body, { shortcut: shortcutText, onDisplayChoice: onDisplay, bare });
+  });
 });
 $('#esIcons').innerHTML = ['clip', 'article', 'post'].map((n) => Brand.icon(n, 'lg')).join('');
 
@@ -162,6 +163,25 @@ async function publish(tid, item, take) {
   log((author ? 'Published ' : 'Saved locally ') + id);
   return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
 }
+// An annotation saved on this computer, published from the card that said it was saved. Signed out, this
+// signs in first. The card used to lead with View page and leave signing in to a line of small print.
+async function publishSaved(id) {
+  let who = await cachedProfile();
+  if (!who && typeof Account !== 'undefined') {
+    await Account.signIn();
+    profileCache = { at: 0, who: null };
+    who = await cachedProfile();
+  }
+  if (!who) throw new Error('Sign-in did not finish, so it is still saved on this computer.');
+  const full = await Store.get(id);
+  if (!full) throw new Error('That annotation is no longer saved here.');
+  const author = await Cloud.publish(id, full.item, full.take);
+  if (!author) throw new Error('Sign in first.');
+  await Store.update(id, { cloud: true, author });
+  await Cloud.carryOver(id, author.id, full.comments || [], full.reactions || []).catch(() => {});
+  return Backend.permalink(id, author.handle);
+}
+PanelKit.setPublishLater(publishSaved);
 // annotated's own reading pages live in one tab. Home, a profile and every annotation move that tab rather
 // than each taking one of their own, which left a strip of identical tabs behind after a few captures. A tab
 // already showing the exact page is simply brought forward. Anywhere that is not annotated, a source or a
@@ -548,7 +568,8 @@ function makeArticle(tid, url, hasAudio = false) {
     },
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked,
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
-    onFindPodcast: () => { feedAsked.add(tid); drop(tid); refresh(); },
+    // Only a page with audio of its own offers it. On every news page it was clutter, and Home has it.
+    onFindPodcast: hasAudio ? () => { feedAsked.add(tid); drop(tid); refresh(); } : null,
     xHost: onXHost(url), ytHost: onYtHost(url), pasteForm, wirePaste, draftKey: 'a:' + url, keep: keepFor('a:' + url) });
   return p;
 }
@@ -643,8 +664,10 @@ const GO_SITES = [
   ['Apple Podcasts', 'https://podcasts.apple.com/', 'podcast'],
   ['Google News', 'https://news.google.com/', 'article'],
 ];
+// X's logo is its name, so that button shows the logo alone, and says X to a screen reader and in its tip.
 const goSites = () => `<p class="goLabel">Start somewhere</p><div class="goSites">${GO_SITES.map(([name, url, icon]) =>
-  `<button type="button" class="ghost sm goSite" data-url="${url}">${Brand.icon(icon)} ${name}</button>`).join('')}</div>`;
+  icon === 'x' ? `<button type="button" class="ghost sm goSite" data-url="${url}" aria-label="${name}" title="${name}">${Brand.icon(icon)}</button>`
+  : `<button type="button" class="ghost sm goSite" data-url="${url}">${Brand.icon(icon)} ${name}</button>`).join('')}</div>`;
 // What people are talking about on annotated, above the places to start. It is asked for once and again
 // after ten minutes at most, because the empty panel is drawn by the refresh loop and the list changes
 // slowly. Three rows, one line of name and one of why, and nothing at all when there is nothing to say,
@@ -770,11 +793,17 @@ function wirePaste(root, beside = false) {
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
 let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null;
-async function openBrowse(kind) {
+async function openBrowse(kind, { byHand = true } = {}) {
   browsing = kind;
+  // Pressing Home or Your profile while the welcome is up means you are done with it. Home used to open
+  // behind it, where nothing on screen changed.
+  if (byHand && document.body.classList.contains('welcoming')) {
+    try { localStorage.setItem('annotated-welcome-seen', '1'); } catch { /* nowhere to keep it */ }
+    PanelKit.closeWelcome();
+  }
   browseTab = Cloud.savedTab(); browsePressed = false;
   // Where you were when you opened it. Moving off that page is what puts the panel back.
-  browseFrom = await activeTabNow().then((t) => (t ? { id: t.id, url: t.url } : null)).catch(() => null);
+  browseFrom = await activeTabNow().then((t) => (t ? { id: t.id, url: t.url, title: t.title } : null)).catch(() => null);
   // The list is drawn while it is still out of sight, and only then does the panel change over. Hiding
   // everything first and fetching afterwards left the panel empty for about a second every time Home or
   // your profile was pressed.
@@ -839,10 +868,21 @@ async function drawBrowse() {
       onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
   }
   if (browsing !== kind) return;
+  // Where Back goes, by name. Beside a bare tab Home has nowhere to go back to, and Your profile goes to Home.
+  const bare = bareTab(browseFrom && browseFrom.url);
+  const backTo = bare ? (kind === 'home' ? '' : 'Back to Home') : `Back to ${cleanTitle(browseFrom && browseFrom.title) || 'this page'}`;
+  const signIn = typeof Account !== 'undefined' ? () => Account.signIn() : null;
+  let action = null;
+  if (!me && signIn && kind === 'profile') {
+    note = records.length ? 'Signed out, these are saved only on this computer. Sign in to publish them under your name.' : '';
+    emptyNote = 'Your profile is everything you publish, under your name, with a link people can follow. Sign in to start one. Anything you save before then shows here too.';
+    action = { label: 'Sign in with Google', onClick: signIn };
+  }
+  if (!me && signIn && kind === 'home' && tabs && tabs.current === 'following') action = { label: 'Sign in with Google', onClick: signIn };
   AnnotationPage.renderBrowse($('#browseMode'), {
-    title, records, note, emptyNote, tabs, localAware: true,
+    title, records, note, emptyNote, tabs, localAware: true, backTo, action,
     onOpen: (id) => openExtPage('annotation.html#' + id),
-    onBack: closeBrowse,
+    onBack: backTo ? closeBrowse : null,
     onFull: () => openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile'),
     // The same control as on your profile page, where it took some finding.
     onDeleteAll: kind === 'profile' ? async (progress) => {
@@ -862,7 +902,7 @@ async function drawBrowse() {
   if (kind === 'home') {
     const st = document.createElement('div');
     st.className = 'startBlock esAction';
-    st.innerHTML = startHtml();
+    st.innerHTML = (bare ? '<p class="startHint">Open a YouTube video, an article, a podcast episode or a post on X in this tab and annotated is ready to annotate it. Or start here.</p>' : '') + startHtml();
     $('#browseMode .browseHead').after(st);
     wireStart(st, true);
   }
@@ -870,6 +910,9 @@ async function drawBrowse() {
 // The last tab that had something to annotate, so the panel beside annotated's own pages can offer the
 // way back to what you were reading.
 let lastSourceTab = null, openingHost = '';
+const cleanTitle = (t) => String(t || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X|annotated)$/, '').replace(/\s+\/\s+X$/, '').trim();
+// A tab with nothing to annotate and no page of ours: a new tab, a blank page, a browser page.
+const bareTab = (url) => !isWeb(url) && !String(url || '').startsWith(chrome.runtime.getURL(''));
 function show(tid, msg, title) {
   if (browsing) return;
   // Nothing to show yet because the page is still arriving. For two seconds after each new tab the panel used
@@ -956,7 +999,9 @@ async function refresh() {
     // part way through is never pulled out from under you. Go to another tab, or let this one go somewhere
     // else, and the panel comes back to what you are looking at instead of waiting to be sent back.
     if (browsing) {
-      if (browseFrom && tab && tab.id === browseFrom.id && tab.url === browseFrom.url) return;
+      // Home beside a bare tab gives way as soon as that tab starts loading a page, so it can say what is opening.
+      const leaving = bareTab(browseFrom && browseFrom.url) && tab && tab.status === 'loading' && isWeb(tab.pendingUrl || '');
+      if (browseFrom && tab && tab.id === browseFrom.id && tab.url === browseFrom.url && !leaving && !feedAsked.has(tab.id)) return;
       browsing = null; browseFrom = null;
       $('#browseMode').hidden = true;
     }
@@ -1058,7 +1103,7 @@ async function refresh() {
       const srcTab = lastSourceTab != null ? await chrome.tabs.get(lastSourceTab).catch(() => null) : null;
       const back = !!srcTab;
       // The way back names where it goes. A tab title carries YouTube's unread count and the site's name.
-      const sourceName = srcTab ? String(srcTab.title || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X)$/, '').replace(/\s+\/\s+X$/, '').trim() : '';
+      const sourceName = srcTab ? cleanTitle(srcTab.title) : '';
       // Drawn again only when something on it would change. A redraw replaces the buttons, and one landing
       // while a button is held down loses the click.
       const sig = mirrors ? [mirrors, srcTab && srcTab.id, sourceName].join('|') : '';
@@ -1116,6 +1161,10 @@ async function refresh() {
       return;
     }
     annKey = null;
+    // Nothing here to annotate, so the panel is Home: the places to start and what people are annotating.
+    // It used to be a screen of its own, "Open something to annotate", that looked like Home and was not,
+    // which is how "I can't get back to the start page" happened in the recording of 2026-09-23 at 02:48.
+    if (!openingHost && bareTab(tab.url)) { busyRefresh = false; return openBrowse('home', { byHand: false }); }
     show(null);
   } finally { busyRefresh = false; }
 }
