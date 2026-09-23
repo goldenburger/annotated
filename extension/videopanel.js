@@ -624,7 +624,7 @@ const VideoPanel = (() => {
         isPublished = true;
         q('.vCompose').hidden = true;
         PanelKit.setStep(root, 4);
-        PanelKit.published(q('.vPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id,
+        PanelKit.published(q('.vPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id, offline: !!(pubRef && pubRef.offline),
           permalink: pubRef && pubRef.permalink,
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(result, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),

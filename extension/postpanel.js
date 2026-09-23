@@ -230,7 +230,7 @@ const PostPanel = (() => {
         q('.showAs').hidden = true; q('.hint.tip').hidden = true;
         q('.showAsWas').textContent = was || ''; q('.showAsWas').hidden = !was;
         PanelKit.setStep(root, 4);
-        PanelKit.published(q('.pPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id,
+        PanelKit.published(q('.pPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id, offline: !!(pubRef && pubRef.offline),
           permalink: pubRef && pubRef.permalink,
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(item, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),

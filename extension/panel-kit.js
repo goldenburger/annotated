@@ -45,7 +45,7 @@ const PanelKit = (() => {
   // Set by the panel: signs in when needed and publishes an annotation saved on this computer, answering
   // with its link. The preview has no accounts and never sets it.
   let publishLater = null;
-  function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null }) {
+  function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null, offline = false }) {
     const later = local && id && publishLater;
     const out = typeof document !== 'undefined' && document.body.classList.contains('signedOut');
     container.innerHTML = `
@@ -63,6 +63,14 @@ const PanelKit = (() => {
     container.querySelector('.view').addEventListener('click', onView);
     container.querySelector('.new').addEventListener('click', onNew);
     const pl = container.querySelector('.pubLater');
+    // Saved because the connection was down: the button waits for it rather than offering what cannot work,
+    // and wakes up by itself when the browser is back online. Offline used to say "Publish it from its page
+    // when you are back online" above a button saying Sign in and publish.
+    const readyLabel = () => (document.body.classList.contains('signedOut') ? 'Sign in and publish' : 'Publish it now');
+    if (pl && offline && typeof navigator !== 'undefined' && navigator.onLine === false) {
+      pl.disabled = true; pl.textContent = "Publish when you're back online";
+      window.addEventListener('online', () => { if (pl.isConnected) { pl.disabled = false; pl.textContent = readyLabel(); } }, { once: true });
+    }
     if (pl) pl.addEventListener('click', async () => {
       const err = container.querySelector('.pubLaterErr');
       pl.disabled = true; pl.textContent = 'Publishing'; err.hidden = true;

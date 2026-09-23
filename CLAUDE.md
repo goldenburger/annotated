@@ -277,6 +277,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   The Home page's empty tabs say the tab's own reason (`tabs.empty`) and offer "See your N annotations" when
   you have some. Your own profile page leaves out the rail's You card, and signed out its header says how many
   are saved on this computer and offers Sign in (`onSignIn` from `feed.js`) instead of follower counts.
+- **The third UX audit of 2026-09-23** (`tests/uxaudit3.py`). Saved while offline, the card says "You are offline,
+  so it is saved on this computer." and its button reads "Publish when you're back online", greyed, until the
+  browser's `online` event wakes it (`offline` from `publish` through to `PanelKit.published`). It used to say
+  "Publish it from its page" above a Sign in and publish button that could not work. An unreachable server
+  with the browser still online keeps the button live, since no `online` event would ever come. The poll
+  question's hint is "Ask a question (optional)", because the longer one was cut off in its box.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

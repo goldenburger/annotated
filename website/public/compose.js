@@ -66,7 +66,7 @@ const Compose = (() => {
       </div>
       <div class="pollEdit" hidden>
         <div class="peHead"><b>Poll</b><button type="button" class="quiet peRemove">${Brand.icon('trash')} Remove poll</button></div>
-        <input type="text" class="peQ" maxlength="80" aria-label="Poll question, optional" placeholder="Ask a question (optional), like Is this figure accurate?">
+        <input type="text" class="peQ" maxlength="80" aria-label="Poll question, optional" placeholder="Ask a question (optional)">
         <div class="peOpts"></div>
         <button type="button" class="link peAdd">Add an option</button>
       </div>

@@ -264,7 +264,7 @@ const ArticlePanel = (() => {
         // always taken it away here, and the article panel went on offering it under a finished annotation.
         q('.aFragFix').hidden = true;
         PanelKit.setStep(root, 4);
-        PanelKit.published(q('.aPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id,
+        PanelKit.published(q('.aPublished'), { note: pubRef && pubRef.note, local: !!(pubRef && pubRef.local), id: pubRef && pubRef.id, offline: !!(pubRef && pubRef.offline),
           permalink: pubRef && pubRef.permalink,
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(result, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),

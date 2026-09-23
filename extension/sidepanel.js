@@ -123,7 +123,7 @@ async function publish(tid, item, take) {
     upload: take.upload ? { blob: take.upload.blob, kind: take.upload.kind, type: take.upload.type, w: take.upload.w, h: take.upload.h, alt: take.upload.alt } : null };
   await Store.put(id, { item, take: saved, reactions: [], sourceTabId: tid, created: Date.now() });
   // Signed in: share it, files and all, so it has a public page. Signed out, or if sharing fails, it stays on this computer.
-  let author = null, note = '', local = false;
+  let author = null, note = '', local = false, offline = false;
   // Uploads take longer than a row, so the limit grows with the files: a minute, and ten seconds a megabyte.
   const bytes = [item.blob, saved.voice && saved.voice.blob, saved.upload && saved.upload.blob].reduce((n, b) => n + ((b && b.size) || 0), 0);
   // A test can shorten the minute through window.__publishLimit, because waiting a real minute is no test.
@@ -133,7 +133,7 @@ async function publish(tid, item, take) {
   // whether annotated can be reached at all. Any answer counts, even a refusal. Only no answer means offline.
   const reachable = () => inTime(fetch(Backend.url + '/auth/v1/health', { method: 'GET', cache: 'no-store', headers: Backend.key ? { apikey: Backend.key } : {} }).then(() => true, () => false), 3000).catch(() => false);
   if ((typeof navigator !== 'undefined' && navigator.onLine === false) || !(await reachable())) {
-    local = true; note = 'You are offline, so it is saved on this computer. Publish it from its page when you are back online.';
+    local = true; offline = true; note = 'You are offline, so it is saved on this computer.';
   } else {
     const going = Cloud.publish(id, item, saved);
     try {
@@ -161,7 +161,7 @@ async function publish(tid, item, take) {
   // that. Any other way into an annotation, you came from a list and Back has to go there instead.
   const t = after === 'page' ? await openExtPage('annotation.html#' + id, () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {})) : null;
   log((author ? 'Published ' : 'Saved locally ') + id);
-  return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
+  return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local, offline };
 }
 // An annotation saved on this computer, published from the card that said it was saved. Signed out, this
 // signs in first. The card used to lead with View page and leave signing in to a line of small print.
