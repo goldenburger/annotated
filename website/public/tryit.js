@@ -1,8 +1,8 @@
-// The front page's own try-it. A visitor selects words in the annotated.com brief, the real Annotate button
-// appears beside them, the real pen crosses them (ArticleCore, the same code the extension puts on every
-// page), and a take turns it into the card an annotation becomes. Nothing is saved on a server and nothing
-// is sent. The last one made is kept in this browser, so the extension can offer to publish it once it is
-// installed (annotated-tryit in localStorage).
+// The front page's own try-it. The annotated.com brief is printed on a sheet of paper, tilted a little in 3D.
+// A visitor selects words, presses Annotate, and the extension's real pen crosses them (ArticleCore, the same
+// code the extension puts on every page). Their take then lifts off the paper as a card that hangs above it,
+// its shadow landing on the words it is about: your take on top, the source underneath. Nothing is sent. The
+// last one made is kept in this browser (annotated-tryit), so the extension can offer to publish it.
 var TryIt = (() => {
   // The brief, word for word, from its own page. Short on purpose, credited and linked.
   const SOURCE = { title: 'The annotated.com brief', site: 'This Week in Startups', url: 'https://annotated.lovable.app/' };
@@ -12,11 +12,16 @@ var TryIt = (() => {
     'The cleanest, most complete execution wins.',
   ];
   const KEY = 'annotated-tryit';
-  // The phrase the page marks by itself for anyone who has not touched it after a few seconds.
-  const DEMO = 'must link back to its original source URL';
+  const MAX_QUOTE = 280, MAX_TAKE = 280;
+  // What the page does by itself, once, for anyone who has not touched it. Labelled Example on screen.
+  const DEMO = { phrase: 'must link back to its original source URL', take: 'Every annotation here does, and each one has File a claim.' };
   const INK = { hi: '#FFE14A', deep: '#F2C600', lift: '#FFEE9E' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (n) => (typeof Brand !== 'undefined' ? Brand.icon(n) : '');
+  const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const flat = () => typeof matchMedia !== 'undefined' && (matchMedia('(max-width: 760px)').matches || matchMedia('(hover: none)').matches);
+  // A small drawn pen, for the example only.
+  const PEN = '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 32l4-12L28 4l8 8-16 16z" fill="#16181D"/><path d="M8 32l4-12 8 8z" fill="#FFE14A"/><path d="M6 36h10" stroke="#F2C600" stroke-width="3" stroke-linecap="round"/></svg>';
 
   function mount(host) {
     if (typeof ArticleCore === 'undefined') return false;
@@ -29,17 +34,36 @@ var TryIt = (() => {
     const el = document.createElement('div');
     el.className = 'tryit';
     el.innerHTML = `
-      <div class="tiCard">
-        <p class="tiSrc"><span class="tiKind">${icon('article')}</span><a href="${SOURCE.url}" target="_blank" rel="noopener">${esc(SOURCE.title)}</a><span class="tiSite">${esc(SOURCE.site)}</span></p>
-        <div class="tiText" data-annotated-self>${LINES.map((l) => `<p>${esc(l)}</p>`).join('')}</div>
-        <div class="tiBar"><p class="tiHint" role="status">Try it here. Select any words above.</p><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
-        <form class="tiTake" hidden>
-          <label class="tiLabel" for="tiInput">Your take</label>
-          <textarea id="tiInput" rows="3" maxlength="280" placeholder="What should people notice?"></textarea>
-          <div class="tiRow"><button class="primary tiMake">Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button></div>
-        </form>
+      <div class="tiStage">
+        <div class="tiTilt">
+          <div class="tiPaper">
+            <p class="tiSrc"><span class="tiKind">${icon('article')}</span><a href="${SOURCE.url}" target="_blank" rel="noopener">${esc(SOURCE.title)}</a><span class="tiSite">${esc(SOURCE.site)}</span></p>
+            <div class="tiText" data-annotated-self tabindex="0" aria-label="The annotated.com brief. Select any words to annotate them.">${LINES.map((l) => `<p>${esc(l)}</p>`).join('')}</div>
+            <span class="tiShadow" aria-hidden="true"></span>
+            <span class="tiCurl" aria-hidden="true"></span>
+          </div>
+          <article class="tiLift" hidden aria-live="polite">
+            <p class="tiExample" hidden>Example</p>
+            <p class="tiWho"><span class="tiAv">${icon('user')}</span>You <span class="tiNow">just now</span></p>
+            <h3 class="tiTakeOut"></h3>
+            <p class="tiOn">on <span class="tiInk"></span></p>
+            <p class="tiMeta"><span>${icon('link')} Links back to the source</span><span>${icon('flag')} File a claim</span></p>
+          </article>
+        </div>
+        <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>
+        <span class="tiPen" aria-hidden="true" hidden>${PEN}</span>
       </div>
-      <div class="tiResult" hidden></div>`;
+      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
+      <form class="tiTake" hidden>
+        <label class="tiLabel" for="tiInput">Your take</label>
+        <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
+        <div class="tiRow"><button class="primary tiMake">Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
+      </form>
+      <div class="tiAfter" hidden>
+        <p class="tiNext"><b>That's an annotation.</b> The extension makes these from any page, a YouTube clip, a podcast or a post on X, and each one gets a page people can reply to.</p>
+        <p class="tiRow"><a class="primary tiGet" href="#get">Get it for Chrome</a><button type="button" class="link tiRedo">Make another</button></p>
+        <p class="note tiKept">It's kept in this browser. Once the extension is installed, it offers to publish it.</p>
+      </div>`;
     host.appendChild(el);
     wire(el);
     return true;
@@ -47,110 +71,190 @@ var TryIt = (() => {
 
   function wire(el) {
     const q = (s) => el.querySelector(s);
-    const text = q('.tiText'), btn = q('.tiBtn'), hint = q('.tiHint'), form = q('.tiTake'), input = q('#tiInput');
-    let marks = [], quote = '', touched = false, demoTimer = null;
-    const slow = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const stage = q('.tiStage'), tilt = q('.tiTilt'), paper = q('.tiPaper'), text = q('.tiText');
+    const btn = q('.tiBtn'), hint = q('.tiHint'), form = q('.tiTake'), input = q('#tiInput');
+    const lift = q('.tiLift'), shadow = q('.tiShadow'), wireSvg = q('.tiWire'), line = wireSvg.querySelector('line'), pen = q('.tiPen');
+    let marks = [], quote = '', touched = false, demoing = false, demoTimer = null, raf = 0;
 
-    const clear = () => {
-      if (marks.length) ArticleCore.clearHighlights(text);
-      marks = []; quote = '';
+    // ---- the tilt: the paper leans toward the pointer, heavily, and the lifted card, being higher, moves more.
+    let tx = 0, ty = 0, cx = 0, cy = 0;
+    const setTilt = () => {
+      cx += (tx - cx) * 0.12; cy += (ty - cy) * 0.12;
+      tilt.style.transform = !flat() && !still() ? `rotateX(${(6 - cy * 4).toFixed(2)}deg) rotateY(${(cx * 4).toFixed(2)}deg) rotateZ(2deg)` : '';
+      drawWire();
+      const moving = Math.abs(tx - cx) > 0.002 || Math.abs(ty - cy) > 0.002;
+      raf = moving || !lift.hidden ? requestAnimationFrame(setTilt) : 0;
     };
+    const kick = () => { if (!raf) raf = requestAnimationFrame(setTilt); };
+    stage.addEventListener('pointermove', (e) => {
+      const r = stage.getBoundingClientRect();
+      tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
+      ty = Math.max(-1, Math.min(1, ((e.clientY - r.top) / r.height) * 2 - 1));
+      kick();
+    });
+    stage.addEventListener('pointerleave', () => { tx = 0; ty = 0; kick(); });
+    setTilt();
+
+    // ---- the hairline from the card to the words, drawn in the stage's own flat coordinates every frame.
+    function drawWire() {
+      if (lift.hidden || !marks.length || !lift.classList.contains('up')) { wireSvg.classList.remove('on'); return; }
+      const s = stage.getBoundingClientRect(), c = lift.getBoundingClientRect();
+      const rs = marks.map((m) => m.getBoundingClientRect()).filter((r) => r.width);
+      if (!rs.length) return;
+      const under = lift.classList.contains('under');
+      const t = rs.reduce((a, r) => (under ? (r.bottom > a.bottom ? r : a) : (r.top < a.top ? r : a)));
+      wireSvg.setAttribute('width', Math.round(s.width)); wireSvg.setAttribute('height', Math.round(s.height));
+      line.setAttribute('x1', (c.left - s.left + 22).toFixed(1)); line.setAttribute('y1', (under ? c.top - s.top + 1 : c.bottom - s.top - 1).toFixed(1));
+      line.setAttribute('x2', (t.left - s.left + Math.min(t.width, 60) / 2).toFixed(1)); line.setAttribute('y2', (under ? t.bottom - s.top - 2 : t.top - s.top + 3).toFixed(1));
+      wireSvg.classList.add('on');
+    }
+
+    // ---- where the card hangs, and where its shadow falls: above the paper, over the words it is about.
+    function hang() {
+      const pr = paper.getBoundingClientRect();
+      const rs = marks.map((m) => m.getBoundingClientRect()).filter((r) => r.width);
+      if (!rs.length) return;
+      const box = { l: Math.min(...rs.map((r) => r.left)), r: Math.max(...rs.map((r) => r.right)), t: Math.min(...rs.map((r) => r.top)), b: Math.max(...rs.map((r) => r.bottom)) };
+      // The paper is transformed, so these are measured on screen and scaled back to the paper's own size.
+      const k = paper.offsetWidth / (pr.width || 1);
+      shadow.style.left = ((box.l - pr.left) * k - 6) + 'px'; shadow.style.width = ((box.r - box.l) * k + 12) + 'px';
+      shadow.style.top = ((box.t - pr.top) * k + 6) + 'px'; shadow.style.height = ((box.b - box.t) * k + 10) + 'px';
+      // On a phone the card sits in the page under the paper, so it needs no place of its own.
+      if (flat()) { stage.style.paddingBottom = ''; lift.classList.remove('under'); return; }
+      // Above the words when there is room, otherwise just below them. Pushed up against the paper's top edge,
+      // a card over the first line covered the very words it was about.
+      const above = (box.t - pr.top) * k - lift.offsetHeight - 34;
+      const below = (box.b - pr.top) * k + 34;
+      lift.classList.toggle('under', above < -30);
+      lift.style.top = (above >= -30 ? above : below) + 'px';
+      // Hanging below, the card may reach past the paper, so the stage makes room rather than covering the bar.
+      const reach = (above >= -30 ? 0 : below + lift.offsetHeight - paper.offsetHeight + 16);
+      stage.style.paddingBottom = reach > 0 ? `${reach + 10}px` : '';
+    }
+    function showLift(take, { example = false } = {}) {
+      q('.tiTakeOut').textContent = take;
+      q('.tiInk').textContent = `“${quote}”`;
+      q('.tiExample').hidden = !example; q('.tiWho').hidden = example;
+      lift.classList.toggle('example', example);
+      lift.hidden = false; lift.classList.remove('up');
+      hang();
+      requestAnimationFrame(() => requestAnimationFrame(() => { lift.classList.add('up'); shadow.classList.add('on'); kick(); }));
+    }
+    function sinkLift() {
+      lift.classList.remove('up'); shadow.classList.remove('on'); wireSvg.classList.remove('on');
+      return new Promise((res) => setTimeout(() => { lift.hidden = true; stage.style.paddingBottom = ''; shadow.removeAttribute('style'); res(); }, still() ? 0 : 420));
+    }
+
+    const clear = () => { if (marks.length) ArticleCore.clearHighlights(text); marks = []; quote = ''; };
     const inText = (r) => r && text.contains(r.commonAncestorContainer);
-    // The button waits in the bar under the text, right below the words, where it can never cover a line of
-    // them. Floated beside the selection it sat over the next line, which is exactly what you were reading.
-    const place = (r) => {
-      const n = ArticleCore.norm(r.toString()).split(' ').filter(Boolean).length;
-      hint.textContent = n === 1 ? '1 word selected.' : `${n} words selected.`;
-      btn.hidden = false;
+    let stopDemo = () => {};
+    const quiet = () => {
+      clearTimeout(demoTimer);
+      if (demoing) stopDemo();
+      if (!touched) { touched = true; document.dispatchEvent(new CustomEvent('annotated-tryit-touched')); }
     };
-    const onSel = () => {
+
+    document.addEventListener('selectionchange', () => {
+      if (demoing) return;
       const s = getSelection();
-      if (!s || !s.rangeCount || s.isCollapsed) { if (!marks.length && !btn.hidden) { btn.hidden = true; hint.textContent = 'Select any words above.'; } return; }
+      if (!s || !s.rangeCount || s.isCollapsed) {
+        if (!marks.length && !btn.hidden) { btn.hidden = true; hint.textContent = 'Select any words on this page.'; }
+        return;
+      }
       const r = s.getRangeAt(0);
       if (!inText(r)) return;
-      touched = true; clearTimeout(demoTimer);
-      if (marks.length && form.hidden === false) return;
-      clear();
-      place(r);
-    };
-    document.addEventListener('selectionchange', onSel);
+      quiet();
+      if (marks.length && !form.hidden) return;
+      const n = ArticleCore.norm(r.toString());
+      const words = n.split(' ').filter(Boolean).length;
+      if (n.length > MAX_QUOTE) { hint.textContent = 'Shorter, so it fits a card.'; btn.hidden = true; return; }
+      hint.textContent = words === 1 ? '1 word selected.' : `${words} words selected.`;
+      btn.hidden = false;
+    });
 
-    // Take the selected words: grow them to whole words, draw the pen, and open the take box.
+    // Take the selected words: grow them to whole words, draw the pen, pool the ink, and bring up the take box.
+    const ink = (range) => {
+      marks = ArticleCore.highlightRange(range);
+      const ms = still() ? 0 : ArticleCore.sweep(marks);
+      if (marks.length && !still()) setTimeout(() => { marks.forEach((m, i) => { if (i === 0 || i === marks.length - 1) m.classList.add('tiPool'); }); }, ms);
+      return ms;
+    };
     const take = (r) => {
       const range = ArticleCore.expandToWords(r.cloneRange());
       quote = ArticleCore.norm(range.toString());
       if (!quote) return;
       getSelection().removeAllRanges();
       btn.hidden = true;
-      marks = ArticleCore.highlightRange(range);
-      const ms = slow ? 0 : ArticleCore.sweep(marks);
+      const ms = ink(range);
       hint.textContent = 'That is the pen the extension uses on any page.';
-      setTimeout(() => { form.hidden = false; input.focus({ preventScroll: true }); }, ms + 150);
+      setTimeout(() => { form.hidden = false; requestAnimationFrame(() => form.classList.add('up')); input.focus({ preventScroll: true }); }, ms + 150);
     };
     btn.addEventListener('mousedown', (e) => e.preventDefault());
     btn.addEventListener('click', () => {
       const s = getSelection();
       if (s && s.rangeCount && !s.isCollapsed && inText(s.getRangeAt(0))) take(s.getRangeAt(0));
     });
-    q('.tiAgain').addEventListener('click', () => {
-      clear(); form.hidden = true; input.value = '';
-      hint.textContent = 'Select any words above.';
-    });
+    const reset = async () => {
+      await sinkLift();
+      clear(); form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = '';
+      q('.tiAfter').hidden = true;
+      hint.textContent = 'Select any words on this page.';
+    };
+    q('.tiAgain').addEventListener('click', reset);
+    q('.tiRedo').addEventListener('click', reset);
+    input.addEventListener('input', () => { const n = input.value.length; q('.tiCount').textContent = n >= 240 ? `${n} of ${MAX_TAKE}` : ''; });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const t = input.value.trim();
-      if (!t) { input.focus(); hint.textContent = 'Write a sentence first, what should people notice?'; return; }
+      if (!t) { input.focus(); form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); hint.textContent = 'Write a sentence first.'; return; }
       const made = { quote, take: t, source: SOURCE, at: Date.now() };
       try { localStorage.setItem(KEY, JSON.stringify(made)); } catch { /* private window */ }
       // The extension, if it is installed, hears this and keeps it for its panel.
       document.dispatchEvent(new CustomEvent('annotated-tryit-made'));
-      show(made);
+      form.classList.remove('up'); form.hidden = true;
+      showLift(t);
+      q('.tiAfter').hidden = false;
+      hint.textContent = 'Your take on top, the source underneath.';
     });
+    window.addEventListener('resize', () => { if (!lift.hidden) { hang(); drawWire(); } });
 
-    // The card it would become: your take on top, the source underneath, credited and linked.
-    function show(made) {
-      const res = q('.tiResult');
-      res.innerHTML = `
-        <article class="tiAnn">
-          <p class="tiWho"><span class="tiAv">${icon('user')}</span>You <span class="tiNow">just now</span></p>
-          <h3 class="tiTakeOut"></h3>
-          <blockquote class="tiQuote"><p class="tiInk"></p></blockquote>
-          <p class="tiFrom">${icon('article')} <a href="${SOURCE.url}" target="_blank" rel="noopener">${esc(SOURCE.title)}</a> · ${esc(SOURCE.site)}</p>
-          <p class="tiMeta"><span>${icon('link')} Links back to the source</span><span>${icon('flag')} File a claim</span></p>
-        </article>
-        <p class="tiNext"><b>That's an annotation.</b> The extension makes these from any article, a YouTube clip, a podcast moment or a post on X, and each one gets a page people can reply to.</p>
-        <p class="tiRow"><a class="primary tiGet" href="/install">Get it for Chrome</a><button type="button" class="link tiRedo">Make another</button></p>
-        <p class="note tiKept">It's kept in this browser. Once the extension is installed, it offers to publish it.</p>`;
-      res.querySelector('.tiTakeOut').textContent = made.take;
-      res.querySelector('.tiInk').textContent = made.quote;
-      q('.tiCard').hidden = true; res.hidden = false;
-      // One mark to a word, as on a real page, so a quote over several lines is inked line by line.
-      const ink = res.querySelector('.tiInk'), rr = document.createRange();
-      rr.selectNodeContents(ink);
-      const done = ArticleCore.highlightRange(rr);
-      if (!slow) setTimeout(() => ArticleCore.sweep(done), 250);
-      res.querySelector('.tiRedo').addEventListener('click', () => {
-        res.hidden = true; q('.tiCard').hidden = false; clear(); form.hidden = true; input.value = '';
-        hint.textContent = 'Select any words above.';
-      });
-    }
-
-    // Left alone, the page marks one phrase by itself so it still shows what happens, then hands over.
-    const demo = () => {
-      if (touched || slow || marks.length) return;
-      const r = ArticleCore.findText(text, DEMO);
+    // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    async function demo() {
+      if (touched || still() || marks.length) return;
+      const r = ArticleCore.findText(text, DEMO.phrase);
       if (!r) return;
-      marks = ArticleCore.highlightRange(r);
-      ArticleCore.sweep(marks);
-      hint.textContent = 'Like that. Now you try, select any words above.';
-      setTimeout(() => { if (!touched) { clear(); } }, 4200);
-    };
+      demoing = true;
+      let live = true;
+      stopDemo = () => { live = false; demoing = false; pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words on this page.'; };
+      const s = stage.getBoundingClientRect(), rs = [...r.getClientRects()].filter((x) => x.width);
+      const a = rs[0], z = rs[rs.length - 1];
+      pen.hidden = false;
+      pen.style.transform = `translate(${s.width + 20}px, ${s.height * 0.7}px)`;
+      await wait(60); if (!live) return;
+      pen.classList.add('go');
+      pen.style.transform = `translate(${a.left - s.left - 8}px, ${a.bottom - s.top - 30}px)`;
+      await wait(700); if (!live) return;
+      pen.style.transform = `translate(${z.right - s.left - 8}px, ${z.bottom - s.top - 30}px)`;
+      quote = ArticleCore.norm(r.toString());
+      const ms = ink(r);
+      await wait(Math.max(ms, 600)); if (!live) return;
+      pen.hidden = true; pen.classList.remove('go');
+      showLift(DEMO.take, { example: true });
+      await wait(3200); if (!live) return;
+      await sinkLift(); if (!live) return;
+      clear();
+      demoing = false;
+      hint.textContent = 'Now you try. Select any words.';
+    }
     const io = new IntersectionObserver((rows) => {
-      if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 3500); io.disconnect(); }
+      if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 4000); io.disconnect(); }
     }, { threshold: 0.6 });
     io.observe(el);
-    el.addEventListener('pointerdown', () => { touched = true; clearTimeout(demoTimer); }, { once: true });
+    el.addEventListener('pointerdown', () => quiet());
+    el.addEventListener('keydown', () => quiet());
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearTimeout(demoTimer); });
   }
 
   return { mount, KEY };

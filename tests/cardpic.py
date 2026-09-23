@@ -45,6 +45,11 @@ async def main():
       args=[f'--disable-extensions-except={EXT}', f'--load-extension={EXT}', LOADEXT, '--headless=new'], no_viewport=True)
     sw = ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     extid = sw.url.split('/')[2]
+    # The pictures have to exist, since a card drops a picture that fails to load rather than show a black box.
+    import base64
+    GIF = base64.b64decode(SHOT.split(',')[1])
+    for host in ('https://news.example/**', 'https://pod.example/**'):
+      await ctx.route(host, lambda r: r.fulfill(status=200, body=GIF, headers={'Content-Type': 'image/gif'}))
     pg = await ctx.new_page(); await pg.set_viewport_size({'width': 1100, 'height': 900})
     pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
     await pg.goto(f'chrome-extension://{extid}/sidepanel.html'); await asyncio.sleep(1.4)

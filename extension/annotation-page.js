@@ -914,6 +914,39 @@ const AnnotationPage = (() => {
 
   // yours is everything of yours, before a tab narrowed the list. Your card and your tags describe you, not
   // the tab you are on, and counting the tab's list said nought annotations on Following.
+  // A clip card plays its clip silently while at least half of it is on screen, and stops when it is not. The
+  // file is only asked for once it is seen, and a shared one is asked for again only when seen again, which
+  // keeps a long feed from pulling every clip down (the free plan has five gigabytes of downloads a month).
+  // Play with sound, the button over the picture, puts it on hold for good.
+  let previewIo = null;
+  function wirePreviews(root, records, getMedia) {
+    // A picture that cannot be fetched, a video's poster gone or a show's artwork moved, leaves the card
+    // without one rather than showing an empty black box where it was.
+    root.querySelectorAll('.cthumb.cwide img').forEach((img) => {
+      const drop = () => { const box = img.closest('.cthumb'); if (box && !box.querySelector('.cplayBtn')) box.remove(); else img.remove(); };
+      if (img.complete && img.naturalWidth === 0 && img.src) drop(); else img.addEventListener('error', drop, { once: true });
+    });
+    if (previewIo) previewIo.disconnect();
+    const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const vids = [...root.querySelectorAll('video.cpv')];
+    if (!vids.length || still || typeof IntersectionObserver === 'undefined') return;
+    previewIo = new IntersectionObserver((rows) => rows.forEach(async (row) => {
+      const v = row.target;
+      if (!row.isIntersecting || v.dataset.held) { if (!v.paused) v.pause(); return; }
+      if (!v.src) {
+        const r = records.find((x) => x.id === v.dataset.id);
+        if (!r) return;
+        let src = safeLink(r.item.mediaUrl);
+        if (!src && r.item.blob) src = URL.createObjectURL(r.item.blob);
+        if (!src && r.item.hasMedia && getMedia) { const b = await getMedia(r.id).catch(() => null); if (b) { r.item.blob = b; src = URL.createObjectURL(b); } }
+        if (!src || !v.isConnected) return;
+        v.src = src;
+        v.addEventListener('playing', () => v.closest('.cthumb').classList.add('live'), { once: true });
+      }
+      v.play().catch(() => {});
+    }), { threshold: 0.5 });
+    vids.forEach((v) => previewIo.observe(v));
+  }
   function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null }) {
     stopClock(container);
     let filter = 'all', sort = 'new';
@@ -994,17 +1027,25 @@ const AnnotationPage = (() => {
           if (nC) stats.push(`<span class="fStat" aria-label="${plural(nC, 'comment')}">${Brand.icon('comment')}<span class="num">${nC}</span></span>`);
           if (r.take.voice) stats.push(`<span class="fStat" aria-label="Voice note">${Brand.icon('mic')}Voice</span>`);
           if (r.take.upload) stats.push(`<span class="fStat" aria-label="${r.take.upload.kind === 'video' ? 'A video' : 'A photo'}">${Brand.icon('image')}${r.take.upload.kind === 'video' ? 'Video' : 'Photo'}</span>`);
-          return `<li class="cardItem"><button type="button" class="card ${thumb ? '' : 'nothumb'}" data-id="${esc(r.id)}">
+          // The source sits large under the take, the way it does on the annotation's own page, so a feed can be
+          // scanned by what people were looking at. It used to be a small square beside the words. A clip plays
+          // silently while its card is on screen, and Play with sound opens the full player under it.
+          const preview = it.kind === 'video' && playable;
+          // A passage with no picture shows the words themselves, inked, as its picture. They are what was chosen.
+          const inkQuote = !thumb && it.kind === 'article' && it.text ? `<span class="cquote"><span class="cqInk">${esc(cut(it.text, 220))}</span></span>` : '';
+          const media = inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num">${fmt(it.end - it.start)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
+          // The card is a link to the annotation rather than a button, so Play with sound can be a real button on
+          // the picture inside it.
+          return `<li class="cardItem"><div class="card mf ${thumb ? '' : 'nothumb'}" role="link" tabindex="0" data-id="${esc(r.id)}">
             <span class="cbody">
               ${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(takeLine(r.take))}</span>
+              ${media}
               <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
             </span>
-            ${thumb && !playable ? `<span class="cthumb"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy"></span>` : thumb ? '<span class="cthumb ghost" aria-hidden="true"></span>' : ''}
-          </button>
-          ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt="" loading="lazy"><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
+          </div>
           </li>`;
         }).join('') : (() => {
           // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
@@ -1023,11 +1064,18 @@ const AnnotationPage = (() => {
       if (esMine) esMine.addEventListener('click', () => onProfile());
       const signInBtn = main.querySelector('.pSignIn');
       if (signInBtn) signInBtn.addEventListener('click', () => onSignIn());
-      main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
+      // A card opens its annotation, by click or by Enter and Space, since it is a link and not a button now.
+      main.querySelectorAll('.card').forEach((c) => {
+        c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn')) onOpen(c.dataset.id); });
+        c.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); onOpen(c.dataset.id); } });
+      });
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));
+      wirePreviews(main, records, getMedia);
       // Clips and audio play right in the feed. Opening the annotation stays a click on the card.
-      main.querySelectorAll('.cplayBtn').forEach((b) => b.addEventListener('click', async () => {
+      main.querySelectorAll('.cplayBtn').forEach((b) => b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const pv = b.closest('.cardItem').querySelector('.cpv'); if (pv) { pv.pause(); pv.dataset.held = '1'; }
         const li = b.closest('.cardItem'), open = li.querySelector('.cardPlayer');
         main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
         main.querySelectorAll('.cplayBtn').forEach((x) => x.setAttribute('aria-expanded', 'false'));

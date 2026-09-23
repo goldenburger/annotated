@@ -119,48 +119,207 @@
 /* On a phone the header has room for "Sign in" and not for the rest, which wrapped onto two lines. */
 @media (max-width: 520px) { .wideOnly { display: none; } }
 
-/* The front page's try-it: the annotated.com brief, marked up with the extension's own pen. */
+/* The front page's try-it: the brief on a sheet of paper, tilted a little, with your take lifting off it. */
 .heroTry { position: relative; align-self: center; }
 .tryit { position: relative; }
-.tiCard, .tiResult { position: relative; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet);
-  box-shadow: 0 18px 40px -22px rgba(20, 24, 32, .28); padding: 20px 22px 18px; }
-.tiSrc { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px; font: 500 var(--t-xs)/1.2 var(--sans); color: var(--ink-3); }
-.tiSrc a { color: var(--ink); font-weight: 600; text-decoration: none; }
+.tiStage { position: relative; perspective: 1400px; perspective-origin: 50% 30%; padding: 34px 6px 10px; }
+.tiTilt { position: relative; transform-style: preserve-3d; transform: rotateX(6deg) rotateZ(2deg); }
+.tiPaper { position: relative; overflow: hidden; padding: 22px 26px 24px; border-radius: 4px; background-color: #FFFDF7;
+  background-image: radial-gradient(rgba(60, 50, 20, .045) 1px, transparent 1.2px), radial-gradient(rgba(60, 50, 20, .03) 1px, transparent 1.2px);
+  background-size: 7px 7px, 11px 11px; background-position: 0 0, 3px 5px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .04), 0 24px 40px -18px rgba(30, 26, 12, .35), 0 6px 14px -8px rgba(30, 26, 12, .18); }
+.tiCurl { position: absolute; right: 0; bottom: 0; width: 34px; height: 34px; border-bottom-right-radius: 4px; pointer-events: none;
+  background: linear-gradient(135deg, transparent 50%, #EFE9D6 50%, #FFFDF7 78%); box-shadow: -3px -3px 6px -4px rgba(0, 0, 0, .25); }
+.tiSrc { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0 0 14px; font: 500 var(--t-xs)/1.2 var(--sans); color: #6B6F78; }
+.tiSrc a { color: #16181D; font-weight: 600; text-decoration: none; }
 .tiSrc a:hover { text-decoration: underline; }
 .tiSrc .tiSite::before { content: "·"; margin-right: 8px; }
 .tiKind .ic { width: 15px; height: 15px; }
-.tiText { cursor: text; }
-.tiText p { margin: 0 0 12px; font: 17px/1.62 var(--serif); color: var(--ink); }
+.tiText { cursor: text; outline: none; }
+.tiText p { margin: 0 0 12px; font: 17px/1.66 var(--serif); color: #1C2433; }
 .tiText p:last-child { margin-bottom: 0; }
 .tiText ::selection { background: #FFF0A8; color: #1C2433; }
-.tiBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 30px; margin: 16px 0 0; padding-top: 12px; border-top: 1px dashed var(--rule); }
-.tiBtn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 10px;
+.tiText:focus-visible { box-shadow: 0 0 0 2px var(--focus); border-radius: 3px; }
+mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); transition: filter .3s; }
+/* Where the lifted card's shadow falls: on the words it is about. */
+.tiShadow { position: absolute; z-index: 0; border-radius: 12px; background: radial-gradient(closest-side, rgba(20, 18, 8, .28), transparent);
+  filter: blur(6px); opacity: 0; transform: translate(10px, 12px) scale(.9); transition: opacity .6s ease, transform .6s ease; pointer-events: none; }
+.tiShadow.on { opacity: 1; transform: translate(4px, 6px) scale(1); }
+/* Your take, standing above the paper. */
+.tiLift { position: absolute; right: -14px; width: min(78%, 360px); padding: 14px 16px 12px; border-radius: 10px; background: var(--sheet);
+  border: 1px solid var(--rule); box-shadow: 0 28px 44px -20px rgba(20, 18, 8, .45), 0 8px 18px -10px rgba(20, 18, 8, .3);
+  transform: translateZ(0) translateY(14px); opacity: 0; transition: transform .6s cubic-bezier(.2, .8, .2, 1), opacity .35s ease; }
+.tiLift.up { transform: translateZ(70px) translateY(0); opacity: 1; }
+.tiLift[hidden] { display: none; }
+.tiLift.example { border-style: dashed; }
+.tiExample { display: inline-block; margin: 0 0 8px; padding: 2px 7px; border-radius: 999px; background: var(--newsprint); color: var(--ink-2); font: 600 11px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; }
+.tiExample[hidden], .tiWho[hidden] { display: none; }
+.tiWho { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font: 600 var(--t-s)/1 var(--sans); }
+.tiAv { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #16181D; color: #fff; }
+.tiAv .ic { width: 14px; height: 14px; }
+.tiNow { font-weight: 400; color: var(--ink-3); }
+.tiTakeOut { margin: 0 0 8px; font: 600 19px/1.3 var(--serif); overflow-wrap: anywhere; }
+.tiOn { margin: 0 0 8px; font: italic 13px/1.4 var(--serif); color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tiMeta { display: flex; gap: 14px; flex-wrap: wrap; margin: 0; font: 500 var(--t-xs)/1.3 var(--sans); color: var(--ink-3); }
+.tiMeta span { display: inline-flex; align-items: center; gap: 5px; }
+.tiMeta .ic { width: 13px; height: 13px; }
+/* The hairline joining the card to its words, drawn flat over the stage. */
+.tiWire { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; opacity: 0; transition: opacity .4s ease .25s; }
+.tiWire.on { opacity: 1; }
+.tiWire line { stroke: #16181D; stroke-width: 1; stroke-dasharray: 3 3; opacity: .45; }
+/* The example's pen. */
+.tiPen { position: absolute; left: 0; top: 0; z-index: 5; width: 34px; height: 34px; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .3)); }
+.tiPen.go { transition: transform .7s cubic-bezier(.4, 0, .2, 1); }
+.tiPen[hidden] { display: none; }
+.tiPen svg { width: 100%; height: 100%; }
+/* Under the paper. */
+.tiBar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; margin: 16px 6px 0; }
+.tiHint { margin: 0; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-2); }
+.tiBtn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px 7px 11px;
   border: 0; border-radius: 999px; background: #16181D; color: #fff; font: 600 13px/1 var(--sans); cursor: pointer;
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, .45); }
 .tiBtn i { width: 14px; height: 8px; background: #FFE14A; border-radius: 2px 5px 3px 6px; transform: skewX(-12deg); }
 .tiBtn[hidden] { display: none; }
-.tiHint { margin: 0; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-2); }
-.tiTake { margin-top: 14px; display: grid; gap: 8px; }
+.tiTake { margin: 12px 6px 0; display: grid; gap: 8px; padding: 14px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet);
+  box-shadow: 0 14px 30px -18px rgba(20, 18, 8, .35); transform: translateY(12px); opacity: 0; transition: transform .35s cubic-bezier(.2, .8, .2, 1), opacity .25s; }
+.tiTake.up { transform: none; opacity: 1; }
 .tiTake[hidden] { display: none; }
+.tiTake.shake { animation: tiShake .32s; }
+@keyframes tiShake { 25% { transform: translateX(-5px); } 50% { transform: translateX(5px); } 75% { transform: translateX(-3px); } }
 .tiLabel { font: 600 var(--t-xs)/1 var(--sans); color: var(--ink-3); }
 .tiTake textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 72px; padding: 10px 12px; border: 1px solid var(--rule);
   border-radius: var(--r-m); background: var(--paper); color: var(--ink); font: 16px/1.45 var(--sans); }
 .tiTake textarea:focus { outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
 .tiRow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 0; }
 .tiRow .primary { width: auto; padding: 10px 18px; text-decoration: none; }
-.tiResult[hidden], .tiCard[hidden] { display: none; }
-.tiAnn { margin: 0 0 16px; padding: 0 0 16px; border-bottom: 1px solid var(--rule); }
-.tiWho { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 600 var(--t-s)/1 var(--sans); }
-.tiAv { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #16181D; color: #fff; }
-.tiAv .ic { width: 15px; height: 15px; }
-.tiNow { font-weight: 400; color: var(--ink-3); }
-.tiTakeOut { margin: 0 0 14px; font: 600 22px/1.3 var(--serif); overflow-wrap: anywhere; }
-.tiQuote { margin: 0 0 12px; padding: 0 0 0 14px; border-left: 3px solid #FFE14A; }
-.tiQuote p { margin: 0; font: 16px/1.62 var(--serif); }
-.tiFrom { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font: 500 var(--t-xs)/1.3 var(--sans); color: var(--ink-3); }
-.tiFrom a { color: var(--ink-2); }
-.tiFrom .ic, .tiMeta .ic { width: 13px; height: 13px; }
-.tiMeta { display: flex; gap: 14px; flex-wrap: wrap; margin: 0; font: 500 var(--t-xs)/1.3 var(--sans); color: var(--ink-3); }
-.tiMeta span { display: inline-flex; align-items: center; gap: 5px; }
-.tiNext { margin: 0 0 14px; font: var(--t-m)/1.5 var(--sans); color: var(--ink-2); }
-.tiKept { margin: 12px 0 0; }
+.tiCount { margin-left: auto; font: 500 var(--t-xs)/1 var(--sans); color: var(--ink-3); }
+.tiAfter { margin: 14px 6px 0; }
+.tiAfter[hidden] { display: none; }
+.tiNext { margin: 0 0 12px; font: var(--t-m)/1.5 var(--sans); color: var(--ink-2); }
+.tiKept { margin: 10px 0 0; }
+/* Phones and anything without a pointer: the paper lies flat and the card lifts straight up, under the words. */
+@media (max-width: 760px), (hover: none) {
+  .tiStage { perspective: none; padding-top: 10px; }
+  .tiTilt { transform: none !important; }
+  .tiLift { position: relative; right: auto; top: auto !important; width: auto; margin: -18px 10px 0; transform: translateY(18px); }
+  .tiLift.up { transform: translateY(0); }
+  .tiWire { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tiTilt { transform: none !important; }
+  .tiLift, .tiLift.up, .tiTake, .tiTake.up, .tiShadow { transition: none; }
+  .tiLift.up { transform: none; }
+}
+
+/* The four kinds, told by scrolling. The finished frame is the plain style, so a browser without scroll-driven
+   animations, or anyone who asked for less motion, sees every scene complete. */
+.scenes { max-width: 1120px; margin: 0 auto; padding: 18px 20px 30px; container-type: inline-size; }
+.scHead { margin: 0 0 10px; }
+.scHead h2 { margin: 0 0 6px; font: 600 clamp(24px, 2.8vw, 32px)/1.2 var(--serif); letter-spacing: -.01em; }
+.scHead .note { margin: 0; }
+.scene { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px 48px; align-items: center; padding: 34px 0;
+  border-bottom: 1px solid var(--rule); view-timeline-name: --scene; }
+.scene:last-child { border-bottom: 0; }
+.scene.flip .scArt { order: 2; }
+.scArt { border-radius: var(--r-l); background: #FFFDF7; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05); padding: 10px; }
+.scSvg { display: block; width: 100%; height: auto; }
+.scSvg * { transform-box: fill-box; }
+.scSvg .pg { fill: #fff; stroke: #E4E1D6; }
+.scSvg .ln { fill: #D9DCE3; }
+.scSvg .ln.dark { fill: #3A3F4A; }
+.scSvg .ln.ink { fill: #1C2433; opacity: .75; }
+.scSvg .hl { fill: #FFE14A; }
+.scSvg .card { fill: #fff; stroke: #CFD3DB; filter: drop-shadow(0 8px 10px rgba(20, 18, 8, .18)); }
+.scSvg .fr { fill: #2B2F38; }
+.scSvg .frl { fill: #4A5060; }
+.scSvg .filmEdge { fill: none; stroke: #16181D; stroke-width: 2; }
+.scSvg .v-sel { opacity: .55; }
+.scSvg .handle { fill: #16181D; }
+.scSvg .badge { fill: #16181D; }
+.scSvg .badgeT { fill: #fff; font: 700 13px/1 var(--sans); text-anchor: middle; }
+.scSvg .play { fill: #FFE14A; }
+.scSvg .bar { fill: #B5BAC4; }
+.scSvg .bar.on { fill: #F2C600; }
+.scSvg .svc { fill: #6B6F78; font: 600 11px/1 var(--sans); text-anchor: middle; letter-spacing: .02em; }
+.scSvg .av { fill: #16181D; }
+.scSvg .corner { fill: none; stroke: #16181D; stroke-width: 3; stroke-linecap: round; }
+.scKind { margin: 0 0 6px; font: 600 var(--t-xs)/1 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.scText h3 { margin: 0 0 16px; font: 600 clamp(21px, 2.2vw, 26px)/1.25 var(--serif); }
+.scCard .cardItem { list-style: none; }
+.exCard { padding: 16px 18px; border: 1px dashed var(--rule); border-radius: var(--r-l); background: var(--sheet); }
+.exCard .exTake { margin: 0 0 10px; font: 600 18px/1.35 var(--serif); }
+.exCard .exSrc { display: flex; align-items: center; gap: 6px; margin: 0; font: 500 var(--t-xs)/1.3 var(--sans); color: var(--ink-3); }
+.exCard .exSrc .ic { width: 14px; height: 14px; }
+@media (max-width: 760px) {
+  .scene, .scene.flip { grid-template-columns: minmax(0, 1fr); padding: 26px 0; }
+  .scene.flip .scArt { order: 0; }
+}
+/* Headings the pen underlines as they arrive. */
+.drawLine { position: relative; display: inline-block; }
+.drawLine::after { content: ""; display: block; height: 6px; width: 72px; margin-top: 8px; border-radius: 2px 5px 3px 6px;
+  background: linear-gradient(103deg, #F2C600 0 6%, #FFE14A 14% 88%, #FFEE9E 100%); transform: skewX(-12deg); transform-origin: left center; }
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    /* A passage: the pen crosses one line, then the words lift into a card. */
+    .sc-article .a-hl { animation: scX linear both; animation-timeline: --scene; animation-range: entry 55% cover 40%; transform-origin: left center; }
+    .sc-article .a-lift { animation: scLift linear both; animation-timeline: --scene; animation-range: cover 40% cover 55%; }
+    /* A clip: the two handles close in and the stretch between them lights up, then its length shows. */
+    .sc-video .v-hl { animation: scInL linear both; animation-timeline: --scene; animation-range: entry 50% cover 42%; }
+    .sc-video .v-hr { animation: scInR linear both; animation-timeline: --scene; animation-range: entry 50% cover 42%; }
+    .sc-video .v-sel { animation: scFade linear both; animation-timeline: --scene; animation-range: cover 30% cover 44%; }
+    .sc-video .v-badge { animation: scLift linear both; animation-timeline: --scene; animation-range: cover 42% cover 55%; }
+    /* A podcast: the waveform draws itself, a stretch fills with ink, and it lifts out as a clip. */
+    .sc-audio .p-bar { animation: scY linear both; animation-timeline: --scene; animation-range: entry 40% cover 38%; transform-origin: center; }
+    .sc-audio .p-clip { animation: scX linear both; animation-timeline: --scene; animation-range: cover 34% cover 46%; transform-origin: left center; }
+    .sc-audio .p-lift { animation: scLift linear both; animation-timeline: --scene; animation-range: cover 44% cover 56%; }
+    /* A post: the shutter frame snaps round it and the chosen words are marked. */
+    .sc-post .x-shut { animation: scShut linear both; animation-timeline: --scene; animation-range: entry 55% cover 40%; transform-origin: center; }
+    .sc-post .x-hl { animation: scX linear both; animation-timeline: --scene; animation-range: cover 38% cover 50%; transform-origin: left center; }
+    /* The card each scene ends on rises into place. */
+    .scene .scCard { animation: scRise linear both; animation-timeline: --scene; animation-range: entry 70% cover 45%; }
+    .drawLine::after { animation: scLine linear both; animation-timeline: view(); animation-range: entry 80% cover 30%; }
+    .giSteps li::before { animation: scPop linear both; animation-timeline: view(); animation-range: entry 70% cover 30%; }
+  }
+}
+@keyframes scX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes scY { from { transform: scaleY(.08); } to { transform: scaleY(1); } }
+@keyframes scFade { from { opacity: 0; } }
+@keyframes scLift { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes scInL { from { transform: translateX(-60px); } to { transform: none; } }
+@keyframes scInR { from { transform: translateX(60px); } to { transform: none; } }
+@keyframes scShut { from { transform: scale(1.25); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes scRise { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+@keyframes scPop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes scLine { from { transform: skewX(-12deg) scaleX(0); } to { transform: skewX(-12deg) scaleX(1); } }
+
+/* Getting it, in three plain steps. */
+.getIt { max-width: 1120px; margin: 0 auto 30px; padding: 26px 20px; display: grid; gap: 18px 40px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); align-items: start;
+  border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.getIt h2 { margin: 0 0 8px; font: 600 clamp(22px, 2.6vw, 30px)/1.2 var(--serif); }
+.giSteps { margin: 0; padding: 0; list-style: none; counter-reset: gi; display: grid; gap: 12px; }
+.giSteps li { counter-increment: gi; display: grid; grid-template-columns: 30px 1fr; gap: 2px 10px; }
+.giSteps li::before { content: counter(gi); grid-row: span 2; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  background: #FFE14A; color: #1C2433; font: 700 13px/1 var(--sans); }
+.giSteps b { font: 600 var(--t-m)/1.3 var(--sans); }
+.giSteps span { font: var(--t-s)/1.45 var(--sans); color: var(--ink-2); }
+.giSteps code { font-size: 12.5px; padding: 1px 5px; border-radius: 4px; background: var(--newsprint); }
+.giDo { grid-column: 1 / -1; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin: 0; }
+.giDo .primary { width: auto; padding: 11px 18px; text-decoration: none; }
+@media (max-width: 760px) { .getIt { grid-template-columns: 1fr; } }
+/* The end of a shared annotation, for someone who arrived from a link. */
+.makeOne { margin: 22px 0 0; padding: 22px 24px; border: 1px solid var(--rule); border-left: 4px solid #FFE14A; border-radius: var(--r-l); background: var(--sheet); }
+.makeOne h2 { margin: 0 0 8px; font: 600 22px/1.25 var(--serif); }
+.makeOne p { margin: 0 0 14px; font: var(--t-m)/1.55 var(--sans); color: var(--ink-2); }
+.moRow { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin: 0 !important; }
+.moRow .primary { width: auto; padding: 10px 18px; text-decoration: none; }
+.navBtn.webSignIn { gap: 0; }
+.navBtn.webSignIn .wideOnly { margin-left: .28em; }
+
+/* The headline's word, redrawn by the pen as it changes. It never wraps, so the stroke stays one piece. */
+.heroMark { white-space: nowrap; }
+.heroMark.lifting::before { transform-origin: right center; animation: heroLift 300ms ease-in both; }
+.heroMark.redraw::before { animation: heroSweep 520ms cubic-bezier(.3, .7, .3, 1) both; }
+.heroMark.drawn::before { animation: none; transform: scaleX(1); }
+@keyframes heroLift { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+.heroTail[hidden] { display: none; }

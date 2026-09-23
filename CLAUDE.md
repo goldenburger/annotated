@@ -294,6 +294,28 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   panel's Home then offers "You made this on annotated's front page" with Publish it (`drawTryit`). The
   extension's own Annotate button keeps out of `[data-annotated-self]`. The scripted bus loop in `hero.js` is
   now only the fallback if the highlighter did not load. Publishing the handed-over draft has no test yet.
+- **Media-first cards** (`renderFeed` in `annotation-page.js`, used by the feed, profiles and the website). The take,
+  then the source large under it, then what it is and the counts. A clip plays silently while half its card is
+  on screen (`wirePreviews`, fetched only once seen, since the free plan allows five gigabytes of downloads a
+  month), and Play with sound, a button on the picture, opens the full player and holds the preview. The card
+  is a `div` with `role="link"` now, so that button can sit inside it, and it opens with Enter or Space. A
+  passage with no picture shows its words inked (`.cquote`), a podcast shows its square artwork beside the
+  listen button, and a picture that fails to load is dropped rather than left as a black box.
+- **The website's front page** (`hero.js`, `tryit.js`, `tests/homepage.py`, `tests/tryit.py`). One sheet of paper that
+  gets marked up, and every motion is the pen, the paper or a take lifting off it. The headline's word is
+  redrawn by the pen through a passage, a clip, a podcast and a post on X, two rounds, held at its tallest so
+  nothing jumps, and it stops the moment the try-it is touched (`annotated-tryit-touched`). The try-it's brief
+  sits on a sheet tilted 6 degrees back and 2 round (`.tiTilt`), leaning up to 4 degrees toward the pointer.
+  A take lifts off as a card 70 pixels above the paper, its shadow landing on its words and a dashed hairline
+  joining them (`hang`, `drawWire`), below the words when there is no room above. Left alone for four seconds
+  a small pen marks one phrase and a card labelled Example lifts, once, and any touch puts it away. Under it,
+  four scroll scenes drawn in SVG (a passage, a clip, a podcast with Spotify named, a post), driven by CSS
+  scroll-driven animations on a `--scene` view timeline, so scrolling back rewinds them. They do not pin the
+  page. Each ends on the newest real published annotation of that kind, drawn by `renderFeed`, or on a dashed
+  card labelled Example that links nowhere. Then the install steps (`#get`), whose numbers pop in, and headings
+  the pen underlines (`.drawLine`). Phones get no tilt, and the card lifts straight up under the paper. Reduced
+  motion gets no tilt, cycle, example or scene motion, only finished frames. The whole of it adds about 30 KB,
+  with no libraries. A shared annotation opened signed out ends with "Make one like this" (`#try`).
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

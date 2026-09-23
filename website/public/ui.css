@@ -1496,3 +1496,37 @@ body.signedOut .steps .stSave { display: inline; }
 .tryitCarry .tcRow { display: flex; align-items: center; gap: 14px; margin: 0; }
 .tryitCarry .tcRow .primary { width: auto; }
 .tryitCarry .tcMsg:empty { display: none; }
+
+/* Media-first cards: the take, the source large under it, then what it is. At every width, the phone included,
+   because the picture is the fastest way to tell one annotation from the next. */
+.card.mf, .card.mf.nothumb { grid-template-columns: minmax(0, 1fr); }
+.card.mf .cbody { gap: 8px; }
+.card.mf .ctake { font-size: 19px; }
+.cthumb.cwide { display: block; width: 100%; max-width: 100%; margin: 4px 0 2px; border-radius: var(--r-m); background: #0E1014; }
+.cthumb.cwide img { width: 100%; aspect-ratio: 16 / 9; max-height: 340px; object-fit: cover; border-radius: 0; }
+.cthumb.cwide img.top { object-position: center top; aspect-ratio: 16 / 8; }
+.cthumb.cwide.caudio img { aspect-ratio: 3 / 1; object-fit: cover; filter: saturate(.9); }
+.cthumb.cprev .cpv { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s; }
+.cthumb.cprev.live .cpv { opacity: 1; }
+.cthumb.cwide .cdur { right: 8px; bottom: 8px; padding: 3px 6px; font-size: 12px; }
+@container (max-width: 560px) { .card.mf img, .cthumb.cwide { display: block; } }
+.cthumb.cwide .cplayBtn { position: absolute; top: auto; right: auto; left: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 6px; width: auto;
+  padding: 6px 11px; border: 0; border-radius: 999px; background: rgba(14, 16, 20, .78); color: #fff; font: 600 var(--t-xs)/1 var(--sans); cursor: pointer; }
+.cthumb.cwide .cplayBtn .ic { width: 12px; height: 12px; fill: #fff; stroke: #fff; }
+.cthumb.cwide .cplayBtn:hover { background: rgba(14, 16, 20, .92); }
+@container (max-width: 560px) { .cthumb.cwide .cplayBtn { display: inline-flex; } }
+@media (prefers-reduced-motion: reduce) { .cthumb.cprev .cpv { display: none; } }
+
+/* A passage card with no picture shows its words, marked with the pen, where the picture would be. */
+.cquote { display: block; margin: 4px 0 2px; padding: 14px 16px; border-left: 3px solid var(--hi); border-radius: 0 var(--r-m) var(--r-m) 0; background: var(--newsprint); }
+.cqInk { font: 17px/1.6 var(--serif); color: #1C2433; background: linear-gradient(103deg, var(--hi-deep) 0 1%, var(--hi) 3% 97%, var(--hi-lift) 100%);
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; padding: 1px 3px; border-radius: 2px 6px 3px 7px; }
+.feedHead .pSignIn { width: auto; padding-left: 16px; padding-right: 16px; }
+
+/* A podcast moment: the show's square artwork beside the listen button, not stretched into a strip. */
+.cthumb.cwide.caudio { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px; background: var(--newsprint); }
+.cthumb.cwide.caudio img { width: 64px; height: 64px; aspect-ratio: 1; flex: 0 0 auto; border-radius: 8px; filter: none; }
+.cthumb.cwide.caudio .cplayBtn { position: static; background: #16181D; }
+.cthumb.cwide.caudio .cdur { position: static; margin-left: auto; background: none; color: var(--ink-3); }
+/* A clip whose poster failed still has its player button, on a dark 16:9 box. */
+.cthumb.cwide.cprev:not(:has(img)) { aspect-ratio: 16 / 9; }

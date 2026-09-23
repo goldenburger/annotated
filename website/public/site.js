@@ -42,9 +42,11 @@
   }
   // The front page. It goes above the list rather than inside it, so it has the full width, and it is only
   // for the home page with nothing filtered, because anyone on a tag or a profile came for the annotations.
-  function intro() {
+  function intro(all) {
     if (typeof Hero === 'undefined') return;
     Hero.mount(page, { onLook: () => {} });
+    if (Hero.showcase) Hero.showcase(page, { records: all || [], onOpen: nav.onOpen });
+    if (Hero.install) Hero.install(page);
   }
 
   async function home(tag) {
@@ -66,7 +68,7 @@
     document.title = tag ? `${tag} | annotated` : 'annotated';
     AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav });
     headerAccount();
-    if (!tag) intro();
+    if (!tag) intro(all);
   }
 
   async function profile(handle) {
@@ -149,6 +151,20 @@
       } : {}),
     });
     headerAccount();
+    // Most people arrive here from a link on X, not from the front page. Signed out, the page ends by
+    // offering to make one, starting with the try-it on the front page, which needs nothing installed.
+    if (!me) {
+      const main = page.querySelector('.sitemain');
+      if (main && !main.querySelector('.makeOne')) {
+        const m = document.createElement('section');
+        m.className = 'makeOne';
+        m.innerHTML = `<h2>Make one like this</h2>
+          <p>Mark the words that matter in any article, clip a moment from a video or a podcast, or keep a post from X, and say what you think.
+            It gets a page like this one, with the source linked underneath.</p>
+          <p class="moRow"><a class="primary" href="/#try">Try it now, nothing to install</a><a class="link" href="/install">Get the Chrome extension</a></p>`;
+        main.appendChild(m);
+      }
+    }
   }
 
   function notFound(msg) {

@@ -70,7 +70,11 @@ async def main():
     card = await pg.evaluate("""() => ({ take: (document.querySelector('.tiTakeOut') || {}).textContent, quote: (document.querySelector('.tiInk') || {}).textContent,
       kept: JSON.parse(localStorage.getItem('annotated-tryit') || 'null') })""")
     print('   the card:', card['take'], '|', card['quote'])
-    if card['take'] != 'Clip is the verb that matters here.' or card['quote'] != 'quickly clip media, text, audio, or video,': errs.append(f'the card read {card}')
+    if card['take'] != 'Clip is the verb that matters here.' or card['quote'] != '“quickly clip media, text, audio, or video,”': errs.append(f'the card read {card}')
+    lifted = await pg.evaluate("""() => ({ up: document.querySelector('.tiLift').classList.contains('up'), shadow: document.querySelector('.tiShadow').classList.contains('on'),
+      wire: document.querySelector('.tiWire').classList.contains('on'), z: getComputedStyle(document.querySelector('.tiLift')).transform })""")
+    print('   the take lifted off the paper:', lifted)
+    if not (lifted['up'] and lifted['shadow'] and lifted['wire']): errs.append(f'the take did not lift with its shadow and line: {lifted}')
     if not card['kept']: errs.append('the annotation was not kept in the page')
 
     # 3. The handover and the offer.
