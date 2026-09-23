@@ -62,7 +62,7 @@ async def main():
     await pan.click('.youBtn'); await pan.wait_for_selector('#browseMode h2',timeout=15000); await asyncio.sleep(.8)
     you=await pan.evaluate(state)
     print('Your profile in the panel:',you,'| tabs opened:',ours())
-    if you['title']!='You': errs.append(f"your profile was called {you['title']!r}")
+    if you['title']!='Your profile': errs.append(f"your profile was called {you['title']!r}")
     if you['tabs']: errs.append('your own profile offered feed tabs, which are not yours to pick')
     if you['items'] < 3: errs.append(f"your profile listed {you['items']} of the three saved here")
     if not you['del']: errs.append('there was no way to delete them all from the panel')

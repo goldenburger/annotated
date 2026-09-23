@@ -19,7 +19,7 @@ async def main():
       db.close(); return 'old database written, shot '+Math.round(shot.length/1024)+' KB'})()"""))
     await old.close()
     feed=await ctx.new_page(); errs=[]; feed.on('pageerror',lambda e: errs.append(str(e)))
-    await feed.goto(f'chrome-extension://{extid}/feed.html'); await asyncio.sleep(3.5)
+    await feed.goto(f'chrome-extension://{extid}/feed.html#profile'); await asyncio.sleep(3.5)
     print(await feed.evaluate("""(async()=>{const m=await Store.allMeta();const a=await Store.all();
       return {metaRows:m.length, fullRows:a.length, metaHasNoFiles:m.every(r=>!r.item.blob&&!r.item.shot), flags:m.map(r=>[r.id,r.item.hasMedia,r.item.hasShot,!!r.item.shotThumb&&Math.round(r.item.shotThumb.length/1024)+' KB thumb']),
         fullKept:a.map(r=>[r.id,!!r.item.blob,!!r.item.shot])}})()"""))

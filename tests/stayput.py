@@ -55,11 +55,19 @@ async def main():
     await pan.fill('#articleMode .takeInput','staying put')
     # The line under Publish says what publishing will actually do, which is not one fixed sentence: it used
     # to promise a new tab to everyone, including the people it was about to leave exactly where they were.
+    # Signed out there is no link and no page for anyone else, so the line says it stays here whatever the
+    # setting. The two settings are compared as if signed in, which is the only time they differ.
+    signed_out=await pan.inner_text('#articleMode .publishHint')
+    print('signed out, the line reads:',repr(signed_out))
+    if 'stays on this computer' not in signed_out: errs.append(f'signed out, the line promised a link: {signed_out!r}')
+    await pan.evaluate("() => document.body.classList.remove('signedOut')")
+    await pan.fill('#articleMode .takeInput','staying put!'); await asyncio.sleep(.2)
     hint=await pan.inner_text('#articleMode .publishHint')
     await pan.evaluate("() => Prefs.set('afterPublish','page')")
     await pan.fill('#articleMode .takeInput','staying put.'); await asyncio.sleep(.2)
     other=await pan.inner_text('#articleMode .publishHint')
     await pan.evaluate("() => Prefs.set('afterPublish','stay')")
+    await pan.evaluate("() => document.body.classList.add('signedOut')")
     await pan.fill('#articleMode .takeInput','staying put'); await asyncio.sleep(.2)
     print('the line under Publish reads:',repr(hint))
     print('and on the other setting:',repr(other))
@@ -67,7 +75,7 @@ async def main():
         errs.append(f'the line under Publish does not say what publishing will do: {hint!r}')
     if 'page' not in other.lower() or hint==other:
         errs.append(f'the line did not follow the setting: {other!r}')
-    await pan.click('#articleMode .publish')
+    await publish_now(pan, '#articleMode .publish')
     await pan.wait_for_selector('#articleMode .pubcard',timeout=20000); await asyncio.sleep(1.2)
     opened=ours()
     said=await pan.inner_text('#articleMode .pubhead')

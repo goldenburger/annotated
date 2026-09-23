@@ -15,9 +15,30 @@ if (EMBED) document.body.classList.add('embedded');
 const OURS = (async () => {
   if (!EMBED) return true;
   document.documentElement.style.visibility = 'hidden';
-  const name = 'floatKey' + PINNED, given = new URLSearchParams(location.search).get('k') || '';
-  let ok = false;
-  try { const o = await chrome.storage.local.get(name); ok = !!given && o[name] === given; } catch {}
+  const name = 'floatKey' + PINNED;
+  // The page's own script hands the key over by message, from the page that holds this frame. The page itself
+  // shares that window and can post as well, so a wrong key does not end the wait, or a hostile page could
+  // turn the real panel away by sending one first. Every key offered is kept, and only the right one counts.
+  // A key in the address is still accepted, which only a test does now, because our own code no longer puts
+  // it there. The listener goes on before anything is awaited, so a key that arrives early is not missed.
+  const offered = [];
+  let wake = null;
+  const on = (e) => {
+    if (e.source !== window.parent || !e.data || e.data.type !== 'annotated-key') return;
+    offered.push(String(e.data.k || '')); if (wake) wake();
+  };
+  addEventListener('message', on);
+  const fromUrl = new URLSearchParams(location.search).get('k') || '';
+  let want = '';
+  try { want = (await chrome.storage.local.get(name))[name] || ''; } catch {}
+  let ok = !!want && fromUrl === want;
+  if (!ok && want) {
+    const until = Date.now() + 4000;
+    while (!(ok = offered.includes(want)) && Date.now() < until) {
+      await new Promise((r) => { wake = r; setTimeout(r, Math.max(0, until - Date.now())); });
+    }
+  }
+  removeEventListener('message', on);
   if (!ok) document.body.textContent = 'Open annotated from its own button.';
   document.documentElement.style.visibility = '';
   return ok;
@@ -50,8 +71,10 @@ Prefs.onChange((v) => {
   // Changing what a selection captures takes effect on every open page at once.
   for (const tid of panels.keys()) {
     sendTo(tid, { type: 'set-snap', exact: v.snap === 'exact' }).catch(() => {});
-    sendTo(tid, { type: 'set-pen', pen: v.pen }).catch(() => {});
+    sendTo(tid, { type: 'set-pen', pen: v.pen, ink: Prefs.inkOf(v.tint) }).catch(() => {});
   }
+  const box = $('#emptyAction');
+  if (box && box.querySelector('.suggest')) showSuggest(box);
 });
 Prefs.init(Prefs.chromeBackend()).then(async () => {
   if (!(await OURS)) return;
@@ -61,6 +84,20 @@ Prefs.init(Prefs.chromeBackend()).then(async () => {
   });
   displayApi = PanelKit.displayMenu(document.body, { onDisplay, sideHint: EMBED ? '' : "Drag the side panel's edge to resize it. Chrome can also show it on the left, in Settings under Appearance." });
   Account.mount(document.body);
+  Account.setActions({
+    onProfile: () => openBrowse('profile'),
+    onDeleteAll: async () => {
+      await openBrowse('profile');
+      const b = $('#browseMode .delAllOpen');
+      if (b) b.click();
+      else {
+        // Nothing to delete. The empty list used to say only "Capture something and it shows up", which
+        // said nothing about the button that had just been pressed.
+        const n = $('#browseMode .browseEmpty .note');
+        if (n) n.textContent = 'You have no annotations to delete.';
+      }
+    },
+  });
   chrome.commands.getAll().then((cmds) => {
     const c = cmds.find((x) => x.name === '_execute_action');
     shortcutText = (c && c.shortcut) || '';
@@ -81,22 +118,47 @@ const panels = new Map();   // tabId -> { kind, url, el, api, selCb }
 async function publish(tid, item, take) {
   const title = AnnotationPage.titleOf(item);
   const id = `${slug(take.text || title)}-${Math.random().toString(36).slice(2, 6)}`;
-  const saved = { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null };
+  const saved = { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null,
+    upload: take.upload ? { blob: take.upload.blob, kind: take.upload.kind, type: take.upload.type, w: take.upload.w, h: take.upload.h, alt: take.upload.alt } : null };
   await Store.put(id, { item, take: saved, reactions: [], sourceTabId: tid, created: Date.now() });
   // Signed in: share it, files and all, so it has a public page. Signed out, or if sharing fails, it stays on this computer.
   let author = null, note = '', local = false;
-  try {
-    author = await Cloud.publish(id, item, saved);
-    if (author) await Store.update(id, { cloud: true, author });
-    else { local = true; note = 'Saved on this computer. Sign in to publish it for everyone.'; }
-  } catch (e) {
-    local = true; note = 'Saved on this computer. Sharing failed: ' + e.message;
-    log('Sharing failed: ' + e.message);
+  // Uploads take longer than a row, so the limit grows with the files: a minute, and ten seconds a megabyte.
+  const bytes = [item.blob, saved.voice && saved.voice.blob, saved.upload && saved.upload.blob].reduce((n, b) => n + ((b && b.size) || 0), 0);
+  // A test can shorten the minute through window.__publishLimit, because waiting a real minute is no test.
+  const limit = (Number(window.__publishLimit) || 60000) + Math.ceil(bytes / 1048576) * 10000;
+  // The browser can think it is online while nothing gets through, on a captive wifi or a dropped link, and
+  // the database client then retries for about seven seconds before giving up. One quick knock first says
+  // whether annotated can be reached at all. Any answer counts, even a refusal. Only no answer means offline.
+  const reachable = () => inTime(fetch(Backend.url + '/auth/v1/health', { method: 'GET', cache: 'no-store', headers: Backend.key ? { apikey: Backend.key } : {} }).then(() => true, () => false), 3000).catch(() => false);
+  if ((typeof navigator !== 'undefined' && navigator.onLine === false) || !(await reachable())) {
+    local = true; note = 'You are offline, so it is saved on this computer. Publish it from its page when you are back online.';
+  } else {
+    const going = Cloud.publish(id, item, saved);
+    try {
+      author = await inTime(going, limit);
+      if (author) await Store.update(id, { cloud: true, author });
+      else { local = true; note = 'Saved on this computer. Sign in to publish it for everyone.'; }
+    } catch (e) {
+      local = true;
+      if (e && e.message === 'timeout') {
+        note = 'annotated did not answer in time, so it is saved on this computer. If it gets through, the page will say so.';
+        // It may still land. If it does, the copy here learns it is shared, so nothing is published twice.
+        going.then((a) => { if (a) Store.update(id, { cloud: true, author: a }).then(() => log('Shared after all ' + id)); }).catch(() => {});
+      } else {
+        console.warn('publish', e);
+        note = /lot of annotations/i.test((e && e.message) || '') ? `Saved on this computer. ${e.message}`
+          : 'Saved on this computer. It could not be shared just now, so try Publish it now from its page.';
+      }
+      log('Sharing failed: ' + (e && e.message));
+    }
   }
   // Publishing leaves you where you are. Being thrown onto a page after every annotation lost your place in
   // whatever you were reading, and the panel already holds the link, the page and a fresh start.
   const after = Prefs.get().afterPublish;
-  const t = after === 'page' ? await openExtPage('annotation.html#' + id) : null;
+  // Straight after publishing, the page behind you really is the one you were annotating, so Back can mean
+  // that. Any other way into an annotation, you came from a list and Back has to go there instead.
+  const t = after === 'page' ? await openExtPage('annotation.html#' + id, () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {})) : null;
   log((author ? 'Published ' : 'Saved locally ') + id);
   return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local };
 }
@@ -105,11 +167,15 @@ async function publish(tid, item, take) {
 // already showing the exact page is simply brought forward. Anywhere that is not annotated, a source or a
 // post on X, still opens a tab of its own, because that is leaving rather than moving around.
 const OWN_PAGE = /\/(annotation|feed)\.html/;
-async function openExtPage(path) {
+// beforeLoad runs only when a page is really about to load, which is what a mark for that load needs. A tab
+// already showing the page is only brought forward, nothing loads, and a mark set then waited for some later
+// load that had nothing to do with it.
+async function openExtPage(path, beforeLoad = null) {
   const url = chrome.runtime.getURL(path);
   const tabs = await chrome.tabs.query({});
   const same = tabs.find((t) => t.url === url);
   if (same) return chrome.tabs.update(same.id, { active: true });
+  if (beforeLoad) await beforeLoad();
   if (OWN_PAGE.test(url)) {
     const base = chrome.runtime.getURL('');
     const mine = tabs.filter((t) => t.url && t.url.startsWith(base) && OWN_PAGE.test(t.url));
@@ -119,14 +185,21 @@ async function openExtPage(path) {
   }
   return chrome.tabs.create({ url });
 }
-const viewPublished = (ref) => {
+// From the published card the page behind you is the one you annotated, so the page is told so. From the
+// duplicate warning ("View it") you published nothing just now, and the page is told nothing.
+const viewPublished = (ref, { justPublished = true } = {}) => {
   if (!ref) return;
-  if (ref.tabId) chrome.tabs.update(ref.tabId, { active: true }).catch(() => openExtPage('annotation.html#' + ref.id));
-  else openExtPage('annotation.html#' + ref.id);
+  const mark = justPublished ? () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {}) : null;
+  if (ref.tabId) chrome.tabs.update(ref.tabId, { active: true }).catch(() => openExtPage('annotation.html#' + ref.id, mark));
+  else openExtPage('annotation.html#' + ref.id, mark);
 };
+// Only your own count. Someone else signed in on this computer annotating the same passage is not you
+// repeating yourself. Whether it was published or only saved here changes what the warning can say.
 const findDuplicate = async (item) => {
-  const hit = (await Store.allMeta().catch(() => [])).find((r) => AnnotationPage.sameSource(r.item, item));
-  return hit ? { id: hit.id, permalink: Backend.permalink(hit.id, hit.author && hit.author.handle) } : null;
+  const who = await inTime(cachedProfile(), 1500).catch(() => profileCache.who || null);
+  const hit = (await Store.allMeta().catch(() => [])).find((r) => AnnotationPage.sameSource(r.item, item)
+    && (!r.author || (who && r.author.id === who.id)));
+  return hit ? { id: hit.id, published: !!hit.cloud, permalink: Backend.permalink(hit.id, hit.author && hit.author.handle) } : null;
 };
 async function deleteAnnotation(id) {
   const rec = await Store.get(id).catch(() => null);
@@ -207,9 +280,37 @@ const APP_TAIL = /\s*[|·•\-–—]\s*(?:podcast on spotify|spotify|apple podc
 const APP_HEAD = /^(?:podcast on spotify|spotify|apple podcasts|amazon music|iheart(?:radio)?|pocket casts|castbox|overcast|podbean|audible|podcast addict)\s*[|·•\-–—]\s*/i;
 // What is left once the app's name goes, when the page was only the app's own furniture.
 const APP_CHROME = /^(your library|home|search|browse|explore|podcasts?|music|playlists?|queue|liked songs|web player[\s\S]*)$/i;
+// An episode named in quotes, "This Is The Culmination Of Everything I Know" - Dr Andrew Huberman, kept its
+// opening quote in the search box and got a second pair round it in "Opening". Double quotes do nothing for a
+// search, so the suggestion drops them.
+const unquote = (t) => String(t || '').replace(/["“”]/g, '').replace(/\s+/g, ' ').trim();
+// Whether two names are the same episode: the words of the shorter one are all at the start of the longer.
+// A tab title carries the show after the episode, "Our Big Fat Dream Episode · Stuff You Should Know".
+const sameEpisode = (a, b) => {
+  const n = (t) => unquote(t).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const x = n(a), y = n(b);
+  if (!x || !y) return false;
+  const [s, l] = x.length <= y.length ? [x, y] : [y, x];
+  // The shorter one has to end on a whole word, or "Episode 1" matched "Episode 12". Past forty characters a
+  // title is taken as its own, since tabs cut long ones short.
+  const head = s.length > 40 ? s.slice(0, 40) : s;
+  return l === s || (l.startsWith(head) && (s.length > 40 || l.length === head.length || l[head.length] === ' '));
+};
+// A tab still loading is titled with its address, "open.spotify.com/episode/2RtdyPV…", which the finder
+// searched in the recording of 2026-09-23 at 03:16 and found nothing.
+const LOOKS_LIKE_ADDRESS = /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/|$)/i;
 const episodeGuess = (title) => {
-  const t = (title || '').replace(/^\(\d+\+?\)\s*/, '').replace(APP_TAIL, '').replace(APP_HEAD, '').trim();
-  return APP_CHROME.test(t) ? '' : t;
+  const t = unquote((title || '').replace(/^\(\d+\+?\)\s*/, '').replace(APP_TAIL, '').replace(APP_HEAD, '').trim());
+  return APP_CHROME.test(t) || LOOKS_LIKE_ADDRESS.test(t) ? '' : t;
+};
+// The name of what a Most talked about row opened, kept for its tab. Spotify can take twenty seconds and more
+// to put an episode's name in its title, and the panel already knew it. It lasts while the tab stays on the
+// address the row opened and the page has not named anything itself.
+const rowNames = new Map();
+const tabName = (tab) => {
+  const h = rowNames.get(tab.id);
+  if (h && tab.url && sameAddress(h.url, tab.url) && !episodeGuess(tab.title)) return h.title;
+  return tab.title;
 };
 
 function makeFeedPod(tid, url, pageTitle, why = 'protected') {
@@ -229,18 +330,29 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       <p class="note fpStatus" role="status"></p>
       <ul class="fpList"></ul>
       <button type="button" class="link fpChange" hidden>Choose a different episode</button>
+      <p class="note fpNow" hidden>Now on this tab: <span class="fpNowName"></span>. <button type="button" class="link fpNowGo">Clip this one instead</button></p>
     </section>
     <div class="fpClip" hidden></div>`;
   const q = (s) => el.querySelector(s);
   const audio = document.createElement('audio');
   audio.preload = 'metadata';
-  let probe = null, ep = null, api = null, stopAt = null;
+  let probe = null, ep = null, api = null, stopAt = null, startAt = null;
   audio.addEventListener('timeupdate', () => { if (stopAt !== null && audio.currentTime >= stopAt) { audio.pause(); stopAt = null; } });
   const info = () => ({
-    ok: !!probe, duration: probe ? probe.duration : NaN, currentTime: audio.currentTime, paused: audio.paused,
-    title: ep ? ep.title : '', show: ep ? ep.show : '', url: ep ? (isPodcastApp(url) ? url : ep.link) : url, artwork: ep ? ep.artwork : '',
+    ok: !!probe, duration: probe ? probe.duration : NaN, currentTime: startAt != null ? startAt : audio.currentTime, paused: audio.paused,
+    title: ep ? ep.title : '', show: ep ? ep.show : '', url: ep ? episodeLink() : url, artwork: ep ? ep.artwork : '',
   });
-  const p = { kind: 'audio', url, el, feed: true, api: null };
+  const p = { kind: 'audio', url, el, feed: true, api: null, pages: [] };
+  // Where "Listen to the episode" goes. The app's own page for the episode when the tab showed one whose
+  // title matches the chosen episode, otherwise the episode's page in Apple's directory. It used to be the
+  // tab's address as it was when you clipped, which on Spotify was the show page you had moved on to.
+  const norm = (t) => unquote(t).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  function episodeLink(e = ep) {
+    const want = norm(e.title);
+    const seen = p.pages.slice().reverse().find((x) => /\/episode\//.test(x.url) && want && norm(x.title).includes(want.slice(0, 40)));
+    return (seen && seen.url) || e.link || url;
+  }
+  p._linkFor = episodeLink;
   api = VideoPanel.create(q('.fpClip'), {
     seek: (t) => { audio.currentTime = t; },
     preview: (s, e) => { audio.currentTime = s; stopAt = e; audio.play().catch(() => {}); },
@@ -264,7 +376,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
 
   async function choose(e) {
     ep = e; probe = null;
-    q('.fpStatus').textContent = `Opening "${e.title}"…`;
+    q('.fpStatus').textContent = /["“”]/.test(e.title) ? `Opening ${e.title}…` : `Opening "${e.title}"…`;
     q('.fpList').innerHTML = '';
     try {
       probe = await FeedPod.probe(e.audioUrl);
@@ -273,9 +385,19 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       q('.fpNote').textContent = `${e.show}. From the show's public feed.`;
       q('.fpSearch').hidden = true; q('.fpStatus').textContent = ''; q('.fpChange').hidden = false; q('.fpHead').hidden = true;
       q('.fpClip').hidden = false;
+      // The clip starts where the app's own player is, when the tab is on this same episode, rather than at
+      // nought, which is where the recording of 02:22 dragged it from each time.
+      startAt = null;
+      const tabPage = p.pages[p.pages.length - 1];
+      if (tabPage && sameEpisode(tabPage.title, e.title)) {
+        const pos = await sendTo(tid, { type: 'app-pos' }).catch(() => null);
+        if (pos && Number.isFinite(pos.secs) && pos.secs > 0 && pos.secs < probe.duration - 3) { startAt = Math.floor(pos.secs); try { audio.currentTime = startAt; } catch { /* not loaded yet */ } }
+      }
+      q('.fpNow').hidden = true;
       // "Choose a different episode" sits right under the episode's name.
-      const ph = q('.fpClip .phead'); if (ph && q('.fpChange').parentElement !== q('.fpClip')) ph.after(q('.fpChange'));
+      const ph = q('.fpClip .phead'); if (ph && q('.fpChange').parentElement !== q('.fpClip')) { ph.after(q('.fpChange')); q('.fpChange').after(q('.fpNow')); }
       api.update(info());
+      startAt = null;
       log(`Episode file: ${(probe.total / 1048576).toFixed(1)} MB, ${probe.kbps} kbps${probe.vbr ? ' variable' : ''}, ${Math.round(probe.duration)}s`);
     } catch (err) {
       q('.fpStatus').textContent = err.message + ' Try another result.';
@@ -296,17 +418,64 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
     q('.fpStatus').textContent = res.length === 1 ? '1 episode found.' : `${res.length} episodes found. Pick the right one.`;
     q('.fpList').innerHTML = res.map((r, i) => `<li><button type="button" data-i="${i}">
         ${/^https:\/\//.test(r.thumb) ? `<img src="${PanelKit.esc(r.thumb)}" alt="" loading="lazy">` : `<span class="fpNoArt">${Brand.icon('podcast')}</span>`}
-        <span class="fpText"><b>${PanelKit.esc(r.title)}</b><span class="note">${PanelKit.esc(r.show)}${r.released ? '. ' + new Date(r.released).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''}${r.duration ? '. ' + PanelKit.fmt(r.duration) : ''}</span></span></button></li>`).join('');
+        <span class="fpText"><b>${PanelKit.esc(r.title)}</b><span class="note">${PanelKit.esc(r.show)}${r.released ? '. ' + new Date(r.released).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }) : ''}${r.duration ? '. ' + PanelKit.fmt(r.duration) : ''}</span></span></button></li>`).join('');
     q('.fpList').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => choose(res[Number(b.dataset.i)])));
+    return res;
   }
   q('.fpSearch').addEventListener('submit', (e) => { e.preventDefault(); run(q('.fpQ').value); });
+  // One press: let go of this episode, search for the one on the tab, and open it if it is the first result.
+  q('.fpNowGo').addEventListener('click', async () => {
+    const g = q('.fpNow').dataset.g || '';
+    // The change link would search once from the tab and this searches again, which is two calls to Apple's
+    // directory for one press.
+    quietChange = true; q('.fpChange').click(); quietChange = false;
+    if (!g) return;
+    q('.fpQ').value = g; lastGuess = g;
+    const res = await run(g);
+    if (res && res[0] && sameEpisode(res[0].title, g)) choose(res[0]);
+  });
+  const noteFor = () => (isPodcastApp(url) ? (WHY[why] || WHY.protected) : 'Search for any podcast episode by name. annotated clips it from the show\'s public feed.');
+  let quietChange = false;
   q('.fpChange').addEventListener('click', () => {
     audio.pause(); q('.fpClip').hidden = true; q('.fpChange').hidden = true; q('.fpSearch').hidden = false; q('.fpHead').hidden = false;
     q('.fpTitle').textContent = 'Find the episode'; q('.fpQ').focus();
+    // The episode that was open is let go of entirely. Keeping it made the panel go on ignoring the tab, so
+    // the box kept the old episode, and the note under the heading kept its show's name.
+    ep = null; probe = null; typed = false; lastGuess = ''; q('.fpNow').hidden = true;
+    q('.fpNote').textContent = noteFor();
+    const tabPage = p.pages[p.pages.length - 1];
+    const g = tabPage ? episodeGuess(tabPage.title) : '';
+    q('.fpQ').value = g; q('.fpList').innerHTML = '';
+    if (quietChange) return;
+    if (g) { lastGuess = g; run(g); } else q('.fpStatus').textContent = 'Type the show and a few words of the episode title.';
   });
+  // 4. A box emptied by hand says what to type again.
+  q('.fpQ').addEventListener('input', () => { if (!q('.fpQ').value.trim()) { q('.fpList').innerHTML = ''; q('.fpStatus').textContent = 'Type the show and a few words of the episode title.'; } });
+  let typed = false, lastGuess = '';
+  q('.fpQ').addEventListener('input', () => { typed = true; });
+  // Called on every refresh with the tab's title and address. A new guess replaces the old one only while
+  // you have not typed and no episode is open, and it searches again, so starting a different episode on the
+  // show page no longer leaves the one you looked at first in the box.
+  p.hint = (title, pageUrl) => {
+    if (pageUrl) { const last = p.pages[p.pages.length - 1]; if (!last || last.url !== pageUrl || last.title !== title) p.pages.push({ url: pageUrl, title }); if (p.pages.length > 20) p.pages.shift(); }
+    const g = episodeGuess(title);
+    if (ep && g && isPodcastApp(url)) {
+      const other = !sameEpisode(g, ep.title) && /\/episode\//.test(pageUrl || '');
+      if (q('.fpNow').hidden === other) q('.fpNow').hidden = !other;
+      if (other && q('.fpNow').dataset.g !== g) { q('.fpNowName').textContent = g; q('.fpNow').dataset.g = g; }
+      return;
+    }
+    if (!g || g === lastGuess || typed || ep || !isPodcastApp(url)) return;
+    lastGuess = g; q('.fpQ').value = g; run(g);
+  };
   const guess = episodeGuess(pageTitle);
+  lastGuess = guess;
   q('.fpQ').value = guess;
-  if (!guess) q('.fpStatus').textContent = 'Type the show and a few words of the episode title.';
+  // On an app's episode page the name is coming, so the panel says it is waiting rather than asking you to
+  // type what the page will say in a moment.
+  const app = (() => { try { const h = new URL(url).hostname; return /spotify/.test(h) ? 'Spotify' : /music\.amazon/.test(h) ? 'Amazon Music' : /audible/.test(h) ? 'Audible' : 'the app'; } catch { return 'the app'; } })();
+  if (!guess) q('.fpStatus').textContent = isPodcastApp(url) && /\/episode\//.test(url)
+    ? `Waiting for ${app} to show the episode's name. Or type it here.` : 'Type the show and a few words of the episode title.';
   if (!isPodcastApp(url)) {
     q('.fpNote').textContent = 'Search for any podcast episode by name. annotated clips it from the show\'s public feed.';
     // A way back to whatever this page offered before.
@@ -338,7 +507,7 @@ function makePodcast(tid, url, src) {
     // The episode's waveform. MP3s with partial downloads load it 30 seconds at a time as the trimmer moves.
     // Anything else falls back to reading the whole file, when it is small enough (up to 60 MB).
     async peaks() {
-      if (!/^https?:/.test(src || '')) return null;
+      if (!/^https?:/.test(src || '') || !FeedPod.publicAddress(src)) return null;
       try { const pr = await FeedPod.probe(src); return FeedPod.waveform(pr, 10); } catch { /* not an MP3 with partial downloads */ }
       const head = await fetch(src, { method: 'HEAD' }).catch(() => null);
       const len = head && Number(head.headers.get('content-length'));
@@ -354,6 +523,8 @@ function makePodcast(tid, url, src) {
 }
 
 // A post on X is not a story, and the timeline is not one post, so the panel says what works there instead.
+// YouTube anywhere but a video: its home page, a channel, search results.
+const onYtHost = (u) => { try { return /(^|\.)youtube\.com$/.test(new URL(u).hostname); } catch { return false; } };
 const onXHost = (u) => { try { return /(^|\.)(x|twitter)\.com$/.test(new URL(u).hostname); } catch { return false; } };
 function makeArticle(tid, url, hasAudio = false) {
   const el = document.createElement('div');
@@ -361,7 +532,7 @@ function makeArticle(tid, url, hasAudio = false) {
   const p = { kind: 'article', url, el, hasAudio, selCb: () => {} };
   // The page keeps its own copy of the capture preference, so tell it as soon as the panel exists.
   sendTo(tid, { type: 'set-snap', exact: Prefs.get().snap === 'exact' }).catch(() => {});
-  sendTo(tid, { type: 'set-pen', pen: Prefs.get().pen }).catch(() => {});
+  sendTo(tid, { type: 'set-pen', pen: Prefs.get().pen, ink: Prefs.inkOf(Prefs.get().tint) }).catch(() => {});
   p.api = ArticlePanel.create(el, {
     onSelection(cb) { p.selCb = cb; },
     info: () => sendTo(tid, { type: 'a-info' }).catch(() => null),
@@ -378,7 +549,7 @@ function makeArticle(tid, url, hasAudio = false) {
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked,
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
     onFindPodcast: () => { feedAsked.add(tid); drop(tid); refresh(); },
-    xHost: onXHost(url), pasteForm, wirePaste });
+    xHost: onXHost(url), ytHost: onYtHost(url), pasteForm, wirePaste, draftKey: 'a:' + url, keep: keepFor('a:' + url) });
   return p;
 }
 
@@ -419,10 +590,25 @@ function makePost(tid, url) {
       try { await tabShot(tid, r); } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
       return r;
     },
-  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked });
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked, draftKey: 'p:' + url, keep: keepFor('p:' + url) });
   return { kind: 'post', url, el, api };
 }
 
+// Where a capture waits out a reload of the panel: this browser session, one per page. The screenshot is a
+// few hundred kilobytes, well inside what the session store holds.
+const keepFor = (key) => {
+  const k = 'annotated-cap:' + key;
+  const s = chrome.storage && chrome.storage.session;
+  // The session store holds ten megabytes in all and other things live there too, such as where Back goes
+  // after publishing, so only the five newest captures are kept and older ones make room.
+  const save = async (v) => {
+    await s.set({ [k]: { ...v, at: Date.now() } });
+    const all = await s.get(null);
+    const caps = Object.keys(all).filter((x) => x.startsWith('annotated-cap:')).sort((a, b) => ((all[b] && all[b].at) || 0) - ((all[a] && all[a].at) || 0));
+    if (caps.length > 5) await s.remove(caps.slice(5));
+  };
+  return s ? { load: () => s.get(k).then((o) => o[k] || null), save, clear: () => s.remove(k) } : null;
+};
 // Services that encrypt their audio. annotated never records encrypted audio, so these get a clear message
 // and a way to find the same episode somewhere it can be clipped.
 const PROTECTED = [[/(^|\.)spotify\.com$/, 'Spotify'], [/^music\.apple\.com$/, 'Apple Music'], [/(^|\.)tidal\.com$/, 'Tidal'],
@@ -448,10 +634,123 @@ function showProtected(tab, service) {
   box.appendChild(a);
 }
 // Paste a link: an article, a YouTube video, a post on X or a podcast episode opens in this tab, ready to annotate.
+// Places worth starting from, for a panel beside a page with nothing on it. Spotify encrypts its audio, so a
+// Spotify episode goes to the podcast finder, which is where the panel takes it anyway.
+const GO_SITES = [
+  ['YouTube', 'https://www.youtube.com/', 'clip'],
+  ['X', 'https://x.com/home', 'x'],
+  ['Spotify', 'https://open.spotify.com/genre/podcasts-web', 'podcast'],
+  ['Apple Podcasts', 'https://podcasts.apple.com/', 'podcast'],
+  ['Google News', 'https://news.google.com/', 'article'],
+];
+const goSites = () => `<p class="goLabel">Start somewhere</p><div class="goSites">${GO_SITES.map(([name, url, icon]) =>
+  `<button type="button" class="ghost sm goSite" data-url="${url}">${Brand.icon(icon)} ${name}</button>`).join('')}</div>`;
+// What people are talking about on annotated, above the places to start. It is asked for once and again
+// after ten minutes at most, because the empty panel is drawn by the refresh loop and the list changes
+// slowly. Three rows, one line of name and one of why, and nothing at all when there is nothing to say,
+// so a quiet week reads as a quiet panel rather than as an empty box with a heading. Every word comes
+// from other people's annotations, so it is written with textContent.
+const TALK_ICON = { post: 'x', video: 'clip', audio: 'podcast', article: 'article' };
+let talkAt = 0, talkRows = null;
+function talkWhy(r) {
+  const n = Number(r.annotations) || 0, ppl = Number(r.people) || 0, rep = Number(r.replies) || 0;
+  const bits = [ppl > 1 ? `${ppl} people annotating` : `${n} annotation${n === 1 ? '' : 's'}`];
+  if (rep) bits.push(`${rep} repl${rep === 1 ? 'y' : 'ies'}`);
+  return bits.join(' · ');
+}
+async function drawTalked(box) {
+  const el = box.querySelector('.talked');
+  if (!el || typeof Cloud === 'undefined') return;
+  if (!talkRows || Date.now() - talkAt > 60000) {
+    talkAt = Date.now();
+    try { talkRows = await inTime(Cloud.talkedAbout(3), 6000); } catch { talkRows = talkRows || []; }
+  }
+  const list = el.querySelector('.talkList');
+  list.textContent = '';
+  for (const r of talkRows) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'talkRow'; b.dataset.url = r.url;
+    b.innerHTML = `<span class="talkIcon" aria-hidden="true">${Brand.icon(TALK_ICON[r.kind] || 'article')}</span><span class="talkText"><span class="talkName"></span><span class="talkWhy"></span></span>`;
+    b.querySelector('.talkName').textContent = r.title;
+    b.querySelector('.talkWhy').textContent = talkWhy(r);
+    b.addEventListener('click', () => goTo(r.url, r.title));
+    list.appendChild(b);
+  }
+  // The full title as a tooltip only where the row cuts it short. On a whole title it repeated the words
+  // already on screen.
+  requestAnimationFrame(() => list.querySelectorAll('.talkRow').forEach((b) => {
+    const nm = b.querySelector('.talkName');
+    if (nm.scrollWidth > nm.clientWidth + 1) b.title = nm.textContent; else b.removeAttribute('title');
+  }));
+  el.hidden = !talkRows.length;
+}
+// A deletion or another account makes the list out of date at once. It went on offering the sources of five
+// deleted annotations for two minutes, through a change of account, in the recording of 2026-09-23 at 03:16.
+function staleTalk() {
+  talkRows = null; talkAt = 0;
+  document.querySelectorAll('.talked').forEach((el) => { const box = el.closest('.esAction, .startBlock'); if (box && !el.closest('.suggest[hidden]')) drawTalked(box); });
+}
+chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) staleTalk(); });
+// Anyone who wants a clean slate turns the suggestions off in Display settings, which takes the talked
+// about list and the places to start. Pasting a link and clipping a podcast by name stay, being tools.
+function showSuggest(box) {
+  const on = Prefs.get().suggest !== false;
+  box.querySelectorAll('.suggest').forEach((s) => { s.hidden = !on; });
+  if (on) drawTalked(box);
+}
+// A new tab, a blank page or a browser page has nothing to lose, so the site opens right there. Anything
+// else opens beside it, because a settings page or a PDF you were reading should still be where you left it.
+const isBlankTab = (t) => !!t && (!t.url || /^(about:blank|chrome:\/\/newtab|edge:\/\/newtab|chrome:\/\/new-tab-page)/.test(t.url));
+// Two addresses for the same page: the same place, ignoring the fragment, tracking tags and a trailing slash,
+// and on YouTube the same video whatever else the address carries.
+function sameAddress(a, b) {
+  try {
+    const x = new URL(a), y = new URL(b);
+    const host = (u) => u.hostname.replace(/^(www|m)\./, '');
+    if (host(x) !== host(y)) return false;
+    if (/youtube\.com$/.test(host(x)) && x.searchParams.get('v')) return x.searchParams.get('v') === y.searchParams.get('v');
+    // The query counts, because Apple names an episode in it (?i=1000…), apart from tracking and sharing tags.
+    const q = (u) => [...u.searchParams].filter(([k]) => !/^(utm_|si$|fbclid$|gclid$|ref$|feature$|t$)/.test(k)).sort().join('&');
+    return x.pathname.replace(/\/$/, '') === y.pathname.replace(/\/$/, '') && q(x) === q(y);
+  } catch { return false; }
+}
+// Opening a page that is already open in a tab goes to that tab. By the end of the recording of 2026-09-23 at
+// 03:16 there were ten tabs, three of them the same video. A name, when the caller knows one, is kept for the
+// tab so the podcast finder can use it before the page says it.
+async function goTo(url, name = '') {
+  const open = (await chrome.tabs.query({}).catch(() => [])).find((x) => x.url && sameAddress(x.url, url));
+  if (open) {
+    await chrome.tabs.update(open.id, { active: true }).catch(() => {});
+    if (open.windowId != null) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+    if (name) rowNames.set(open.id, { url, title: name });
+    return;
+  }
+  const t = await activeTabNow();
+  const done = isBlankTab(t) ? await chrome.tabs.update(t.id, { url }).catch(() => null) : await chrome.tabs.create({ url }).catch(() => null);
+  if (done && name) rowNames.set(done.id, { url, title: name });
+}
+// The start page: what people are talking about, places to start, a link to paste and a podcast to find by
+// name. It used to be drawn only beside a page with nothing to annotate, so once the tab went to a video
+// there was no way back to it (the recording of 2026-09-23 at 02:48). It is now also the top of Home and what
+// the panel shows beside the feed and your profile. Away from the empty panel (beside), nothing it opens
+// replaces the page you are on, because that page may be a clip or a take in progress.
+const startHtml = () => `<div class="suggest"><section class="talked" hidden><p class="goLabel">Most talked about lately</p><div class="talkList"></div></section>${goSites()}</div>${pasteForm()}<button type="button" class="ghost sm fpAny">${Brand.icon('podcast')} Clip a podcast by name</button>`;
+function wireStart(box, beside = false) {
+  wirePaste(box, beside);
+  box.querySelectorAll('.goSite').forEach((b) => b.addEventListener('click', () => goTo(b.dataset.url)));
+  box.querySelector('.fpAny').addEventListener('click', async () => {
+    const t = await activeTabNow();
+    if (!t) return;
+    if (!beside || isBlankTab(t)) { feedAsked.add(t.id); if (browsing) closeBrowse(); else refresh(); return; }
+    const n = await chrome.tabs.create({}).catch(() => null);
+    if (n) { feedAsked.add(n.id); refresh(); }
+  });
+  showSuggest(box);
+}
 const pasteForm = () => `<form class="pasteForm" role="search" novalidate><label for="pasteUrl">Paste a link to annotate</label>
   <div class="row"><input id="pasteUrl" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false"><button class="strong sm">Open</button></div>
   <p class="note pasteMsg" role="status"></p></form>`;
-function wirePaste(root) {
+function wirePaste(root, beside = false) {
   const f = root.querySelector('.pasteForm');
   if (!f) return;
   f.addEventListener('submit', async (e) => {
@@ -463,22 +762,27 @@ function wirePaste(root) {
     // The tab this panel is working with (the same one the panel shows).
     const pinned = Number(new URLSearchParams(location.search).get('tab'));
     const [t] = pinned ? [await chrome.tabs.get(pinned).catch(() => null)] : await chrome.tabs.query({ active: true, currentWindow: true });
-    if (t) chrome.tabs.update(t.id, { url: u.href }); else chrome.tabs.create({ url: u.href });
-    f.querySelector('.pasteMsg').textContent = 'Opening it here.';
+    if (t && (!beside || isBlankTab(t))) { chrome.tabs.update(t.id, { url: u.href }); f.querySelector('.pasteMsg').textContent = 'Opening it here.'; }
+    else { chrome.tabs.create({ url: u.href }); f.querySelector('.pasteMsg').textContent = 'Opening it beside this.'; }
   });
 }
 // Home and your profile read inside the panel. A menu shows its contents where you are, and opening a tab
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
-let browsing = null, browseTab = 'foryou', browseFrom = null;
+let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null;
 async function openBrowse(kind) {
   browsing = kind;
+  browseTab = Cloud.savedTab(); browsePressed = false;
   // Where you were when you opened it. Moving off that page is what puts the panel back.
   browseFrom = await activeTabNow().then((t) => (t ? { id: t.id, url: t.url } : null)).catch(() => null);
+  // The list is drawn while it is still out of sight, and only then does the panel change over. Hiding
+  // everything first and fetching afterwards left the panel empty for about a second every time Home or
+  // your profile was pressed.
+  await drawBrowse();
+  if (browsing !== kind) return;
   for (const [, q] of panels) q.el.hidden = true;
   ['#videoMode', '#articleMode', '#postMode', '#podcastMode', '#annMode', '#empty'].forEach((s) => { $(s).hidden = true; });
   $('#browseMode').hidden = false;
-  await drawBrowse();
 }
 function closeBrowse() {
   browsing = null; browseFrom = null;
@@ -507,13 +811,16 @@ async function drawBrowse() {
   const kind = browsing;
   const local = await Store.allMeta().catch(() => []);
   const me = await cachedProfile();
-  let records = local, title = 'You', note = '', tabs = null;
+  // Yours, not this computer's. Another account's annotations share the store, and the list used to show
+  // them, and offer to delete them, to whoever was signed in or to nobody at all.
+  const yours = local.filter((r) => !r.author || (me && r.author.id === me.id));
+  let records = kind === 'profile' ? yours : local, title = 'Your profile', note = '', emptyNote = '', tabs = null;
   if (kind === 'profile' && me) {
     // Anything published from another computer belongs here too, and to whatever is deleted from here.
     let mine = [];
     try { mine = await Cloud.list({ authorId: me.id, limit: 100 }); } catch { /* signed out, or no connection */ }
     const here = new Set(local.map((r) => r.id));
-    records = [...local, ...mine.filter((r) => !here.has(r.id))];
+    records = [...yours, ...mine.filter((r) => !here.has(r.id))];
   }
   if (kind === 'home') {
     title = 'Home';
@@ -526,14 +833,14 @@ async function drawBrowse() {
     try { soc = await Cloud.discovery(me, {}); } catch { /* the rails are not needed here */ }
     soc = soc || { followed: new Set(), people: [], trending: { sources: [], tags: [] } };
     const t = Cloud.homeTabs(merged, soc, me, merged.filter((r) => r.mine || !r.author));
-    const cur = t[browseTab] ? browseTab : 'foryou';
-    records = t[cur].records; note = t[cur].note || '';
+    const cur = Cloud.startTab(t, browseTab, browsePressed);
+    records = t[cur].records; note = t[cur].note || ''; emptyNote = t[cur].empty || '';
     tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
-      onTab: (k) => { browseTab = k; drawBrowse(); } };
+      onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
   }
   if (browsing !== kind) return;
   AnnotationPage.renderBrowse($('#browseMode'), {
-    title, records, note, tabs, localAware: true,
+    title, records, note, emptyNote, tabs, localAware: true,
     onOpen: (id) => openExtPage('annotation.html#' + id),
     onBack: closeBrowse,
     onFull: () => openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile'),
@@ -552,22 +859,38 @@ async function drawBrowse() {
       return failed;
     } : null,
   });
+  if (kind === 'home') {
+    const st = document.createElement('div');
+    st.className = 'startBlock esAction';
+    st.innerHTML = startHtml();
+    $('#browseMode .browseHead').after(st);
+    wireStart(st, true);
+  }
 }
+// The last tab that had something to annotate, so the panel beside annotated's own pages can offer the
+// way back to what you were reading.
+let lastSourceTab = null, openingHost = '';
 function show(tid, msg, title) {
   if (browsing) return;
+  // Nothing to show yet because the page is still arriving. For two seconds after each new tab the panel used
+  // to show the whole empty start page and then the trimmer.
+  const opening = tid == null && !title && !!openingHost;
+  $('#esIcons').hidden = opening;
+  if (opening) {
+    $('#emptyAction').hidden = true;
+    $('#emptyTitle').textContent = `Opening ${openingHost}…`;
+    for (const [, q] of panels) q.el.hidden = true;
+    ['#videoMode', '#articleMode', '#postMode', '#podcastMode', '#annMode'].forEach((s) => { $(s).hidden = true; });
+    $('#empty').hidden = false; $('#emptyMsg').textContent = '';
+    return;
+  }
   const p = tid != null ? panels.get(tid) : null;
+  if (p) lastSourceTab = tid;
   if (!title) {
     // Nothing on this page to annotate: podcasts can still be clipped by name.
     const box = $('#emptyAction');
     box.hidden = false;
-    if (!box.querySelector('.fpAny')) {
-      box.innerHTML = `${pasteForm()}<button type="button" class="ghost sm fpAny">${Brand.icon('podcast')} Clip a podcast by name</button>`;
-      wirePaste(box);
-      box.querySelector('.fpAny').addEventListener('click', async () => {
-        const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
-        if (t) { feedAsked.add(t.id); refresh(); }
-      });
-    }
+    if (!box.querySelector('.fpAny')) { box.innerHTML = startHtml(); wireStart(box); }
   }
   $('#emptyTitle').textContent = title || 'Open something to annotate';
   for (const [id, q] of panels) q.el.hidden = id !== tid;
@@ -579,14 +902,36 @@ function show(tid, msg, title) {
   $('#empty').hidden = !!p;
   if (!p) $('#emptyMsg').textContent = msg || 'Open a YouTube video, a news article, a podcast episode, or a post on X in this tab.';
 }
-function drop(tid) { const p = panels.get(tid); if (p) { p.el.remove(); panels.delete(tid); } }
+// A dropped panel gives back the recordings it was showing. An address made for a clip, a voice note or a
+// photo keeps the whole file in memory until it is released, and moving from one video to the next used to
+// leave the last capture held for as long as the panel stayed open.
+function drop(tid) {
+  const p = panels.get(tid);
+  if (!p) return;
+  // Anything still listening stops first. A voice note or a tab's audio being recorded when its panel went
+  // away used to keep the microphone or the tab's sound running, with nothing on screen, until its time ran out.
+  p.el.querySelectorAll('[data-compose]').forEach((r) => { try { r.__stopRec && r.__stopRec(); } catch { /* already stopped */ } });
+  if (p.tabRec) { try { p.tabRec.abort('The panel for this tab closed.'); } catch { /* already stopped */ } }
+  p.el.querySelectorAll('video, audio, img, source').forEach((m) => {
+    const s = m.currentSrc || m.src || '';
+    if (m.pause) { try { m.pause(); } catch { /* not playing */ } }
+    if (s.startsWith('blob:')) URL.revokeObjectURL(s);
+  });
+  p.el.remove(); panels.delete(tid);
+}
 
 // Who is signed in, remembered for a minute. The annotation panel redraws whenever a tab or a saved annotation
 // changes, and each redraw used to ask the database again.
+// Held so the refresh loop does not ask the session for a profile two and a half times a second. Signing in
+// or out throws it away at once, because a minute of the wrong account is a minute of the wrong answers.
 let profileCache = { at: 0, who: null };
+if (typeof Backend !== 'undefined' && Backend.onChange) Backend.onChange(() => { profileCache = { at: 0, who: null }; annKey = null; staleTalk(); if (browsing) drawBrowse(); });
+// A question that may never be answered, given a time limit. Offline, the session and the profile each wait
+// on the network, and Publish sat on nothing and then on "Publishing" with no end.
+const inTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
 async function cachedProfile() {
   if (Date.now() - profileCache.at < 60000) return profileCache.who;
-  const who = await Backend.profile().catch(() => null);
+  const who = await inTime(Backend.profile(), 5000).catch(() => (profileCache.who || null));
   profileCache = { at: Date.now(), who };
   return who;
 }
@@ -598,6 +943,9 @@ async function inject(tid, files, ping) {
 
 let busyRefresh = false;
 async function refresh() {
+  // A panel turned away by the key check has no panel to draw into. Other things, a change of settings for
+  // one, still ask for a refresh, and it used to throw on the parts that were never drawn.
+  if (!(await OURS)) return;
   if (busyRefresh) return;
   busyRefresh = true;
   try {
@@ -616,6 +964,7 @@ async function refresh() {
     if (cur && cur.kind === 'video' && cur.api.capturing && tab?.id !== activeTab) return;
     if (!tab) return show(null);
     activeTab = tab.id;
+    try { openingHost = tab.status === 'loading' && isWeb(tab.pendingUrl || tab.url) ? new URL(tab.pendingUrl || tab.url).hostname.replace(/^www\./, '') : ''; } catch { openingHost = ''; }
     let p = panels.get(tab.id);
     if (isWatch(tab.url)) {
       if (p && p.kind !== 'video') { drop(tab.id); p = null; }
@@ -648,8 +997,12 @@ async function refresh() {
     // an ordinary audio file and clipping what you are listening to beats searching for it again.
     const feedPanel = (why) => {
       const url = tab.url.split('#')[0];
-      if (p && (!p.feed || p.url !== url)) { drop(tab.id); p = null; }
-      if (!p) { p = makeFeedPod(tab.id, url, feedAsked.has(tab.id) && !isPodcastApp(tab.url) ? '' : tab.title, why); panels.set(tab.id, p); }
+      // Moving about inside one app keeps the same finder, so what you searched stays and the suggestion can
+      // follow the page. Leaving the app starts again.
+      const sameApp = (a, b) => { try { return new URL(a).hostname === new URL(b).hostname; } catch { return false; } };
+      if (p && (!p.feed || !sameApp(p.url, url))) { drop(tab.id); p = null; }
+      if (!p) { p = makeFeedPod(tab.id, url, feedAsked.has(tab.id) && !isPodcastApp(tab.url) ? '' : tabName(tab), why); panels.set(tab.id, p); }
+      if (p.hint) p.hint(tabName(tab), url);
       show(tab.id);
     };
     if (isPodcastApp(tab.url) && protectedService(tab.url)) return feedPanel('protected');
@@ -696,8 +1049,44 @@ async function refresh() {
       const records = await Store.allMeta().catch(() => []);
       const curId = tab.url.includes('annotation.html#') ? decodeURIComponent(tab.url.split('#')[1]) : null;
       const who = await cachedProfile();
+      // The feed and your profile are lists, and the tab is already showing one. The panel says so rather
+      // than putting the same list beside it with a link to the page you are on.
+      const mirrors = !tab.url.startsWith(base + 'feed.html') ? ''
+        : tab.url.includes('#profile') ? 'Your profile'
+        : tab.url.includes('#user=') ? 'A profile'
+        : tab.url.includes('#tag=') ? 'A tag' : 'The feed';
+      const srcTab = lastSourceTab != null ? await chrome.tabs.get(lastSourceTab).catch(() => null) : null;
+      const back = !!srcTab;
+      // The way back names where it goes. A tab title carries YouTube's unread count and the site's name.
+      const sourceName = srcTab ? String(srcTab.title || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X)$/, '').replace(/\s+\/\s+X$/, '').trim() : '';
+      // Drawn again only when something on it would change. A redraw replaces the buttons, and one landing
+      // while a button is held down loses the click.
+      const sig = mirrors ? [mirrors, srcTab && srcTab.id, sourceName].join('|') : '';
+      const drawn = $('#annMode .annside.mirror');
+      if (sig && drawn && drawn.dataset.sig === sig) return;
+      // A shared annotation's reactions, comments and votes live in the database. The copy here never learns
+      // about them, so the card beside the page used to say only "Poll" under a vote, a reaction and a comment.
+      let current = records.find((r) => r.id === curId) || null;
+      if (current && (current.cloud || current.author)) {
+        const s = await inTime(Cloud.social(current.id, who && who.id), 3000).catch(() => null);
+        if (s) current = { ...current, comments: s.comments, reactions: s.reactions,
+          take: { ...current.take, poll: current.take.poll ? { ...current.take.poll, counts: s.poll.counts, vote: s.poll.vote } : null } };
+      }
       AnnotationPage.renderSide($('#annMode'), {
-        current: records.find((r) => r.id === curId) || null, records,
+        current, records,
+        // The store belongs to this computer, and two accounts can share one. Who you are decides which of
+        // them are yours to list under your name and yours to delete.
+        youId: who && who.id,
+        mirrors, sourceName,
+        // The tab is looked up again at the press, since it may have closed, and may be in another window,
+        // which then has to come to the front as well. A tab that is gone says so rather than nothing.
+        onSource: back ? async () => {
+          const t = await chrome.tabs.get(srcTab.id).catch(() => null);
+          const said = $('#annMode .sideBackNote');
+          if (!t) { if (said) said.textContent = 'That tab has been closed.'; return; }
+          await chrome.tabs.update(t.id, { active: true }).catch(() => {});
+          if (t.windowId != null) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+        } : null,
         permalinkOf: (id) => { const r = records.find((x) => x.id === id); return Backend.permalink(id, r && r.author && r.author.handle); },
         localAware: true,
         onOpen: (id) => openExtPage('annotation.html#' + id),
@@ -716,6 +1105,14 @@ async function refresh() {
           refresh();
         } : null,
       });
+      const ms = $('#annMode .mirrorStart');
+      if (ms) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
+      const mirror = $('#annMode .annside.mirror');
+      if (mirror) {
+        mirror.dataset.sig = sig;
+        const b = mirror.querySelector('.sideBack');
+        if (b) { const n = document.createElement('p'); n.className = 'note sideBackNote'; n.setAttribute('role', 'status'); b.after(n); }
+      }
       return;
     }
     annKey = null;
@@ -745,6 +1142,7 @@ chrome.tabs.onActivated.addListener(() => refresh());
 chrome.tabs.onUpdated.addListener((id, change) => { if (change.url) refresh(); });
 chrome.tabs.onRemoved.addListener((id) => {
   drop(id);
+  rowNames.delete(id);
   feedAsked.delete(id);
   for (const k of [...modeOverride.keys()]) if (k.startsWith(id + ' ')) modeOverride.delete(k);
 });

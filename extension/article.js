@@ -15,23 +15,26 @@
   const style = document.createElement('style');
   // The pens, with their colours written out. This sits on pages we do not own, so nothing here fades to
   // transparent, which would vanish on a dark page, and nothing uses a blend mode.
-  const HI = '#FFE14A', DEEP = '#F2C600', LIFT = '#FFEE9E';
+  // The panel sends the chosen colour with set-pen. These are the classic ones, used until it does.
+  let INK = { hi: '#FFE14A', deep: '#F2C600', lift: '#FFEE9E', pending: '#FFF0A8' };
   // Each pen is a layer that sits behind one word. t and b are how far it reaches above and below the line,
   // o is how far it runs past the first and last word, and the four radii are the corners of the stroke.
-  const PENS = {
+  const pensFor = ({ hi: HI, deep: DEEP, lift: LIFT }) => ({
     chisel: { img: `linear-gradient(103deg,${DEEP} 0 6%,${HI} 14% 88%,${LIFT} 100%)`, t: -1, b: -3, o: 3, tl: 4, tr: 11, br: 5, bl: 12 },
     wet: { img: `radial-gradient(9px 60% at 3% 52%,${DEEP},transparent 70%),radial-gradient(12px 62% at 98% 48%,${DEEP},transparent 72%),linear-gradient(180deg,${LIFT} 0 14%,${HI} 22% 78%,${DEEP} 100%)`, t: -1, b: -3, o: 3, tl: 3, tr: 10, br: 4, bl: 9 },
     twice: { img: `linear-gradient(101deg,${LIFT} 0 18%,${HI} 34% 70%,${DEEP} 78%,${HI} 100%)`, t: -2, b: -3, o: 3, tl: 5, tr: 12, br: 6, bl: 11 },
     streak: { img: `repeating-linear-gradient(94deg,transparent 0 11px,${LIFT} 11px 13px,transparent 13px 27px),linear-gradient(180deg,${LIFT},${HI} 46%,${DEEP})`, t: -1, b: -3, o: 3, tl: 4, tr: 10, br: 5, bl: 11 },
     flat: { img: `linear-gradient(${HI},${HI})`, t: -3, b: -3, o: 2, tl: 2, tr: 2, br: 2, bl: 2 },
-  };
+  });
   // The pen runs across one word at a time. It is a transform on a layer, which the browser's compositor
   // draws by itself. Widening a background instead put the stroke on the page's own thread, and the page is
   // busy taking a screenshot at exactly that moment, so the stroke arrived finished and nobody ever saw it.
   const SWEEP = '@keyframes annotated-sweep{from{transform:scaleX(0)}to{transform:scaleX(1)}}'
     + '@media (prefers-reduced-motion:reduce){mark.annotated-hl.hl-go::before{animation:none}}';
+  let penName = 'chisel';
   const penCss = (name) => {
-    const p = PENS[name] || PENS.chisel;
+    const pens = pensFor(INK);
+    const p = pens[name] || pens.chisel;
     return 'mark.annotated-hl{background:none!important;color:#1C2433!important;position:relative!important;'
       + 'isolation:isolate!important;padding:0!important;margin:0!important;border-radius:0!important;'
       + 'text-shadow:none!important;text-decoration-color:currentColor}'
@@ -54,14 +57,21 @@
   // nothing else, so it stays flat whichever pen is chosen.
   // What would be taken if you captured now. A paler tint of the same yellow with the same ink, so it reads
   // as the pen resting rather than a second colour. The highlight API takes a colour and nothing else.
-  const PENDING = '::highlight(annotated-pending){background-color:#FFF0A8;color:#1C2433}';
-  style.textContent = penCss('chisel') + PENDING;
+  const pendingCss = () => `::highlight(annotated-pending){background-color:${INK.pending};color:#1C2433}`;
+  const paint = () => { style.textContent = penCss(penName) + pendingCss(); };
+  paint();
   (document.head || document.documentElement).appendChild(style);
   // Talking to nobody means the extension has been reloaded or removed and this copy is a leftover, so it
   // takes itself off the page rather than leaving a button that cannot do anything.
-  const send = (m) => chrome.runtime.sendMessage(m).catch(() => {
-    if (!chrome.runtime || !chrome.runtime.id) { try { if (mine.page) mine.page.destroy(); } catch { /* already gone */ } }
-  });
+  // A copy left behind by an extension reload throws "Extension context invalidated" at the call itself, before
+  // there is any promise to catch, and Chrome listed that as an error of the extension. The call is guarded,
+  // and a leftover takes itself off the page the first time it finds out.
+  const retire = () => { try { if (mine.page) mine.page.destroy(); } catch { /* already gone */ } };
+  const alive = () => { try { return !!(chrome.runtime && chrome.runtime.id); } catch { return false; } };
+  const send = (m) => {
+    if (!alive()) return retire();
+    try { chrome.runtime.sendMessage(m).catch(() => { if (!alive()) retire(); }); } catch { retire(); }
+  };
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
   chrome.storage.local.get('annotatedPrefs').then((o) => { if (o.annotatedPrefs) pageButton = o.annotatedPrefs.pageButton !== false; }).catch(() => {});
@@ -91,7 +101,8 @@
   const toDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
   const podSend = async (m) => {
     if (m.blob) { const { blob, ...rest } = m; m = { ...rest, dataUrl: await toDataUrl(blob) }; }
-    chrome.runtime.sendMessage(m).catch(() => {});
+    if (!alive()) return retire();
+    try { chrome.runtime.sendMessage(m).catch(() => {}); } catch { retire(); }
   };
   const pod = ClipEngine.create({ getVideo: pickAudio, meta: podMeta, send: podSend, audioOnly: true });
   // How this episode can be recorded: 'direct' from the page's player, 'copy' through a second player the
@@ -124,7 +135,10 @@
   let textLen = -1, textAt = 0;
   function pageTextLen() {
     const now = Date.now();
-    if (textLen < 0 || now - textAt > 10000) { textLen = (document.body.innerText || '').length; textAt = now; }
+    // A page still loading has no words yet, and holding that for ten seconds told YouTube's home page it had
+    // none. Nought is measured again every time, and only a page that has finished loading may keep it.
+    if (textLen < 1 || now - textAt > 10000) { textLen = (document.body.innerText || '').trim().length; textAt = now; }
+    if (textLen < 1 && document.readyState !== 'complete') return -1;
     return textLen;
   }
   function podInfo() {
@@ -137,11 +151,35 @@
     return { ...pod.info(), found: true, src: a.currentSrc || a.src || (a.querySelector('source') || {}).src || '', likely, route: route(a) };
   }
 
+  // X opens a profile card when the mouse rests on a name, and a capture takes its picture a moment later,
+  // so the card used to land on top of the post in the screenshot. For the few seconds a capture takes,
+  // those cards are not drawn. Other sites have nothing it matches.
+  let hoverOff = null;
+  function hideHovers() {
+    let st = document.getElementById('annotated-no-hover');
+    if (!st) {
+      st = document.createElement('style'); st.id = 'annotated-no-hover';
+      st.textContent = '[data-testid="HoverCard"], [data-testid="hoverCardParent"] { display: none !important; }';
+      (document.head || document.documentElement).appendChild(st);
+    }
+    clearTimeout(hoverOff);
+    hoverOff = setTimeout(() => { const s = document.getElementById('annotated-no-hover'); if (s) s.remove(); }, 5000);
+  }
+
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
     if (orphaned()) return;
     switch (msg?.type) {
       case 'aping': reply({ ok: true }); return;
       case 'pod-info': reply(podInfo()); return;
+      // Where a podcast app's own player is, read from the time it shows, because an app that encrypts its
+      // audio lets nothing else be read. Spotify labels it playback-position. Unverified on other apps.
+      case 'app-pos': {
+        const el = document.querySelector('[data-testid="playback-position"]');
+        const t = el ? el.textContent.trim() : '';
+        const parts = t.split(':').map(Number);
+        const secs = parts.length >= 2 && parts.every((n) => Number.isFinite(n)) ? parts.reduce((a, n) => a * 60 + n, 0) : null;
+        reply({ secs }); return;
+      }
       case 'clear-captured': ArticleCore.clearHighlights(document); page.forgetTaken(); reply({ ok: true }); return;
       case 'pod-seek': pod.seek(msg.t); reply({ ok: true }); return;
       case 'pod-preview': pod.preview(msg.start, msg.end); reply({ ok: true }); return;
@@ -149,14 +187,15 @@
       case 'pod-capture': pod.capture(msg.start, msg.end).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message, code: e.code })); return true;
       case 'pod-play-range': pod.playRange(msg.start, msg.end).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message })); return true;
       case 'pod-abort': pod.abort(); pod.stopRange(); reply({ ok: true }); return;
-      case 'a-info': reply(page.info()); return;
+      case 'a-info': reply({ ...page.info(), textLen: pageTextLen() }); return;
       case 'capture-passage':
+        hideHovers();
         page.capture().then((r) => { const { marks, ...rest } = r; reply({ ...rest, vw: window.innerWidth }); })
           .catch((e) => reply({ ok: false, error: e.message }));
         return true;
       case 'set-exact': page.setExact(msg.exact); reply({ ok: true }); return;
       case 'set-snap': page.setSnap(msg.exact); reply({ ok: true }); return;
-      case 'set-pen': style.textContent = penCss(msg.pen) + PENDING; reply({ ok: true }); return;
+      case 'set-pen': penName = msg.pen; if (msg.ink) INK = msg.ink; paint(); reply({ ok: true }); return;
       case 'clear-selection': page.clear(); reply({ ok: true }); return;
       case 'widen-quote': { const t = page.widen(!!msg.peek); reply({ ok: !!t, text: t || '' }); return; }
       case 'pin-and-annotate': page.requestAnnotate(); reply({ ok: true }); return;
@@ -169,6 +208,7 @@
       // The stroke is already on the page by then, drawn before the picture rather than after it.
       case 'fold-restore': { page.refold(); reply({ ok: true }); return; }
       case 'capture-post': {
+        hideHovers();
         // A selection inside a reply annotates that reply. Otherwise the page's main post.
         const inPost = page.selectedPost();
         const r = inPost ? PostCore.read(inPost, location) : PostCore.extract(document, location);

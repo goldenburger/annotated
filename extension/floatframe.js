@@ -4,7 +4,9 @@
 //   root: where the frame is added (a shadow root or an element). content: the node to wrap.
 //   opts: { rect, onRect(rect), onClose(), bounds() -> DOMRect-like, zIndex, buttons: [{ icon, label, onClick }] }
 //   The frame fits its content's height (setContentHeight) until someone resizes it by hand.
-const FloatFrame = (() => {
+// var, like every other script put into a page: the toolbar button injects this again on every press, and a
+// second const in the same page throws "already declared".
+var FloatFrame = (() => {
   const ICON = {
     grip: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="1.4"/><circle cx="15" cy="7" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="17" r="1.4"/><circle cx="15" cy="17" r="1.4"/></svg>',
     min: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg>',

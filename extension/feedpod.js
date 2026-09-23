@@ -39,6 +39,28 @@ const FeedPod = (() => {
     return null;
   }
 
+  // An episode's address is written by whoever publishes the show, and the extension can reach any address,
+  // including ones on your own network that no web page could. A clip cut from such an address and published
+  // would put that device's answer in a public bucket, so only addresses on the public internet are opened.
+  // A public name that points at a private address is not caught here, and nothing short of the network can.
+  const NOT_PUBLIC = "This episode's audio is not on the public internet, so annotated will not open it.";
+  function publicAddress(url) {
+    let u; try { u = new URL(url); } catch { return false; }
+    if (!/^https?:$/.test(u.protocol)) return false;
+    const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    if (!h || h === 'localhost' || /\.(localhost|local|internal|lan|home\.arpa|intranet|corp)$/.test(h)) return false;
+    if (!h.includes('.') && !h.includes(':')) return false;
+    const v4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (v4) {
+      const a = +v4[1], b = +v4[2];
+      if (a === 0 || a === 10 || a === 127 || a >= 224 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31)
+        || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 198 && (b === 18 || b === 19))) return false;
+    }
+    if (h.includes(':') && (h === '::' || h === '::1' || /^(fc|fd|fe8|fe9|fea|feb)/.test(h) || h.startsWith('::ffff:'))) return false;
+    return true;
+  }
+  const mustBePublic = (url) => { if (!publicAddress(url)) throw new Error(NOT_PUBLIC); };
+
   // Shows usually publish through a tracking address that wraps the real one, like
   // rss.podscribe.ai/p/traffic.megaphone.fm/episode.mp3. When a tracker is down the audio itself is still there,
   // so these are the addresses hidden inside this one, innermost first.
@@ -61,9 +83,12 @@ const FeedPod = (() => {
   async function openStart(url) {
     let failure = null;
     for (const u of [url, ...inside(url)]) {
+      if (!publicAddress(u)) { failure = failure || new Error(NOT_PUBLIC); continue; }
       let r = null;
       try { r = await fetch(u, { headers: { Range: 'bytes=0-131071' } }); }
       catch { failure = new Error('The audio file could not be reached.'); continue; }
+      // A redirect can land somewhere private even from a public address, so where it ended counts too.
+      if (r.url && !publicAddress(r.url)) { failure = new Error(NOT_PUBLIC); continue; }
       if (r.status === 206 || r.status === 200) return r;
       failure = new Error(r.status === 403 || r.status === 401 ? "The show's server refused to share this episode's file." : `The audio file could not be opened (error ${r.status}).`);
     }
@@ -88,6 +113,7 @@ const FeedPod = (() => {
     if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) audioStart = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]) + ((b[5] & 0x10) ? 10 : 0);
     let head = b;
     if (audioStart + 4096 > b.length) { // a large cover image in the tag: fetch where the audio starts
+      mustBePublic(finalUrl);
       const r2 = await fetch(finalUrl, { headers: { Range: `bytes=${audioStart}-${audioStart + 65535}` } });
       head = new Uint8Array(await r2.arrayBuffer());
     } else head = b.subarray(audioStart);
@@ -124,7 +150,9 @@ const FeedPod = (() => {
   async function slice(p, start, end) {
     const pad = 8192;
     const b0 = Math.max(0, Math.floor(p.byteAt(start)) - pad), b1 = Math.min(p.total - 1, Math.ceil(p.byteAt(end)) + pad);
+    mustBePublic(p.url);
     const r = await fetch(p.url, { headers: { Range: `bytes=${b0}-${b1}` } });
+    if (r.url && !publicAddress(r.url)) throw new Error(NOT_PUBLIC);
     if (r.status !== 206) throw new Error('The clip could not be downloaded.');
     const b = new Uint8Array(await r.arrayBuffer());
     const s = syncFrom(b, Math.floor(p.byteAt(start)) - b0);
@@ -170,5 +198,5 @@ const FeedPod = (() => {
     };
     return w;
   }
-  return { search, probe, slice, waveform };
+  return { search, probe, slice, waveform, publicAddress };
 })();

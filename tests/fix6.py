@@ -47,7 +47,7 @@ async def main():
     vis=await pg.eval_on_selector(V+'.pollEdit','e=>{const r=e.getBoundingClientRect();return r.bottom<=innerHeight+2 && r.top>=0}')
     print('poll editor in view:', vis)
     await pg.fill(V+'.peQ','Is the color shift real?')
-    await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     order=await pg.evaluate("(()=>{const c=document.querySelector('.annpage:not([hidden]) .annCard');const kids=[...c.children].map(k=>k.className.split(' ')[0]);return kids})()")
     print('card order:', order)
     print('poll question:', await pg.inner_text(ANN+'.pollQ'))

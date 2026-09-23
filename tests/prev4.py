@@ -14,7 +14,7 @@ async def main():
     await asyncio.sleep(.6)
     print('zoom window:', (await pg.inner_text(V+'.scale')).replace('\n',' to '))
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
-    await pg.fill(V+'.takeInput','first video'); await pg.click(V+'.publish')
+    await pg.fill(V+'.takeInput','first video'); await publish_now(pg, V+'.publish')
     await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     print('pane paper bg:', await pg.evaluate("document.getElementById('pane').classList.contains('paperbg')"))
     first_tab=await pg.inner_text('#urlbar')
@@ -22,7 +22,7 @@ async def main():
     await pg.click(V+'.csChange')
     print('button after publish:', await pg.inner_text(V+'.capBtn'), '|', await pg.get_attribute(V+'.capBtn','class'))
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
-    await pg.fill(V+'.takeInput','dup video'); await pg.click(V+'.publish'); await asyncio.sleep(.4)
+    await pg.fill(V+'.takeInput','dup video'); await publish_now(pg, V+'.publish'); await asyncio.sleep(.4)
     print('dup warning:', await pg.inner_text(V+'.vDup'))
     await pg.click(V+'.vDup .dView'); await asyncio.sleep(.3)
     print('view it ->', await pg.inner_text('#urlbar') == first_tab)
@@ -39,7 +39,7 @@ async def main():
     print('count box:', await pg.inner_text(A+'.selFoot'), '| mode:', await pg.inner_text(A+'.selMode'))
     await pg.screenshot(path='r4_sel.png', clip={'x':1000,'y':80,'width':400,'height':320})
     await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-    await pg.fill(A+'.takeInput','article one'); await pg.click(A+'.publish')
+    await pg.fill(A+'.takeInput','article one'); await publish_now(pg, A+'.publish')
     await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     # comments
     for i in range(7):

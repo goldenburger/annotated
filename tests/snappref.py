@@ -40,7 +40,8 @@ async def main():
     print('default ->', repr(quote), '|', note, '|', btn)
     if quote!='met on a Tuesday to talk about': errs.append(f'the default gave {quote!r} instead of the words selected')
     if 'exactly' not in note.lower(): errs.append(f'the note did not say it used the selection, it said {note!r}')
-    if 'rest of the sentence' not in btn.lower(): errs.append(f'the offer read {btn!r}')
+    # One offer, one name, before capture and after it.
+    if btn != 'Use the whole sentence': errs.append(f'the offer read {btn!r}')
 
     # The same offer sits beside Annotate on the page, as a quieter second click.
     onpage = await pg.is_visible('.more')
@@ -67,10 +68,10 @@ async def main():
     print('next    ->', repr(quote2))
     if quote2!='drivers wanted a longer break': errs.append(f'a one-off offer stuck, giving {quote2!r}')
 
-    # A few words is fine on purpose, but a stray click is not.
+    # One word is fine on purpose. Any words may be annotated.
     short, _, _, err = await sel(['b', 0, 3])
-    print('too short ->', repr(short), 'error', repr(err))
-    if 'few more words' not in err: errs.append(f'a stray selection was not refused, error was {err!r}')
+    print('one word ->', repr(short), 'error', repr(err))
+    if err: errs.append(f'a single word was refused with {err!r}')
 
     # Whole sentences for anyone who wants them, and it holds.
     await pan.evaluate("Prefs.set('snap','sentences')"); await asyncio.sleep(1.2)

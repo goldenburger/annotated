@@ -1,13 +1,46 @@
 // Passage highlighting and metadata. Shared by the extension content script and the preview.
 // No extension APIs in here.
 var ArticleCore = (() => {
-  const MIN_CHARS = 40;
-  // Picking your own words is deliberate, so the floor is only there to catch a stray click.
-  const MIN_EXACT = 12;
+  // Any words may be annotated, a single word or a headline included, so the floor only stops a selection of
+  // one letter. It was forty characters for sentences and twelve for an exact choice, and that turned away
+  // headlines and short sentences that were exactly what someone meant.
+  const MIN_CHARS = 2;
+  const MIN_EXACT = 2;
   const MAX_CHARS = 1200;
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
   // Range.toString drops emoji, which X draws as images. PostCore keeps them.
   const rangeText = (r) => (typeof PostCore !== 'undefined' && PostCore.rangeText ? PostCore.rangeText(r) : r.toString());
+  // An article's words, one block at a time, with a blank line between blocks. A headline and the paragraph
+  // under it used to come out as one run, "in a decade The board says", because collapsing the spaces also
+  // collapsed the break between them. Text with no block around it is grouped by its nearest container, so
+  // the words of one line are never split apart.
+  const GROUP = 'p, li, blockquote, dd, dt, figcaption, h1, h2, h3, h4, h5, h6, td, th, pre, div, section, article, header, footer, figure, aside, main';
+  function blockText(range) {
+    const top = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+    const w = document.createTreeWalker(top, NodeFilter.SHOW_TEXT);
+    const out = []; let cur = null, buf = '';
+    const flush = () => { const t = norm(buf); if (t) out.push(t); buf = ''; };
+    for (let n = w.currentNode.nodeType === 3 ? w.currentNode : w.nextNode(); n; n = w.nextNode()) {
+      if (!range.intersectsNode(n)) continue;
+      const el = n.parentElement;
+      if (!el || el.closest('script, style, noscript, .annotated-ui')) continue;
+      let t = n.nodeValue;
+      if (n === range.endContainer) t = t.slice(0, range.endOffset);
+      if (n === range.startContainer) t = t.slice(range.startOffset);
+      const b = el.closest(GROUP) || el;
+      if (b !== cur) { flush(); cur = b; }
+      buf += t;
+    }
+    flush();
+    return out.join('\n\n');
+  }
+  // One block reads as before. Several keep their breaks.
+  const quoteText = (r) => {
+    const s = r.startContainer, e = r.endContainer;
+    const bs = (s.nodeType === 1 ? s : s.parentElement), be = (e.nodeType === 1 ? e : e.parentElement);
+    if (bs && be && (bs.closest(GROUP) || bs) === (be.closest(GROUP) || be)) return norm(rangeText(r));
+    try { return blockText(r) || norm(rangeText(r)); } catch { return norm(rangeText(r)); }
+  };
 
   // Checks the current selection inside `root`. Returns null when the selection is
   // somewhere else (for example the side panel), so callers can ignore it.
@@ -18,11 +51,8 @@ var ArticleCore = (() => {
     const ancEl = anc.nodeType === 1 ? anc : anc.parentElement;
     if (!ancEl || !root.contains(ancEl)) return null;
     if (ancEl.closest('input, textarea, [contenteditable="true"], .annotated-ui')) return null;
-    const text = norm(rangeText(expandToWords(range.cloneRange())));
+    const text = quoteText(expandToWords(range.cloneRange()));
     if (!text) return { state: 'empty' };
-    for (const h of root.querySelectorAll('h1, [itemprop="headline"]')) {
-      if (range.intersectsNode(h)) return { state: 'error', text, len: text.length, error: 'Pick a passage from the story, not the headline.' };
-    }
     if (text.length < min && !coversWholeBlock(range)) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range),
       error: min === MIN_EXACT ? 'Select a few more words.' : 'Select a little more. A passage should be at least a full sentence.' };
     if (text.length > MAX_CHARS) return { state: 'error', text, len: text.length, error: `That is ${text.length.toLocaleString()} characters. Trim it to ${MAX_CHARS.toLocaleString()} or fewer.` };
@@ -281,7 +311,7 @@ var ArticleCore = (() => {
 
   // ---------- sentences ----------
   // A post on X is one block, so its whole text snaps and counts as a paragraph would.
-  const BLOCKS = 'p, li, blockquote, dd, figcaption, h2, h3, h4, h5, h6, td, pre, [data-testid="tweetText"]';
+  const BLOCKS = 'p, li, blockquote, dd, figcaption, h1, [itemprop="headline"], h2, h3, h4, h5, h6, td, pre, [data-testid="tweetText"]';
   function blockOf(node) {
     const el = node.nodeType === 1 ? node : node.parentElement;
     return el.closest(BLOCKS) || el;
@@ -403,7 +433,7 @@ var ArticleCore = (() => {
     return r.collapsed ? null : r;
   }
 
-  return { findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MIN_EXACT, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, shapeRun, sweep, clearHighlights, unionRect, fragmentUrl, extractMeta };
+  return { quoteText, findText, describeRange, expandToSentences, contextRect, showPending, blockOf, MIN_CHARS, MIN_EXACT, MAX_CHARS, norm, rangeText, readSelection, expandToWords, highlightRange, shapeRun, sweep, clearHighlights, unionRect, fragmentUrl, extractMeta };
 })();
 
 
@@ -430,12 +460,15 @@ var ArticlePage = (() => {
       .more{font-weight:500;color:#C8CDD8;padding-left:9px;padding-right:10px;box-shadow:inset 1px 0 0 rgba(255,255,255,.16)}
       .more:hover{color:#fff;background:rgba(255,255,255,.07)}
       .more[hidden]{display:none}
+      .row.shy{opacity:.32;transition:opacity .12s}
+      .row.shy:hover,.row.shy:focus-within{opacity:1}
+      @media (prefers-reduced-motion:reduce){.row.shy{transition:none}}
       i{width:16px;height:9px;background:#FFE14A;border-radius:2px 5px 3px 6px;transform:skewX(-14deg) rotate(-4deg)}
       em{all:initial;font:600 13px/1 system-ui,sans-serif;color:#FFE14A;margin-right:5px}
     </style><div class="row"><button type="button" class="go" aria-label="Annotate this passage"><i></i>Annotate</button>
-      <button type="button" class="more" hidden aria-label="Include the rest of the sentence"><em>+</em>sentence</button></div>`;
+      <button type="button" class="more" hidden aria-label="Use the whole sentence"><em>+</em>sentence</button></div>`;
     (document.body || document.documentElement).appendChild(host);
-    const btn = sh.querySelector('.go'), moreBtn = sh.querySelector('.more');
+    const btn = sh.querySelector('.go'), moreBtn = sh.querySelector('.more'), row = sh.querySelector('.row');
     btn.addEventListener('mousedown', (e) => e.preventDefault());
     btn.addEventListener('click', () => requestAnnotate());
     // The second click. Takes the rest of the sentence for this capture only, and then has nothing left to offer.
@@ -498,8 +531,16 @@ var ArticlePage = (() => {
       else if (tailY !== undefined) { x = tailX; y = tailY; }
       else if (first.top - bh - 8 >= 8) { x = first.left; y = first.top - bh - 8; }
       else { x = lastR.left; y = lastR.bottom + 8; }
-      host.style.left = Math.max(8, Math.min(W - bw - 8, x)) + 'px';
-      host.style.top = Math.max(8, Math.min(H - bh - 8, y)) + 'px';
+      const fx = Math.max(8, Math.min(W - bw - 8, x)), fy = Math.max(8, Math.min(H - bh - 8, y));
+      host.style.left = fx + 'px';
+      host.style.top = fy + 'px';
+      // Both margins can belong to another column and the last line can end at the edge, and then there is
+      // nowhere for this to go but over the writing. It goes there faint, and comes back when you reach for
+      // it, so the line underneath stays readable. clearSpace answers a different question, whether another
+      // column is in the way, and the line above the passage is not another column.
+      const over = hitsText(fx, fy, bw, bh, lineBoxes(blockEl))
+        || (endBlock !== blockEl && hitsText(fx, fy, bw, bh, lines));
+      row.classList.toggle('shy', over);
     }
     window.addEventListener('scroll', hideButton, true);
     window.addEventListener('resize', hideButton);
@@ -631,7 +672,7 @@ var ArticlePage = (() => {
       const node = range.commonAncestorContainer;
       const postEl = typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && (node.nodeType === 1 ? node : node.parentElement).closest('article[data-testid="tweet"]');
       // Posts keep their line breaks. Articles collapse whitespace as before.
-      const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.norm(ArticleCore.rangeText(range));
+      const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.quoteText(range);
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
       lastRange = range.cloneRange();

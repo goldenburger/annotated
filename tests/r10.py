@@ -28,7 +28,7 @@ async def main():
     await asyncio.sleep(1.5)
     await pg.fill(P+'.rStart','50'); await pg.press(P+'.rStart','Enter'); await pg.fill(P+'.rEnd','54'); await pg.press(P+'.rEnd','Enter')
     await pg.click(P+'.capBtn'); await pg.wait_for_selector(P+'.vCompose:not([hidden])',timeout=20000)
-    await pg.fill(P+'.takeInput','Podcast take'); await pg.click(P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.6)
+    await pg.fill(P+'.takeInput','Podcast take'); await publish_now(pg, P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.6)
     print('side view:', (await pg.inner_text('#annMode .sideNow')).replace('\n',' | '))
     print('list line:', await pg.inner_text('#annMode .sideList .note >> nth=0'), '| current marked:', await pg.inner_text('#annMode .sideList [aria-current] .nowBadge'))
     await pg.screenshot(path='r10_side.png', clip={'x':1040,'y':84,'width':326,'height':600})

@@ -13,7 +13,7 @@ async def main():
       await pg.click('.tab >> nth=1'); await asyncio.sleep(.4)
       await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,50);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
       await asyncio.sleep(.5); await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-      await pg.fill(A+'.takeInput','The 61 percent figure comes from an employer survey.'); await pg.click(A+'.publish')
+      await pg.fill(A+'.takeInput','The 61 percent figure comes from an employer survey.'); await publish_now(pg, A+'.publish')
       await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(2.2)
       order=await pg.evaluate("[...document.querySelector('.annpage:not([hidden]) .media').children].map(e=>e.className)")
       print(scheme, 'order in media:', order, '| caption:', await pg.inner_text(ANN+'.pageShot figcaption'))

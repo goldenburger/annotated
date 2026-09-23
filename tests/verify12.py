@@ -12,7 +12,7 @@ async def main():
     await pg.click('.tab >> nth=1'); await asyncio.sleep(.4)
     await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,50);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.5); await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-    await pg.fill(A+'.takeInput','Article check'); await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
+    await pg.fill(A+'.takeInput','Article check'); await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
     order=await pg.evaluate("[...document.querySelectorAll('.annpage:not([hidden]) .annCard > *')].map(e=>e.className.split(' ')[0]).filter(Boolean)")
     print('card order:', order)
     print('media order:', await pg.evaluate("[...document.querySelector('.annpage:not([hidden]) .media').children].map(e=>e.className)"))
@@ -39,7 +39,7 @@ async def main():
     await pg.evaluate("document.getElementById('podAudio').pause()")
     await pg.click(P+'.capBtn'); await pg.wait_for_selector(P+'.vCompose:not([hidden])',timeout=30000); await asyncio.sleep(.6)
     print('checks:', (await pg.eval_on_selector(P+'.vStatus','e=>e.textContent.replace(/\\s+/g," ")'))[:200])
-    await pg.fill(P+'.takeInput','Podcast check'); await pg.click(P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
+    await pg.fill(P+'.takeInput','Podcast check'); await publish_now(pg, P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
     print('page:', await pg.inner_text(ANN+'.srcbar .sbTime'), '| clip length', await pg.eval_on_selector(ANN+'.clipAudio','a=>Math.round(a.duration*10)/10'))
     # protected audio is refused
     await pg.evaluate("Object.defineProperty(document.getElementById('podAudio'),'mediaKeys',{value:{}, configurable:true})")

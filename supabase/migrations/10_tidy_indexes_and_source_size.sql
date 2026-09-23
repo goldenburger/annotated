@@ -1,4 +1,4 @@
--- NOT YET APPLIED. From the audit on 2026-09-21. Both changes are reversible and neither touches any data.
+-- Applied 2026-09-22, in the audit of that day. From the audit on 2026-09-21. Both changes are reversible and neither touches any data.
 --
 -- Four indexes sit on the user_id columns of the tables that are only ever read by annotation, never by
 -- person. Nothing queries them, and every reaction, vote and comment pays to keep them current. Deleting a

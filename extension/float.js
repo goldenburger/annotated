@@ -23,7 +23,12 @@
       const key = [...crypto.getRandomValues(new Uint8Array(16))].map((n) => n.toString(16).padStart(2, '0')).join('');
       await chrome.storage.local.set({ ['floatKey' + tabId]: key });
       const frame = document.createElement('iframe');
-      frame.src = chrome.runtime.getURL('sidepanel.html') + '?tab=' + tabId + '&embed=float&k=' + key;
+      // The key is handed over by message once the frame has loaded, and never written into its address. The
+      // frame sits in an open shadow root, so the page can read its address, and a key read from there let any
+      // page build its own copy of the panel, which is the one thing the key is for.
+      frame.src = chrome.runtime.getURL('sidepanel.html') + '?tab=' + tabId + '&embed=float';
+      const EXT_ORIGIN = new URL(chrome.runtime.getURL('')).origin;
+      frame.addEventListener('load', () => { try { frame.contentWindow.postMessage({ type: 'annotated-key', k: key }, EXT_ORIGIN); } catch { /* the frame went away */ } });
       frame.title = 'annotated';
       frame.allow = 'clipboard-write; microphone';
       const cmd = (c) => frame.contentWindow && frame.contentWindow.postMessage({ type: 'annotated-cmd', cmd: c }, '*');

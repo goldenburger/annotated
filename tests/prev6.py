@@ -15,7 +15,7 @@ async def main():
     await pg.click(P+'.pGrab'); await pg.wait_for_selector(P+'.pCompose:not([hidden])',timeout=15000)
     print('status:', await pg.inner_text(P+'.status'))
     await pg.click(P+'.tagbtn >> text=Receipts'); await pg.fill(P+'.takeInput','Worth checking the $2.4 million figure against the budget.')
-    await pg.click(P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await publish_now(pg, P+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     print('embed card:', await pg.locator(ANN+'.xembed').count(), '| screenshot:', await pg.locator(ANN+'.xshot').count())
     await pg.screenshot(path='r6_post.png')
     # edit
@@ -25,13 +25,13 @@ async def main():
     await pg.click(ANN+'.xlink'); await asyncio.sleep(.4); print('view on X ->', await pg.inner_text('#urlbar'))
     # dup
     await pg.click(P+'.pPublished .new'); await pg.click(P+'.pGrab'); await pg.wait_for_selector(P+'.pCompose:not([hidden])',timeout=15000)
-    await pg.fill(P+'.takeInput','again'); await pg.click(P+'.publish'); await asyncio.sleep(.4)
+    await pg.fill(P+'.takeInput','again'); await publish_now(pg, P+'.publish'); await asyncio.sleep(.4)
     print('dup:', (await pg.inner_text(P+'.pDup')).split('\n')[0])
     # article description on card
     await pg.click('.tab >> nth=1'); await asyncio.sleep(.4)
     await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.5); await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-    await pg.fill(A+'.takeInput','a'); await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(A+'.takeInput','a'); await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     print('card description:', await pg.inner_text(ANN+'.sdesc'))
     await pg.click(ANN+'.profileLink >> nth=1'); await asyncio.sleep(.4)
     print('feed:', (await pg.inner_text(ANN+'.cards')).replace('\n',' | ')[:300])

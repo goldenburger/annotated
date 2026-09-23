@@ -20,7 +20,7 @@ async def main():
       await pg.screenshot(path=f'r9_{scheme}_trim.png', clip={'x':986,'y':84,'width':380,'height':420})
       await pg.mouse.up(); await asyncio.sleep(.4)
       await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
-      await pg.click(V+'.pollBtn'); await pg.fill(V+'.takeInput','The bars shift color right at 0:43. Watch the left edge.'); await pg.click(V+'.tagbtn >> text=Fact check'); await pg.click(V+'.publish')
+      await pg.click(V+'.pollBtn'); await pg.fill(V+'.takeInput','The bars shift color right at 0:43. Watch the left edge.'); await pg.click(V+'.tagbtn >> text=Fact check'); await publish_now(pg, V+'.publish')
       await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(2.2)
       print('source line:', (await pg.inner_text(ANN+'.srcbar')).replace('\n',' | '), '| inside media unit:', await pg.evaluate("!!document.querySelector('.annpage:not([hidden]) .mediaUnit.av .srcbar') && !!document.querySelector('.annpage:not([hidden]) .mediaUnit.av .pollBox')"))
       print('About shown first visit:', await pg.locator(ANN+'.railcard.about').count())
@@ -33,7 +33,7 @@ async def main():
       await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()'''); await asyncio.sleep(.6)
       print('selection wording:', await pg.inner_text(A+'.selCount'), '|', await pg.inner_text(A+'.selNote'), '|', await pg.inner_text(A+'.exactBtn'))
       await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-      await pg.fill(A+'.takeInput','Survey caveat'); await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
+      await pg.fill(A+'.takeInput','Survey caveat'); await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.5)
       print('About on second page:', await pg.locator(ANN+'.railcard.about').count())
       # comment on the video one to test sort
       await pg.click('.tab >> nth=4'); await pg.fill(ANN+'.cText','nice'); await pg.click(ANN+'.cPost')

@@ -118,7 +118,7 @@ async function publish(sourceId, item, take) {
   el.className = 'annpage';
   pane.appendChild(el);
   const t = { id: 'ann-' + id, kind: 'ann', recId: id, title: `${take.text || title} | annotated`, url: permalink.replace('https://', ''), el };
-  const rec = { id, item, take: { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null }, created: Date.now(), comments: [], reactions: [], tabId: t.id, api: null };
+  const rec = { id, item, take: { tag: take.tag, text: take.text, voice: take.voice ? { blob: take.voice.blob } : null, poll: take.poll || null, gif: take.gif || null, upload: take.upload ? { blob: take.upload.blob, kind: take.upload.kind, type: take.upload.type, w: take.upload.w, h: take.upload.h, alt: take.upload.alt } : null }, created: Date.now(), comments: [], reactions: [], tabId: t.id, api: null };
   records.push(rec);
   tabs.push(t);
   activate(t.id);

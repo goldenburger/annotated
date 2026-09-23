@@ -21,7 +21,7 @@ async def main():
         V='#videoMode '; ANN='.annpage:not([hidden]) '
         await pg.fill(V+'.rStart','40'); await pg.press(V+'.rStart','Enter'); await pg.fill(V+'.rEnd','44'); await pg.press(V+'.rEnd','Enter')
         await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
-        await pg.fill(V+'.takeInput','x'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+        await pg.fill(V+'.takeInput','x'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
         await pg.click(ANN+'.reactBtn'); await pg.click('.quickBar .qE >> nth=1'); print('pop class on new chip:', await pg.eval_on_selector(ANN+'.rChip','e=>e.classList.contains("pop")'))
         await pg.click(ANN+'.shareBtn'); await pg.click(ANN+'.copyBtn'); await asyncio.sleep(.2)
         print('copy shows check:', await pg.eval_on_selector(ANN+'.copyBtn','e=>e.classList.contains("done")'))

@@ -29,7 +29,7 @@ async def main():
     await pg.screenshot(path='r5_panel.png')
     await pg.click(V+'.csChange'); await asyncio.sleep(.3); print('change shows trimmer:', await pg.is_visible(V+'.clipper'))
     await pg.click(V+'.csChange') if await pg.is_visible(V+'.csChange') else None
-    await pg.fill(V+'.takeInput','v'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(V+'.takeInput','v'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     print('anchors to source on page:', await pg.locator(ANN+'a.srccard').count(), '| buttons:', await pg.locator(ANN+'.srcJump').count())
     await pg.click(ANN+'.srccard'); await asyncio.sleep(.4); print('card ->', await pg.inner_text('#urlbar'))
     # article
@@ -38,7 +38,7 @@ async def main():
     await asyncio.sleep(.5); await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000); await asyncio.sleep(.8)
     src=await pg.get_attribute(A+'.shot','src'); open('r5_shot.jpg','wb').write(base64.b64decode(src.split(',')[1]))
     from PIL import Image; print('shot size:', Image.open('r5_shot.jpg').size)
-    await pg.fill(A+'.takeInput','a'); await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(A+'.takeInput','a'); await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     await pg.click(ANN+'.srccard'); await asyncio.sleep(.4); print('from link ->', await pg.inner_text('#urlbar'))
     print('errors:', errs)
     await b.close()

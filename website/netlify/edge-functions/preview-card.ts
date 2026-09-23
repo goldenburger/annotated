@@ -4,6 +4,9 @@ import type { Context, Config } from "@netlify/edge-functions";
 // scripts, so the take, the source and a picture are added to the page here before it is sent.
 export default async (req: Request, context: Context) => {
   const res = await context.next();
+  // Only a whole page can be given tags. A "not modified" answer has no body, and rewriting it as a 200 would
+  // send an empty page to a browser that asked whether its copy was still good.
+  if (res.status !== 200 || !(res.headers.get("content-type") || "").includes("text/html")) return res;
   const url = new URL(req.url);
   const parts = url.pathname.split("/").filter(Boolean);
   if (parts.length < 2 || !parts[0].startsWith("@")) return res;
@@ -40,7 +43,10 @@ export default async (req: Request, context: Context) => {
       `<meta name="twitter:description" content="${esc(desc.slice(0, 300))}">`,
       `<meta name="twitter:image" content="${esc(image)}">`,
     ].join("\n  ");
-    const html = (await res.text()).replace("<title>annotated</title>", `<title>${esc(take.slice(0, 120))} | annotated</title>\n  ${tags}`);
+    // A function, not a string, so that "$'" or "$&" in someone's take is only text. As a replacement string
+    // those copy parts of the page into the title, which could put the page's own scripts in twice.
+    const head = `<title>${esc(take.slice(0, 120))} | annotated</title>\n  ${tags}`;
+    const html = (await res.text()).replace("<title>annotated</title>", () => head);
     const headers = new Headers(res.headers);
     headers.delete("content-length");
     return new Response(html, { status: 200, headers });

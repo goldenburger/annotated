@@ -24,7 +24,7 @@ async def main():
     print('help tooltip anchored inside frame (button right, frame right):', tip)
     await pg.click('.ff .ffX >> nth=1'); await asyncio.sleep(.2); print('help in frame bar opens welcome:', await pg.is_visible('.welcome')); await pg.click('.welcome .wGo')
     # publish -> annotation tab: frame shrinks automatically, returns on source tab
-    await pg.fill(V+'.takeInput','Frame round two'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(V+'.takeInput','Frame round two'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     await asyncio.sleep(.3); print('auto-shrunk on annotation page:', await pg.is_visible('.ffPill'), not await pg.is_visible('.ff'))
     pill=await pg.eval_on_selector('.ffPill','e=>{const r=e.getBoundingClientRect();return [Math.round(r.right),Math.round(r.bottom)]}'); print('pill bottom-right:', pill)
     print('fresh class present then removed:', await pg.eval_on_selector(ANN+'.annCard','e=>e.classList.contains("fresh")'), end=' ')

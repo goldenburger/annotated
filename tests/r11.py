@@ -25,7 +25,7 @@ async def run(b, label, init):
     print(f'[{label}] picture check:', 'Frames contain picture' in st and ('black' not in st), '| frame method:', fm.group(1).strip() if fm else None)
     print(f'[{label}] fail box shown:', await pg.is_visible(V+'.failBox'), '| card meta:', await pg.inner_text(V+'.ccMeta'))
     if await pg.is_visible(V+'.failBox'):
-      await pg.fill(V+'.takeInput','x'); await pg.click(V+'.publish'); await asyncio.sleep(.3)
+      await pg.fill(V+'.takeInput','x'); await publish_now(pg, V+'.publish'); await asyncio.sleep(.3)
       print(f'[{label}] publishing asks first:', (await pg.inner_text(V+'.vDup')).replace('\n',' | '))
       await pg.click(V+'.vDup .dRetry'); await asyncio.sleep(.5)
       print(f'[{label}] Capture again restarts capture:', await pg.is_visible(V+'.progress') or await pg.eval_on_selector(V+'.capBtn','b=>b.disabled'))

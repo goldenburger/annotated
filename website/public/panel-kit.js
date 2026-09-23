@@ -113,9 +113,12 @@ const PanelKit = (() => {
       t.hidden = seen.includes(k);
       if (!t.hidden) markTip(k);
       const b = root.querySelector(`.tipBtn[data-tip-for="${k}"]`);
+      // The button says which it will do. A tip shows the first time, so the first press hides it, and a
+      // question mark alone read as help that ought to appear.
+      const say = () => { b.setAttribute('aria-expanded', String(!t.hidden)); const w = t.hidden ? 'Show the tip' : 'Hide the tip'; b.title = w; b.setAttribute('aria-label', w); };
       if (b) {
-        b.setAttribute('aria-expanded', String(!t.hidden));
-        b.addEventListener('click', () => { t.hidden = !t.hidden; b.setAttribute('aria-expanded', String(!t.hidden)); });
+        say();
+        b.addEventListener('click', () => { t.hidden = !t.hidden; say(); });
       }
     });
   }
@@ -144,11 +147,12 @@ const PanelKit = (() => {
   }
 
   // Shown instead of publishing when the same clip or passage is already published.
-  function dupWarn(container, { what, onView, onAnyway }) {
+  // An annotation saved only on this computer was never published, so the warning says what really happened.
+  function dupWarn(container, { what, published = true, onView, onAnyway }) {
     container.innerHTML = `
       <div class="dupcard" role="alert">
-        <p>You already published this ${what}.</p>
-        <div class="row"><button type="button" class="ghost dView">View it</button><button type="button" class="strong dAny">Publish anyway</button></div>
+        <p>${published ? `You already published this ${what}.` : `You already saved this ${what} on this computer.`}</p>
+        <div class="row"><button type="button" class="ghost dView">View it</button><button type="button" class="strong dAny">${published ? 'Publish anyway' : 'Save another'}</button></div>
       </div>`;
     container.querySelector('.dView').addEventListener('click', onView);
     container.querySelector('.dAny').addEventListener('click', onAnyway);
@@ -195,9 +199,9 @@ const PanelKit = (() => {
         <h1 id="welcomeTitle">Say what you think about anything on the web</h1>
         <p class="wLead">annotated turns a passage, a clip, a podcast moment, or a post into a page with your take on top and the source underneath.</p>
         <ol class="wSteps">
-          <li><span class="wIcon">${Brand.icon('highlighter')}</span><div><b>Capture</b><span>Select a passage, drag to pick up to 90 seconds of a video or podcast, or save a post.</span></div></li>
-          <li><span class="wIcon">${Brand.icon('edit')}</span><div><b>Take</b><span>Write what people should notice. Add a tag, a poll, emoji, or a voice note.</span></div></li>
-          <li><span class="wIcon">${Brand.icon('share')}</span><div><b>Publish</b><span>Your annotation page opens with a link to share. It always credits the source.</span></div></li>
+          <li><span class="wIcon">${Brand.icon('highlighter')}</span><div><b>Capture</b><span>Select any words on a page, drag to pick up to 90 seconds of a video or podcast, or save a post.</span></div></li>
+          <li><span class="wIcon">${Brand.icon('edit')}</span><div><b>Take</b><span>Write what people should notice. Add a tag, a poll, a GIF, emoji, or a voice note.</span></div></li>
+          <li><span class="wIcon">${Brand.icon('share')}</span><div><b>Publish</b><span>It gets a page of its own, with a link to share, and it always credits the source.</span></div></li>
         </ol>
         ${typeof Prefs !== 'undefined' && onDisplayChoice ? `<fieldset class="dmGroup wDisplay"><legend>How should annotated appear?</legend><div class="seg">
           <label><input type="radio" name="w-display" value="side" ${Prefs.get().display !== 'float' ? 'checked' : ''}><span>Side panel</span></label>
@@ -220,6 +224,13 @@ const PanelKit = (() => {
     document.body.classList.add('welcoming');
     w.querySelector('.wGo').focus({ preventScroll: true });
   }
+  // Escape leaves the help screen the way it leaves every other menu. It used to close Display settings and
+  // do nothing here. Leaving counts as having seen it, the same as the button at the foot.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !document.body.classList.contains('welcoming')) return;
+    const go = document.querySelector('.welcome .wGo');
+    if (go) { e.preventDefault(); go.click(); }
+  });
   function closeWelcome() {
     document.querySelectorAll('.welcome').forEach((w) => w.remove());
     document.body.classList.remove('welcoming');
@@ -259,22 +270,33 @@ const PanelKit = (() => {
     const seg = (name, label, opts2, val) => `<fieldset class="dmGroup"><legend>${label}</legend><div class="seg">${opts2.map(([v, l]) =>
       `<label><input type="radio" name="dm-${name}" value="${v}" ${val === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></fieldset>`;
     const PENS = [['chisel', 'Chisel'], ['wet', 'Wet edge'], ['twice', 'Two passes'], ['streak', 'Streaky'], ['flat', 'Flat']];
+    // Colour and nib are the same decision made twice, so they sit together. The swatches take their colour
+    // from ui.css rather than from the table here, because all six have to show at once and only the chosen
+    // one is on the page.
+    const swatches = (val) => Prefs.TINTS.map(([v, l]) =>
+      `<button type="button" class="tintBtn" data-tint="${v}" aria-label="${l}" title="${l}" aria-pressed="${val === v}"><span class="tintInk" aria-hidden="true"></span><span class="tintName">${l}</span></button>`).join('');
     function close() { if (pop) { pop.remove(); pop = null; g.setAttribute('aria-expanded', 'false'); } }
     function open(anchor) {
       if (pop) return;
       const p = Prefs.get();
       pop = document.createElement('div');
       pop.className = 'dmPop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Display and preferences');
+      // Two kinds of setting, so two headings. What annotated does comes first, because it changes what
+      // happens next. How it looks follows. One long list of eight made each one hard to find.
       pop.innerHTML = `<h2>Display</h2>
+        <h3 class="dmSub">How it works</h3>
         ${seg('display', 'Show annotated as', [['side', 'Side panel'], ['float', 'Floating']], p.display)}
         <p class="note dmHint">${p.display === 'float' ? 'Drag the top bar to move it and a bottom corner to resize. Shrink it to a button when you are reading.' : sideHint}</p>
         ${seg('afterPublish', 'After publishing', [['stay', 'Stay here'], ['page', 'Open the page']], p.afterPublish)}
         ${seg('snap', 'What a selection captures', [['exact', 'Exactly what I select'], ['sentences', 'The whole sentence']], p.snap)}
-        <fieldset><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
-          `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>
-        ${seg('density', 'Density', [['comfortable', 'Comfortable'], ['compact', 'Compact']], p.density)}
-        ${seg('theme', 'Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], p.theme)}
         <label class="dmSwitch"><input type="checkbox" class="dmPageBtn" ${p.pageButton ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Show the Annotate button next to selected text</span></label>
+        <label class="dmSwitch"><input type="checkbox" class="dmSuggest" ${p.suggest ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Suggest places to start on an empty panel</span></label>
+        <h3 class="dmSub">How it looks</h3>
+        <fieldset class="dmGroup"><legend>Colour</legend><div class="tintRow">${swatches(p.tint)}</div></fieldset>
+        <fieldset class="dmGroup"><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
+          `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>
+        ${seg('theme', 'Theme', [['system', 'System'], ['light', 'Light'], ['dark', 'Dark']], p.theme)}
+        ${seg('density', 'Density', [['comfortable', 'Comfortable'], ['compact', 'Compact']], p.density)}
         <button type="button" class="ghost sm dmDone">Done</button>`;
       document.body.appendChild(pop);
       // Anchor under the gear, or at the top right when the gear is hidden (inside the floating frame).
@@ -298,11 +320,16 @@ const PanelKit = (() => {
         Prefs.set(key, i.value);
         if (key === 'display') { close(); closeWelcome(); onDisplay && onDisplay(i.value); }
       }));
+      pop.querySelectorAll('.tintBtn').forEach((b) => b.addEventListener('click', () => {
+        Prefs.set('tint', b.dataset.tint);
+        pop.querySelectorAll('.tintBtn').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      }));
       pop.querySelectorAll('.penBtn').forEach((b) => b.addEventListener('click', () => {
         Prefs.set('pen', b.dataset.pen);
         pop.querySelectorAll('.penBtn').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
       }));
       pop.querySelector('.dmPageBtn').addEventListener('change', (e) => Prefs.set('pageButton', e.target.checked));
+      pop.querySelector('.dmSuggest').addEventListener('change', (e) => Prefs.set('suggest', e.target.checked));
       pop.querySelector('.dmDone').addEventListener('click', () => { close(); g.focus(); });
       pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); g.focus(); } });
       (pop.querySelector('input:checked') || pop.querySelector('input')).focus();
@@ -382,5 +409,21 @@ const PanelKit = (() => {
     return '';
   }
 
-  return { clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
+  // What the page itself says about the quote. whole is the same words grown to full sentences on the page,
+  // so where the quote sits inside it says which end is cut, where the text alone could only guess from a
+  // capital letter and a full stop, and a name at the start of a quote passed for the start of a sentence.
+  function fragmentFrom(quote, whole) {
+    const n = (t) => String(t || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const q = n(quote), w = n(whole);
+    if (!q || !w || q === w) return '';
+    const i = w.indexOf(q);
+    if (i < 0) return fragmentNote(quote);
+    const head = i > 0, tail = i + q.length < w.length;
+    if (head && tail) return 'This quote starts and ends in the middle of a sentence.';
+    if (head) return 'This quote starts in the middle of a sentence.';
+    if (tail) return 'This quote ends in the middle of a sentence.';
+    return '';
+  }
+
+  return { fragmentFrom, clamp, esc, fmt, status, published, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

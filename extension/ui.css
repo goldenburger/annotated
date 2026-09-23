@@ -15,6 +15,7 @@
   --hi-deep: #F2C600;      /* where the nib lands */
   --hi-lift: #FFEE9E;      /* where it leaves the paper */
   --hi-edge: #E0B800;      /* highlighter edge */
+  --hi-pending: #FFF0A8;   /* the pen resting, over what would be taken */
   --hi-ink: #16181D;       /* text on highlighter, same in both themes */
   --red: #C8372D;          /* editor's red pen: claims and errors */
   --ok: #1E7A4C;
@@ -57,7 +58,7 @@ button, a, input, textarea, select { font: inherit; color: inherit; }
 a { color: inherit; text-decoration-color: var(--rule); text-underline-offset: 3px; }
 a:hover { text-decoration-color: currentColor; }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
-::selection { background: rgba(255, 225, 74, .55); color: var(--hi-ink); }
+::selection { background: color-mix(in srgb, var(--hi) 55%, transparent); color: var(--hi-ink); }
 [hidden] { display: none !important; }
 .dbg { display: none !important; }
 body.debug .dbg { display: revert !important; }
@@ -79,7 +80,7 @@ body.debug .dbg { display: revert !important; }
    ghost is an outlined secondary, link and quiet are text buttons. */
 .primary, .strong, .ghost { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-height: 40px; padding: 8px 14px; border-radius: var(--r-m); font: 600 var(--t-m)/1.2 var(--sans); text-align: center; text-decoration: none; cursor: pointer; transition: background-color .15s, border-color .15s, color .15s, transform .08s; }
 .primary { background: var(--hi); color: var(--hi-ink); border: 1px solid var(--hi-edge); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .08); }
-.primary:hover:not(:disabled) { background: #FFD91F; }
+.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--hi) 78%, var(--hi-deep)); }
 .strong { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
 .strong:hover:not(:disabled) { background: var(--ink-2); border-color: var(--ink-2); }
 .ghost { background: var(--sheet); color: var(--ink); border: 1px solid var(--rule); }
@@ -522,6 +523,8 @@ dialog .radio input { margin: 0; }
 .feedHead .stats { margin: 6px 0 0; }
 .feedFilter { margin: 18px 0 16px; }
 .feedFilter .num { color: var(--ink-3); font-size: var(--t-xs); margin-left: 2px; }
+/* "Posts 2" used to break between the word and its number, which left the row two lines tall and ragged. */
+.feedFilter label span { white-space: nowrap; }
 .cards { gap: 12px; }
 .card { grid-template-columns: 1fr 132px; padding: 16px 18px; border-radius: var(--r-l); gap: 16px; align-items: start; }
 .card img { width: 132px; border-radius: var(--r-m); }
@@ -730,7 +733,9 @@ body.debug .status.quietOk { display: block; }
 @media (max-width: 360px) { .pubBar { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 12px; } }
 /* The clip is at its shortest, so an end that will not move any further says why. */
 .rLen.floor { color: var(--warn-ink, #8a5a00); }
-.rFloor { margin: 4px 0 0; }
+.rFloor, .rMoved { margin: 4px 0 0; }
+.capTime { margin: 6px 0 0; text-align: center; }
+.rMoved { color: var(--ink); }
 /* A take box worth writing in. It stops well short of pushing Publish off the bottom of the panel. */
 .compose .takefield textarea { min-height: 132px; }
 
@@ -847,6 +852,7 @@ kbd { display: inline-block; min-width: 20px; padding: 2px 6px; border: 1px soli
 .brand .gearBtn.hasTip::after { right: -64px; left: auto; top: calc(100% + 6px); bottom: auto; }
 .dmPop { position: fixed; z-index: 2147483000; display: grid; gap: 12px; padding: 14px; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--r-l); box-shadow: var(--lift); max-height: calc(100vh - 80px); overflow-y: auto; }
 .dmPop h2 { margin: 0; font: 600 var(--t-l)/1.2 var(--sans); }
+.dmPop .dmSub { margin: 6px 0 -2px; padding-top: 10px; border-top: 1px solid var(--rule); font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
 .dmGroup { border: 0; margin: 0; padding: 0; }
 .dmGroup legend { padding: 0; margin-bottom: 6px; font: 600 var(--t-xs)/1.2 var(--sans); color: var(--ink-2); }
 .dmHint { margin: -6px 0 0; }
@@ -885,8 +891,12 @@ body.embedded .pubBar { padding-bottom: 22px; }
 :root[data-theme="dark"] .seg input:checked + span { background: #3B414D; box-shadow: inset 0 0 0 1px #6A7282; color: #fff; }
 /* Top-bar tooltips open leftward, so they stay inside the panel */
 .brand .hasTip::after, .brand .gearBtn.hasTip::after, .brand .helpBtn.hasTip::after { right: 0; left: auto; top: calc(100% + 6px); bottom: auto; transform: none; }
-/* In the floating frame the frame's own bar carries the gear, help and shrink buttons */
-body.embedded > .brand, .ffBody > .panel > .brand { display: none; }
+/* In the floating frame the frame's own bar carries the gear, help and shrink buttons, so those three go.
+   The rest of the top bar stays. Hiding all of it left Home, your profile and signing in with nowhere to
+   live, so someone who picked Floating on the welcome screen had no way to sign in at all. */
+body.embedded > .brand { display: flex; margin-bottom: 12px; padding-top: 8px; }
+body.embedded > .brand .wordmark, body.embedded > .brand .gearBtn, body.embedded > .brand .helpBtn { display: none; }
+.ffBody > .panel > .brand { display: none; }
 body.embedded .phead, .ffBody > .panel .phead { margin-top: 0; }
 /* Toast fade */
 .banner.toast { transition: opacity .3s ease, transform .3s ease; }
@@ -1178,6 +1188,14 @@ body.signedOut .pubSignIn { display: block; }
 .pasteForm input { flex: 1; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); font: inherit; }
 .pasteForm input:focus { outline: 2px solid var(--focus); outline-offset: 0; border-color: transparent; }
 .pasteForm .strong { width: auto; }
+/* In a narrow panel the form used to keep its 320 pixels and push Open off the edge. It shrinks with the
+   panel now, and the button keeps its own width while the field gives way. */
+.pasteForm { width: 100%; }
+/* Places to start from, above the link box on an empty panel. */
+#emptyAction .goLabel, .goLabel { margin: 18px auto 6px; max-width: 320px; font-size: var(--t-xs); color: var(--ink-3); text-align: left; }
+.goSites { display: flex; flex-wrap: wrap; gap: 6px; max-width: 320px; margin: 0 auto; }
+.goSites .goSite { flex: 1 1 auto; width: auto; justify-content: center; }
+.pasteForm .row > button { flex: 0 0 auto; width: auto; padding-left: 18px; padding-right: 18px; }
 .pasteMsg { margin: 0; min-height: 1em; font-size: var(--t-xs); }
 .selHint .pasteForm { margin-top: 16px; }
 
@@ -1253,6 +1271,21 @@ body.signedOut .pubSignIn { display: block; }
 /* The quote's own buttons sit on a line of their own with room between them. Run together they read as one
    sentence, "Use the whole sentence Remove the quote". */
 .quoteActs { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; }
+/* Back on the left, the thing it was taken from on the right. Two jobs, two labels, neither pretending to
+   be the other. */
+.topRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+.topRow:empty { display: none; }
+.topRow .toSource { margin-left: auto; text-decoration: none; }
+
+/* Which annotations, and how they are sorted, are one question about the same list, so they share a line.
+   Four stacked rows used to stand between the heading and the first annotation. */
+.feedBar { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin: 0 0 10px; }
+.feedBar .feedTabs, .feedBar .feedSortRow, .feedBar .feedFilter { margin: 0; }
+.feedBar:empty { display: none; }
+
+/* The panel beside annotated's own list pages. It says what is there rather than showing it twice. */
+.annside.mirror { padding: 18px 16px; }
+.mirrorWhat { margin: 0 0 6px; font: 600 var(--t-m)/1.4 var(--sans); }
 .frag::before { content: ""; display: inline-block; width: 3px; height: 1em; margin-right: 7px;
   vertical-align: -2px; border-radius: 2px; background: var(--hi-edge); }
 
@@ -1298,6 +1331,25 @@ body.signedOut .pubSignIn { display: block; }
 .gifChosen .gcImg { max-width: 100%; max-height: 180px; border-radius: var(--r-m); display: block; }
 .gifChosen .gcRemove { margin-top: 6px; }
 .takeGif { margin: 10px 0 0; }
+/* Your own photo or video in a take, and the preview of it in the take box. */
+/* The author's own photo sits between the take and the source, with room on both sides, so it reads as part
+   of the take rather than as the top of the post screenshot under it. */
+.takeUp { margin: 14px 0 18px; }
+.cmtUp { margin: 8px 0 0; }
+.cmtUp img, .cmtUp video { display: block; max-width: min(100%, 420px); height: auto; max-height: 320px; border-radius: var(--r-m); background: var(--newsprint); }
+.upChosen .upPreview { width: auto; height: auto; }
+.takeUp img, .takeUp video { display: block; max-width: 100%; height: auto; max-height: 520px; border-radius: var(--r-l); background: var(--newsprint); }
+.upChosen { display: grid; gap: 6px; margin: 10px 0 0; }
+.upChosen .upPreview { display: block; max-width: 100%; max-height: 220px; border-radius: var(--r-m); background: var(--newsprint); }
+.upChosen .upAlt { height: 34px; padding: 0 10px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); font: inherit; font-size: var(--t-s); }
+.upChosen .upRemove { justify-self: start; }
+/* Only while the description is empty. It is a nudge, never a block. */
+.upChosen .upHint { margin: -2px 0 0; }
+.upChosen .upAlt:not(:placeholder-shown) + .upHint { display: none; }
+.draftNote { margin: 6px 0 0; }
+.upErr { margin: 8px 0 0; }
+/* The GIF button says GIF, so the picture icon belongs to your own photos alone. */
+.gifMark { display: inline-block; padding: 1px 4px; border: 1.5px solid currentColor; border-radius: 4px; font: 700 9.5px/1.1 var(--sans); letter-spacing: .02em; }
 .takeGif img { max-width: 100%; border-radius: var(--r-l); display: block; }
 .takeGif figcaption { margin-top: 6px; }
 
@@ -1306,3 +1358,110 @@ body.signedOut .pubSignIn { display: block; }
 .cmtGif img { max-width: 260px; width: 100%; border-radius: var(--r-m); display: block; }
 .cmtGif figcaption { margin-top: 4px; font-size: var(--t-xs); }
 .cGifChosen .gcImg { max-height: 140px; }
+
+/* =====================================================================
+   Colour. Light or dark is one question and the hue is another, so a tint
+   carries both halves and the dark one names the theme in its selector,
+   which is how it beats the plain dark block rather than racing it down the
+   file. Every ink here is pale enough for --hi-ink, which is why the words
+   on a highlighter never change colour. The same six are listed in prefs.js,
+   which needs the ink as numbers for the stroke it injects into other
+   people's pages. Each swatch sits beside its palette so the two cannot drift.
+   ===================================================================== */
+.tintRow { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+.tintRow button { flex: 1 1 54px; display: grid; gap: 5px; justify-items: center; padding: 7px 5px 6px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet); cursor: pointer; font: 500 11px/1.2 var(--sans); color: var(--ink-2); }
+.tintRow button[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); }
+.tintRow .tintInk { width: 100%; height: 13px; border-radius: 4px 11px 5px 12px; background: linear-gradient(103deg, var(--s3) 0 6%, var(--s2) 14% 88%, var(--s1) 100%); }
+.tintRow .tintName { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The first palette is the one at the top of this file, so it needs no block of its own. */
+.tintRow button[data-tint="highlighter"] .tintInk { --s1: #FFEE9E; --s2: #FFE14A; --s3: #F2C600; }
+
+.tintRow button[data-tint="apricot"] .tintInk { --s1: #FFE4C6; --s2: #FFC98A; --s3: #F09A42; }
+:root[data-tint="apricot"] { --hi: #FFC98A; --hi-deep: #F09A42; --hi-lift: #FFE4C6; --hi-edge: #DC8426; --hi-pending: #FFE9D2; --focus: #A2530C;
+  --paper: #FDFBF8; --sheet: #FFFFFF; --newsprint: #F2EBE1; --rule: #DBD0C0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-tint="apricot"] { --paper: #15120E; --sheet: #1E1A15; --newsprint: #28231C; --rule: #383027; --focus: #F0B77A; } }
+:root[data-theme="dark"][data-tint="apricot"] { --paper: #15120E; --sheet: #1E1A15; --newsprint: #28231C; --rule: #383027; --focus: #F0B77A; }
+
+.tintRow button[data-tint="rose"] .tintInk { --s1: #FFDCE8; --s2: #FFB8D0; --s3: #F2739F; }
+:root[data-tint="rose"] { --hi: #FFB8D0; --hi-deep: #F2739F; --hi-lift: #FFDCE8; --hi-edge: #E05688; --hi-pending: #FFE3EC; --focus: #A32A5A;
+  --paper: #FDFAFB; --sheet: #FFFFFF; --newsprint: #F3E9ED; --rule: #DECCD4; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-tint="rose"] { --paper: #161014; --sheet: #1F171B; --newsprint: #2A2025; --rule: #392C33; --focus: #F59ABB; } }
+:root[data-theme="dark"][data-tint="rose"] { --paper: #161014; --sheet: #1F171B; --newsprint: #2A2025; --rule: #392C33; --focus: #F59ABB; }
+
+.tintRow button[data-tint="lilac"] .tintInk { --s1: #E7DDFF; --s2: #CDB8FF; --s3: #9E74EE; }
+:root[data-tint="lilac"] { --hi: #CDB8FF; --hi-deep: #9E74EE; --hi-lift: #E7DDFF; --hi-edge: #8258DB; --hi-pending: #EDE6FF; --focus: #56299F;
+  --paper: #FBFAFD; --sheet: #FFFFFF; --newsprint: #EDEAF5; --rule: #D2CBE3; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-tint="lilac"] { --paper: #121017; --sheet: #1A1723; --newsprint: #241F2F; --rule: #322B40; --focus: #B79BF5; } }
+:root[data-theme="dark"][data-tint="lilac"] { --paper: #121017; --sheet: #1A1723; --newsprint: #241F2F; --rule: #322B40; --focus: #B79BF5; }
+
+.tintRow button[data-tint="sky"] .tintInk { --s1: #CFEBFF; --s2: #93D6FF; --s3: #45AEF0; }
+:root[data-tint="sky"] { --hi: #93D6FF; --hi-deep: #45AEF0; --hi-lift: #CFEBFF; --hi-edge: #2694DA; --hi-pending: #DCF0FF; --focus: #14528F;
+  --paper: #F9FBFD; --sheet: #FFFFFF; --newsprint: #E7EEF5; --rule: #C8D5E2; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-tint="sky"] { --paper: #0E1318; --sheet: #151C24; --newsprint: #1E2731; --rule: #2A3542; --focus: #7FC4F5; } }
+:root[data-theme="dark"][data-tint="sky"] { --paper: #0E1318; --sheet: #151C24; --newsprint: #1E2731; --rule: #2A3542; --focus: #7FC4F5; }
+
+.tintRow button[data-tint="mint"] .tintInk { --s1: #CCF6E0; --s2: #8FE9BE; --s3: #3FC994; }
+:root[data-tint="mint"] { --hi: #8FE9BE; --hi-deep: #3FC994; --hi-lift: #CCF6E0; --hi-edge: #28B37D; --hi-pending: #D9F8E8; --focus: #0F6B4F;
+  --paper: #F9FCFA; --sheet: #FFFFFF; --newsprint: #E8F1EC; --rule: #C7D7CE; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"])[data-tint="mint"] { --paper: #0E1412; --sheet: #151D19; --newsprint: #1E2925; --rule: #2A3833; --focus: #6FD9AE; } }
+:root[data-theme="dark"][data-tint="mint"] { --paper: #0E1412; --sheet: #151D19; --newsprint: #1E2925; --rule: #2A3833; --focus: #6FD9AE; }
+
+/* Most talked about lately, on the empty panel. Quiet on purpose: no pictures, no borders between rows,
+   the name on one line and why on a smaller one. */
+.talked { max-width: 320px; margin: 0 auto; }
+.talkList { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.talkRow { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 7px 8px; margin: 0; border: 0; border-radius: var(--r-m);
+  background: transparent; color: var(--ink); text-align: left; cursor: pointer; font: inherit; }
+.talkRow:hover, .talkRow:focus-visible { background: color-mix(in srgb, var(--hi) 24%, transparent); }
+.talkIcon { flex: 0 0 auto; display: inline-flex; margin-top: 2px; color: var(--ink-3); }
+.talkIcon svg { width: 15px; height: 15px; }
+.talkText { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.talkName { font-size: var(--t-s); line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.talkWhy { font-size: var(--t-xs); color: var(--ink-3); }
+.suggest[hidden], .talked[hidden] { display: none; }
+
+/* A count and its word stay together when a card is narrow. */
+.stat { white-space: nowrap; }
+
+/* For you says why each card is there, quietly, above the card's own line. */
+.cwhy { display: block; font-size: var(--t-xs); color: var(--ink-3); margin-bottom: 2px; }
+.card .cwhy { margin-bottom: 4px; }
+
+/* The account menu explains the handle and keeps the account-wide actions together. */
+.acctHandle .acctHWhat { margin: 0 0 4px; }
+.acctHandle .acctHLink { margin: 2px 0 0; font-family: var(--sans); color: var(--ink-2); overflow-wrap: anywhere; }
+.acctHandle .acctHRule { margin: 0; }
+.acctHandle .acctHRule.bad { color: var(--red); }
+.acctHandle .acctHMsg:empty { display: none; }
+.acctPop .acctDelAll { width: 100%; justify-content: center; }
+.delAll .delAllOpen { margin-top: 10px; }
+.ghost.danger { color: var(--red); border-color: color-mix(in srgb, var(--red) 35%, var(--rule)); }
+.ghost.danger:hover { background: color-mix(in srgb, var(--red) 8%, transparent); }
+
+/* A quote over several blocks keeps a line between them in the panel. */
+.capQuote, .selQuote { white-space: pre-line; }
+.annside .sideNone { margin: 4px 0 0; }
+
+/* The leftmost tools in the take box open their tips to the right. Opening to the left ran the emoji tip off
+   the panel's edge, where it read "ou can also type a co". */
+.tfTools .emojiBtn.hasTip::after, .tfTools .pollBtn.hasTip::after, .cRow .emojiBtn.hasTip::after { right: auto; left: 0; }
+
+/* Home and Your profile say their name beside the icon, inside the bar. Below it, the tip covered the
+   heading of the list the button had just opened (the recording of 2026-09-23 at 02:48). */
+.brand .topLink.hasTip::after { left: calc(100% + 4px); right: auto; top: 50%; bottom: auto; transform: translateY(-50%); }
+.brand .topLink.hasTip:hover::after, .brand .topLink.hasTip:focus-visible::after { transform: translateY(-50%); }
+
+/* The start page at the top of Home and beside the feed and your profile. The same pieces as on the empty
+   panel, set on the left edge of the panel's lists rather than centred, with a rule before the tabs. */
+.startBlock { margin: 0 0 14px; padding: 0 0 14px; border-bottom: 1px solid var(--rule); text-align: center; }
+.startBlock .talked, .startBlock .goLabel, .startBlock .goSites, .startBlock .pasteForm { max-width: none; }
+.startBlock .goLabel:first-child, .startBlock .talked .goLabel { margin-top: 0; }
+.startBlock .pasteForm { margin: 16px 0 10px; }
+.mirrorStart.startBlock { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule); border-bottom: 0; }
+.annside.mirror .sideBack { display: flex; align-items: center; gap: 6px; width: 100%; max-width: 100%; margin: 0 0 14px; justify-content: flex-start; }
+.annside.mirror .sideBack span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.annside.mirror .sideBack .ic { flex: 0 0 auto; }
+.startBlock .talked[hidden] + .goLabel, .startBlock .talked:not([hidden]) + .goLabel { margin-top: 14px; }
+.startBlock .talked[hidden] + .goLabel { margin-top: 0; }
+.mirrorStart.startBlock { margin-top: 14px; padding-top: 14px; }

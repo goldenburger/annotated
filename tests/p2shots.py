@@ -22,7 +22,7 @@ async def main():
     print('result label visible under header:', await pg.evaluate("(()=>{const h=document.querySelector('#videoMode .phead').getBoundingClientRect();const r=document.querySelector('#videoMode .clipCard').getBoundingClientRect();return r.top>=h.bottom-1})()"))
     await pg.click(V+'.recBtn'); await asyncio.sleep(1.5); await pg.screenshot(path='p2_rec.png', clip={'x':986,'y':84,'width':380,'height':684})
     await pg.click(V+'.recStop'); await asyncio.sleep(.8)
-    await pg.fill(V+'.takeInput','Watch the left edge.'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(V+'.takeInput','Watch the left edge.'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     await pg.click('.tab >> nth=0'); await asyncio.sleep(.5)
     print('steps after publish:', await pg.evaluate("[...document.querySelectorAll('#videoMode .steps li')].map(l=>l.className)"))
     await pg.screenshot(path='p2_pub.png', clip={'x':986,'y':84,'width':380,'height':684})

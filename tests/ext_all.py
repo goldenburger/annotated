@@ -57,8 +57,8 @@ async def main():
     await panel.click('#videoMode .tagbtn >> text=Fact check')
     await panel.click('#videoMode .recBtn'); await asyncio.sleep(2); await panel.click('#videoMode .recStop')
     await panel.wait_for_selector('#videoMode .voiceOut:not([hidden])')
-    newpage = ctx.wait_for_event('page')
-    await panel.evaluate("() => Prefs.set('afterPublish','page')"); await panel.click('#videoMode .publish')
+    newpage = asyncio.ensure_future(ctx.wait_for_event('page'))
+    await panel.evaluate("() => Prefs.set('afterPublish','page')"); await publish_now(panel, '#videoMode .publish')
     ann = await newpage
     ann.on('pageerror',lambda e: errs.append('ANN '+str(e)))
     await ann.wait_for_selector('.ann:not(.loading)',timeout=10000)
@@ -75,7 +75,7 @@ async def main():
     await ann.screenshot(path='e_ann_video.png', full_page=True)
     # duplicate check: recapture same range and publish again
     await panel.click('.capBtn'); await panel.wait_for_selector('#videoMode .vCompose:not([hidden])',timeout=30000)
-    await panel.fill('#videoMode .takeInput','dup'); await panel.click('#videoMode .publish'); await asyncio.sleep(.6)
+    await panel.fill('#videoMode .takeInput','dup'); await publish_now(panel, '#videoMode .publish'); await asyncio.sleep(.6)
     print('ext dup warning:', (await panel.inner_text('#videoMode .vDup')).replace('\n',' | '))
     await panel.screenshot(path='e_panel_video.png', full_page=True)
     # ---------- ARTICLE ----------
@@ -110,7 +110,7 @@ async def main():
     # annotated's pages share one tab, so the second annotation moves the tab the first one opened rather
     # than opening another beside it.
     was = ann.url
-    await ap.evaluate("() => Prefs.set('afterPublish','page')"); await ap.click('#articleMode .publish')
+    await ap.evaluate("() => Prefs.set('afterPublish','page')"); await publish_now(ap, '#articleMode .publish')
     ann2 = ann
     for _ in range(80):
         if ann2.url != was: break

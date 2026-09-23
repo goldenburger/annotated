@@ -35,7 +35,7 @@ async def main():
     print('post folded away:', not await pan.is_visible(P+'.pText'), '| show-as kept:', await pan.is_visible(P+'.showAs'))
     print('sign-in line above Publish:', await pan.is_visible(P+'.pubSignIn'))
     await pan.fill(P+'.takeInput','first')
-    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await pan.click(P+'.publish'); ann=await asyncio.wait_for(np,15); await asyncio.sleep(1)
+    await pan.evaluate("() => Prefs.set('afterPublish','page')"); np=asyncio.ensure_future(ctx.wait_for_event('page')); await publish_now(pan, P+'.publish'); ann=await asyncio.wait_for(np,15); await asyncio.sleep(1)
     print('remove-quote hidden after publishing:', not await pan.is_visible(P+'.pQuoteX'))
     # a new selection after publishing
     await select(0,'Excitement',22)
@@ -43,7 +43,7 @@ async def main():
     print('new-selection bar:', await pan.is_visible(P+'.pNewSel'))
     await pan.click(P+'.pNewSelGo'); await pan.wait_for_selector(P+'.pCompose:not([hidden])',timeout=15000); await asyncio.sleep(.3)
     print('second quote:', repr(await pan.inner_text(P+'.pQuote')))
-    await pan.fill(P+'.takeInput','second'); await pan.click(P+'.publish'); await asyncio.sleep(1.5)
+    await pan.fill(P+'.takeInput','second'); await publish_now(pan, P+'.publish'); await asyncio.sleep(1.5)
     print('no duplicate warning for a different quote:', not await pan.is_visible(P+'.pDup'))
     # a reply
     await pan.click(P+'.pubcard .new'); await asyncio.sleep(.3)

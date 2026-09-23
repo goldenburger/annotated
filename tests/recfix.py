@@ -148,7 +148,8 @@ async def main():
     print('on X:', repr(x['onX']['title']), '|', repr(x['onX']['body'][:60]))
     if 'story' in x['onX']['body']: errs.append('the X timeline is still described as a story')
     if 'post' not in x['onX']['body'].lower(): errs.append('the X timeline does not say that selecting words in a post annotates that post')
-    if 'story' not in x['plain']['body']: errs.append('an ordinary page stopped describing itself as a story')
+    # Any words may be annotated since 2026-09-22, so an ordinary page asks for anything on the page.
+    if 'on the page' not in x['plain']['body']: errs.append('an ordinary page stopped saying what to select on it')
 
     # A mid sentence quote can be grown to its sentence in one click.
     await news.bring_to_front(); await news.evaluate(PICK_FRAGMENT); await asyncio.sleep(.9)

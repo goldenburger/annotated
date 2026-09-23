@@ -34,6 +34,7 @@ const PostPanel = (() => {
       </section>
       <section class="pResult result" hidden>
         <p class="resLabel">You're annotating</p>
+        <blockquote class="quote pWhole" hidden></blockquote>
         <div class="pQuoteBox" hidden><p class="k">Quoting</p><blockquote class="quote pQuote"></blockquote>
           <p class="frag pFrag" hidden></p>
           <p class="quoteActs"><button type="button" class="link pFragFix" hidden>Use the whole sentence</button>
@@ -43,6 +44,7 @@ const PostPanel = (() => {
       </section>
       <section class="compose pCompose" hidden></section>
       <div class="pDup" hidden></div>
+      <div class="pFragAsk" hidden></div>
       <section class="pPublished" hidden></section>
       <div class="pNewSel" hidden role="status"><span>You selected new words on the page.</span><button type="button" class="primary sm pNewSelGo">Quote them in a new annotation</button></div>`;
     const q = (s) => root.querySelector(s);
@@ -65,11 +67,21 @@ const PostPanel = (() => {
     q('.pQuoteX').addEventListener('click', () => {
       if (result) result.quote = '';
       q('.pQuoteBox').hidden = true;
+      showWhole();
       q('.resLabel').textContent = "You're annotating";
       if (ad.clearCaptured) ad.clearCaptured();
     });
+    // With no words quoted the whole post is what you are annotating, so it says so. After a capture the post
+    // folds away, and "You're annotating" used to stand over nothing but a link to the screenshot.
+    function showWhole() {
+      const w = q('.pWhole');
+      w.textContent = (result && !result.quote && result.text) || '';
+      w.hidden = !w.textContent;
+      if (!w.hidden) PanelKit.clampQuote(w);
+    }
     const status = PanelKit.status(q('.pStatus'), log);
     const compose = Compose.create(q('.pCompose'), {
+      draftKey: opts.draftKey,
       placeholder: 'What should people notice in this post?',
       log, onMicBlocked: opts.onMicBlocked, onPublish: opts.onPublish ? publish : null,
     });
@@ -93,10 +105,12 @@ const PostPanel = (() => {
 
     function startFresh() {
       result = null; published = false;
+      if (opts.keep) opts.keep.clear().catch(() => {});
       q('.pBody').classList.remove('folded'); q('.pNewSel').hidden = true; q('.pQuoteX').hidden = false;
       q('.showAs').hidden = false; q('.showAsWas').hidden = true; q('.hint.tip').hidden = false;
       q('.pBody').insertBefore(q('.showAs'), q('.hint.tip'));
       q('.pResult').hidden = true; q('.pCompose').hidden = true; q('.pDup').hidden = true; q('.pPublished').hidden = true;
+      q('.pFragAsk').hidden = true;
       compose.reset(); status.reset();
       q('.pGrab').hidden = false;
       PanelKit.setStep(root, 1);
@@ -137,22 +151,30 @@ const PostPanel = (() => {
       if (!r || !r.ok) { q('.pErr').textContent = (r && r.error) || 'The post could not be captured.'; q('.pErr').hidden = false; return; }
       let shot = null;
       try { if (r.image) shot = PanelKit.crop(r.image, r.clip, r.bounds, 1200); } catch (e) { log('Screenshot crop failed. ' + e.message); }
+      if (opts.keep) { const { image, clip, bounds, ...keepR } = r; opts.keep.save({ r: keepR, shot }).catch(() => {}); }
+      await showCaptured(r, shot);
+    }
+    async function showCaptured(r, shot) {
       result = { kind: 'post', text: r.text, author: r.author, handle: r.handle, posted: r.posted, url: r.url, id: r.id, shot: shot && shot.dataUrl, quote: r.quote || '', captured: Date.now() };
       q('.pQuoteBox').hidden = !result.quote;
       q('.pQuote').textContent = result.quote || '';
-      const frag = PanelKit.fragmentNote(result.quote);
-      q('.pFrag').textContent = frag;
-      q('.pFrag').hidden = !frag;
-      // The note says what is wrong with the quote. This does something about it, in one click, and it says
+      showWhole();
+      // The note, and the offer to grow the quote, show only when growing it would change it. The offer says
       // which it is, because on a post with no full stop in it the sentence is the whole post.
+      let frag = PanelKit.fragmentNote(result.quote);
       q('.pFragFix').hidden = true;
-      if (frag && ad.widen) {
+      if (result.quote && ad.widen) {
         const peek = await ad.widen(true).catch(() => null);
-        if (peek && peek.ok && norm(peek.text) !== norm(result.quote)) {
-          q('.pFragFix').textContent = norm(peek.text) === norm(result.text) ? 'Use the whole post' : 'Use the whole sentence';
-          q('.pFragFix').hidden = false;
+        if (peek && peek.ok) {
+          frag = PanelKit.fragmentFrom(result.quote, peek.text);
+          if (frag) {
+            q('.pFragFix').textContent = norm(peek.text) === norm(result.text) ? 'Use the whole post' : 'Use the whole sentence';
+            q('.pFragFix').hidden = false;
+          }
         }
       }
+      q('.pFrag').textContent = frag;
+      q('.pFrag').hidden = !frag;
       // This capture is the newest thing that happened, so any warning about other words is out of date.
       q('.resLabel').textContent = "You're annotating";
       q('.pResult').hidden = false;
@@ -172,7 +194,9 @@ const PostPanel = (() => {
       q('.pResult').insertBefore(q('.showAs'), q('.pStatus'));
       q('.pTitle').textContent = r.author || q('.pTitle').textContent;
       q('.pMeta').textContent = [r.handle, fmtDate(r.posted)].filter(Boolean).join('. ');
-      compose.reset();
+      // A new capture replaces the quote, not what you wrote about it. Clearing the take here threw away a half
+      // written take whenever the passage was swapped, and a take kept from before the panel reloaded.
+      // Publishing and starting a new annotation still clear it, in startFresh.
       q('.pCompose').hidden = false;
       PanelKit.setStep(root, 2);
       q('.pResult').scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -186,15 +210,19 @@ const PostPanel = (() => {
       if (!force && opts.findDuplicate) {
         const ref = await opts.findDuplicate(item);
         if (ref) {
-          PanelKit.dupWarn(q('.pDup'), { what: 'post', onView: () => opts.onView && opts.onView(ref), onAnyway: () => { q('.pDup').hidden = true; publish(take, true); } });
+          PanelKit.dupWarn(q('.pDup'), { what: 'post', published: ref.published !== false, onView: () => opts.onView && opts.onView(ref, { justPublished: false }), onAnyway: () => { q('.pDup').hidden = true; publish(take, true); } });
           return;
         }
       }
       q('.pDup').hidden = true;
+      // Any words may be annotated, so Publish publishes. The line beside the quote still says when it is
+      // part of a sentence, with the offer to grow it.
+      q('.pFragAsk').hidden = true;
       compose.setBusy(true);
       try {
         pubRef = await opts.onPublish(item, take);
         published = true;
+        if (opts.keep) opts.keep.clear().catch(() => {});
         q('.pCompose').hidden = true;
         q('.pQuoteX').hidden = true;
         q('.pFragFix').hidden = true;
@@ -215,6 +243,7 @@ const PostPanel = (() => {
 
     // The page's Annotate button, or new words selected after publishing, start a capture with those words.
     q('.pNewSelGo').addEventListener('click', () => { startFresh(); grab(); });
+    if (opts.keep) opts.keep.load().then((k) => { if (k && k.r && !result && !busy) showCaptured(k.r, k.shot); }).catch(() => {});
     return {
       refresh, reset: startFresh,
       captureNow() { if (busy) return; if (published || result) startFresh(); grab(); },

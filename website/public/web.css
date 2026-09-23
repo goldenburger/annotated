@@ -16,3 +16,105 @@
 .doc .top a { text-decoration: none; }
 .doc ol li { margin-bottom: 6px; }
 .doc code { font-size: .92em; background: var(--newsprint); padding: 1px 5px; border-radius: 4px; }
+
+/* ===== The front page =====
+   Every other page here is a list of annotations, which is the wrong first thing to show someone who has
+   never seen one. This band sits under the site's own header and above that list. */
+.hero { max-width: 1120px; margin: 0 auto; padding: 46px 20px 34px; display: grid; gap: 34px 46px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); align-items: center; }
+.heroKicker { margin: 0 0 14px; font: 600 var(--t-xs)/1 var(--sans); letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-3); }
+.heroH { margin: 0 0 16px; font: 600 clamp(34px, 4.6vw, 54px)/1.12 var(--serif); letter-spacing: -.015em; }
+/* Each line of the stroke gets its own ends, the way a real one does, rather than one slab behind them all. */
+.heroMark { -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.heroSub { margin: 0 0 22px; max-width: 46ch; font-size: var(--t-l); line-height: 1.55; color: var(--ink-2); }
+.heroDo { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+.heroDo .primary { width: auto; text-decoration: none; padding: 12px 20px; font-size: var(--t-m); }
+.heroWhere { margin: 0; }
+
+/* The pen, drawn rather than pictured. One edge at one speed, the same as it runs on a page. */
+.heroMark { background: none; color: inherit; position: relative; isolation: isolate; padding: 0; }
+.heroMark::before { content: ""; position: absolute; z-index: -1; left: -5px; right: -7px; top: -1px; bottom: -4px;
+  background-image: linear-gradient(103deg, #F2C600 0 6%, #FFE14A 14% 88%, #FFEE9E 100%);
+  border-radius: 4px 12px 5px 13px; transform-origin: left center; transform: scaleX(0);
+  animation: heroSweep 820ms linear 500ms both; }
+@keyframes heroSweep { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+
+/* ===== The loop: a passage, the pen, and the page it becomes ===== */
+.heroShow { position: relative; }
+.show { position: relative; padding-bottom: 26px; }
+.showPage { position: relative; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--paper);
+  box-shadow: 0 18px 42px -26px rgba(16, 20, 30, .42); overflow: hidden; }
+.showBar { display: flex; align-items: center; gap: 6px; padding: 9px 12px; background: var(--newsprint);
+  border-bottom: 1px solid var(--rule); }
+.showDot { width: 8px; height: 8px; border-radius: 50%; background: var(--rule); }
+.showUrl { margin-left: 8px; font: 500 var(--t-xs)/1 var(--sans); color: var(--ink-3); }
+.showBody { padding: 18px 20px 26px; }
+.showH { margin: 0 0 12px; font: 600 var(--t-l)/1.3 var(--serif); }
+.showP { margin: 0 0 10px; font: 15px/1.65 var(--serif); color: var(--ink-2); }
+.showP:last-child { margin-bottom: 0; }
+
+/* Selected, then inked. The tint is what the panel shows you before you take it. */
+.showMark { background: none; color: inherit; position: relative; isolation: isolate; border-radius: 2px;
+  transition: background-color .18s; }
+.picked .showMark, .offered .showMark { background: #FFF0A8; color: #1C2433; }
+.showMark::before { content: ""; position: absolute; z-index: -1; left: -3px; right: -4px; top: -1px; bottom: -3px;
+  background-image: linear-gradient(103deg, #F2C600 0 6%, #FFE14A 14% 88%, #FFEE9E 100%);
+  border-radius: 3px 9px 4px 10px; transform-origin: left center; transform: scaleX(0); }
+.inked .showMark, .taking .showMark, .done .showMark { color: #1C2433; }
+.inked .showMark::before { animation: heroSweep 760ms linear both; }
+.taking .showMark::before, .done .showMark::before { transform: scaleX(1); }
+
+/* The button beside the words, the way it arrives on a real page. */
+.showBtn { position: absolute; right: 16px; top: 74px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border-radius: 8px; background: #1C2433; color: #fff;
+  font: 600 12px/1 var(--sans); box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+  opacity: 0; transform: translateY(4px) scale(.96); transition: opacity .16s, transform .16s; pointer-events: none; }
+.showBtn i { width: 14px; height: 8px; background: #FFE14A; border-radius: 2px 5px 3px 6px;
+  transform: skewX(-14deg) rotate(-4deg); }
+.offered .showBtn { opacity: 1; transform: none; }
+
+/* The panel, arriving from the side the way it does in Chrome. */
+/* Low and to the right, so the marked passage above it stays in view. It is the point of the picture. */
+.showPanel { position: absolute; right: -6px; bottom: -6px; width: 63%; padding: 14px 16px 16px;
+  border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--paper);
+  box-shadow: 0 22px 46px -22px rgba(16, 20, 30, .5);
+  opacity: 0; transform: translate(18px, 14px); transition: opacity .28s, transform .28s; }
+.taking .showPanel, .done .showPanel { opacity: 1; transform: none; }
+.showPanelHead { margin-bottom: 10px; }
+.showWm { display: inline-block; padding: 1px 5px; border-radius: 3px; background: #FFE14A;
+  font: 700 12px/1.3 var(--serif); color: #1C2433; }
+.showSteps { display: flex; gap: 14px; margin: 0 0 12px; font: 600 var(--t-xs)/1 var(--sans); color: var(--ink-3); }
+.showSteps .on { color: var(--ink); }
+.done .showSteps span { color: var(--ink); }
+.taking .showSteps .two { color: var(--ink); }
+.showK { margin: 0 0 4px; font: 600 var(--t-xs)/1 var(--sans); color: var(--ink-3); }
+.showQuote { margin: 0 0 12px; padding-left: 10px; border-left: 3px solid #FFE14A;
+  font: 13px/1.5 var(--serif); color: var(--ink-2); }
+.showTake { min-height: 46px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--r-m);
+  font: 13px/1.5 var(--sans); color: var(--ink); }
+.showCaret { display: inline-block; width: 1px; height: 1em; margin-left: 1px; background: var(--ink);
+  vertical-align: -2px; animation: heroCaret 1s steps(1) infinite; }
+@keyframes heroCaret { 50% { opacity: 0 } }
+.done .showCaret { display: none; }
+.showPub { display: none; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px;
+  border-radius: var(--r-m); background: #FFF8D9; }
+.done .showPub { display: flex; }
+.done .showK2, .done .showTake { display: none; }
+.showTick { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%;
+  background: #FFE14A; font-size: 11px; color: #1C2433; }
+.showPub b { display: block; font: 600 var(--t-s)/1.3 var(--sans); }
+.showPub span { font-size: var(--t-xs); color: var(--ink-2); }
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: minmax(0, 1fr); padding-top: 30px; gap: 26px; }
+  .showPanel { position: static; width: auto; margin-top: -10px; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .heroMark::before, .inked .showMark::before { animation: none; transform: scaleX(1); }
+  .showBtn, .showPanel, .showMark { transition: none; }
+  .showCaret { animation: none; }
+}
+
+/* On a phone the header has room for "Sign in" and not for the rest, which wrapped onto two lines. */
+@media (max-width: 520px) { .wideOnly { display: none; } }

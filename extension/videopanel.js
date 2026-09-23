@@ -25,6 +25,7 @@ const VideoPanel = (() => {
           <div class="lenbox"><span class="k">Length</span><span class="v rLen num"></span></div>
         </div>
         <p class="note rFloor" hidden>Three seconds is as short as a clip goes.</p>
+        <p class="note rMoved" role="status" hidden></p>
         <div class="track" role="group" aria-label="Clip range">
           ${isAudio ? '<canvas class="wave" aria-hidden="true"></canvas>' : '<canvas class="film" aria-hidden="true"></canvas>'}
           <div class="ticks" aria-hidden="true"></div>
@@ -51,10 +52,11 @@ const VideoPanel = (() => {
       </section>
       <section class="act">
         <button class="primary capBtn">Capture clip</button>
+        <p class="note capTime"></p>
         <div class="progress" hidden>
           <div class="pbar"><div class="fill"></div></div>
           <div class="prow"><span class="pText num"></span><button class="link cancel">Cancel</button></div>
-          <p class="hint tip" data-tip="realtime">Capture runs in real time, so a 60 second clip takes about 60 seconds.</p>
+          <p class="hint tip realTime" data-tip="realtime">Capture runs in real time.</p>
         </div>
         <p class="error capErr" role="alert" hidden></p>
         <p class="note capNote" role="status" hidden></p>
@@ -77,6 +79,7 @@ const VideoPanel = (() => {
     const q = (s) => root.querySelector(s);
     const status = PanelKit.status(q('.vStatus'), log);
     const compose = Compose.create(q('.vCompose'), {
+      draftKey: opts.draftKey,
       placeholder: 'What should people notice in this clip?',
       log, onMicBlocked: opts.onMicBlocked,
       onPublish: opts.onPublish ? publish : null,
@@ -198,6 +201,11 @@ const VideoPanel = (() => {
       // Dragging an end until it stops is silent otherwise, and the clip that comes out is a second long.
       q('.rLen').classList.toggle('floor', len <= MIN + 0.05);
       q('.rFloor').hidden = len > MIN + 0.05;
+      // Capturing plays the clip through once, so a thirty second clip takes thirty seconds. Nothing said so,
+      // and the wait looked like the panel had stuck.
+      q('.capTime').textContent = `Capturing plays the clip once, so it takes about ${Math.max(1, Math.round(len))} seconds.`;
+      // The same fact while it happens, with this clip's own length rather than an example of sixty seconds.
+      q('.realTime').textContent = `Capture runs in real time, so this clip takes about ${Math.max(1, Math.round(len))} seconds.`;
       q('.range').style.left = pctView(sel.start) + '%';
       q('.range').style.width = (pctView(sel.end) - pctView(sel.start)) + '%';
       q('.hStart').style.left = pctView(sel.start) + '%';
@@ -217,6 +225,7 @@ const VideoPanel = (() => {
         : isPublished ? 'Capture a new clip' : result && !stale() ? 'Capture again' : result ? 'Capture the new range' : 'Capture clip';
       q('.capBtn').className = result && !stale() && !capturing && !isPublished ? 'ghost capBtn' : 'primary capBtn';
       q('.setStart').disabled = q('.setEnd').disabled = q('.playSel').disabled = capturing;
+      q('.capTime').hidden = capturing;
       if (result) {
         const st = stale();
         q('.vResult').classList.toggle('stale', st);
@@ -301,19 +310,35 @@ const VideoPanel = (() => {
       sel = { start: snap(s), end: snap(s + l) };
       previewSeek(sel.start); recenter(true); drawTicks(); render();
     });
+    // Setting one end past the other keeps the clip's length and moves the whole clip, which is usually what
+    // was meant. It used to happen in silence, so an end pressed by mistake at 0:10 quietly carried the start
+    // from 0:30 back to 0:06. The panel now says which end moved and where to.
+    let movedTimer = null;
+    const sayMoved = (text) => {
+      const m = q('.rMoved');
+      m.textContent = text; m.hidden = !text;
+      clearTimeout(movedTimer);
+      if (text) movedTimer = setTimeout(() => { m.hidden = true; }, 6000);
+    };
     q('.setStart').addEventListener('click', () => {
-      const l = sel.end - sel.start;
+      const l = sel.end - sel.start, was = sel.end;
       let s = info.currentTime, e = sel.end;
       if (e - s < MIN || e - s > MAX) e = Math.min(info.duration, s + Math.min(l, MAX));
       if (e - s < MIN) s = Math.max(0, e - MIN);
       sel = { start: snap(s), end: snap(e) }; recenter(); drawTicks(); render();
+      const gap = was - info.currentTime;
+      const why = gap < 0 ? 'The start was past the end' : gap < MIN ? 'That left less than three seconds' : 'That made the clip longer than 90 seconds';
+      sayMoved(Math.abs(sel.end - was) > 0.05 ? `${why}, so the end moved too, to ${fmt(sel.end, true)}.` : '');
     });
     q('.setEnd').addEventListener('click', () => {
-      const l = sel.end - sel.start;
+      const l = sel.end - sel.start, was = sel.start;
       let s = sel.start, e = info.currentTime;
       if (e - s < MIN || e - s > MAX) s = Math.max(0, e - Math.min(l, MAX));
       if (e - s < MIN) e = Math.min(info.duration, s + MIN);
       sel = { start: snap(s), end: snap(e) }; recenter(); drawTicks(); render();
+      const gap = info.currentTime - was;
+      const why = gap < 0 ? 'The end was before the start' : gap < MIN ? 'That left less than three seconds' : 'That made the clip longer than 90 seconds';
+      sayMoved(Math.abs(sel.start - was) > 0.05 ? `${why}, so the start moved too, to ${fmt(sel.start, true)}.` : '');
     });
 
     // Typed times accept 1:04.6, 64.6 or 1:02:03.
@@ -325,8 +350,14 @@ const VideoPanel = (() => {
     function applyTyped(which) {
       const inp = q(which === 'start' ? '.rStart' : '.rEnd');
       const t = parseTime(inp.value);
-      if (!isFinite(t)) { inp.value = fmt(which === 'start' ? sel.start : sel.end, true); return; }
       const D = info.duration, l = sel.end - sel.start;
+      // A time that cannot be one leaves the clip exactly as it was and says why. "abc" used to snap back in
+      // silence, "-5" turned the clip into ninety seconds from the start, and a time past the end made a
+      // three second clip at the very end.
+      const refuse = (why) => { inp.value = fmt(which === 'start' ? sel.start : sel.end, true); sayMoved(why); };
+      if (!isFinite(t)) return refuse('That is not a time. Type it like 1:05, or 65 for sixty five seconds.');
+      if (t < 0) return refuse('A time cannot come before the start.');
+      if (t > D + 0.05) return refuse(`${isAudio ? 'The episode' : 'The video'} is ${fmt(D)} long.`);
       let s = sel.start, e = sel.end;
       // Too long keeps the time you typed and moves the other end to exactly 90 seconds away.
       // Too short or backwards keeps the clip's previous length.
@@ -582,7 +613,7 @@ const VideoPanel = (() => {
       if (!force && opts.findDuplicate) {
         const ref = await opts.findDuplicate(result);
         if (ref) {
-          PanelKit.dupWarn(q('.vDup'), { what: 'clip', onView: () => opts.onView && opts.onView(ref), onAnyway: () => { q('.vDup').hidden = true; publish(take, true); } });
+          PanelKit.dupWarn(q('.vDup'), { what: 'clip', published: ref.published !== false, onView: () => opts.onView && opts.onView(ref, { justPublished: false }), onAnyway: () => { q('.vDup').hidden = true; publish(take, true); } });
           return;
         }
       }

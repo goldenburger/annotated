@@ -7,3 +7,4 @@ tests/*.jpg
 .netlify/
 .DS_Store
 .venv/
+backups/

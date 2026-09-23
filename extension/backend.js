@@ -54,9 +54,18 @@ const Backend = (() => {
       avatar: (data && data.avatar_url) || meta.avatar_url || meta.picture || '',
     };
   }
-  function onChange(cb) { client.auth.onAuthStateChange(() => { setTimeout(() => profile().then(cb).catch(() => cb(null)), 0); }); }
+  // Only a real change reaches the listener. Supabase tells every open page of ours "signed in" again whenever
+  // another of them opens, which in the recording of 2026-09-23 at 03:16 redrew the panel three times while a
+  // button was being pressed, and the press was lost each time (Back, and Back to what you were reading).
+  const sigOf = (p) => (p ? [p.id, p.handle, p.name, p.avatar].join('|') : '');
+  function onChange(cb) {
+    let last;
+    client.auth.onAuthStateChange(() => {
+      setTimeout(() => profile().catch(() => null).then((p) => { const s = sigOf(p); if (s === last) return; last = s; cb(p); }), 0);
+    });
+  }
   // Where shared annotations live on the web: https://annotated-app.netlify.app/@handle/id
   const SITE = 'https://annotated-app.netlify.app';
   const permalink = (id, handle) => `${SITE}/@${handle || 'annotated'}/${encodeURIComponent(id)}`;
-  return { client, signIn, signOut, profile, lastId, onChange, url: SUPABASE_URL, site: SITE, permalink };
+  return { client, signIn, signOut, profile, lastId, onChange, url: SUPABASE_URL, key: SUPABASE_KEY, site: SITE, permalink };
 })();

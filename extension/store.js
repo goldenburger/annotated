@@ -11,7 +11,8 @@ const Store = (() => {
     return {
       ...v,
       item: { ...item, hasMedia: !!blob, hasShot: !!shot, shotThumb: v.item && v.item.shotThumb ? v.item.shotThumb : undefined },
-      take: v.take ? { ...v.take, voice: v.take.voice ? { has: true, url: v.take.voice.url } : null } : v.take,
+      take: v.take ? { ...v.take, voice: v.take.voice ? { has: true, url: v.take.voice.url } : null,
+        upload: v.take.upload ? { kind: v.take.upload.kind, url: v.take.upload.url, alt: v.take.upload.alt, has: true } : null } : v.take,
     };
   }
   // A small JPEG of a screenshot, for feed cards.
@@ -75,7 +76,12 @@ const Store = (() => {
     put,
     get: (id) => tx('annotations', 'readonly', (s) => s.get(id)),
     count: () => tx('meta', 'readonly', (s) => s.count()),
-    async del(id) { await tx(['annotations', 'meta'], 'readwrite', (a, m) => { a.delete(id); m.delete(id); }); stamp(); },
+    // Deleted ones are remembered by id, so opening one later can say it was deleted rather than not found.
+    async del(id) {
+      await tx(['annotations', 'meta'], 'readwrite', (a, m) => { a.delete(id); m.delete(id); }); stamp();
+      try { const g = JSON.parse(localStorage.getItem('annotated-deleted') || '[]').filter((x) => x !== id); g.push(id); localStorage.setItem('annotated-deleted', JSON.stringify(g.slice(-300))); } catch { /* nothing to remember with */ }
+    },
+    wasDeleted: (id) => { try { return JSON.parse(localStorage.getItem('annotated-deleted') || '[]').includes(id); } catch { return false; } },
     async update(id, patch) { const v = await this.get(id); if (v) await put(id, { ...v, ...patch }); },
     // Everything, files included. Only for the rare case that needs every file.
     all: () => allOf('annotations'),

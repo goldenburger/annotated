@@ -27,3 +27,17 @@ def prof(name):
     p = os.path.join(TMP, 'annotated-test-' + name)
     shutil.rmtree(p, ignore_errors=True)
     return p
+
+
+# Presses Publish. Publishing used to ask about a quote that starts or ends mid sentence, and this answered
+# it. Nothing is asked now, because any words may be annotated, and the tests still call it by this name.
+async def publish_now(pg, sel):
+    await pg.click(sel)
+
+
+# Tests that watch a panel in a window of its own must stop the page's Annotate button from opening the real
+# side panel as well. Clicking Annotate asks the background to open annotated's panel, and in a test that is a
+# second panel. Both then capture, the first succeeds, the second finds the selection used up, and whichever
+# the test is watching decides whether it passes. In real use the panel it opens is the one you are looking at.
+async def one_panel(sw):
+    await sw.evaluate("chrome.sidePanel.open = async () => {}")

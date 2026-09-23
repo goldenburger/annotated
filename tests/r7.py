@@ -45,7 +45,7 @@ async def main():
     await pg.click(A+'.qMore'); await asyncio.sleep(.1); print('expanded:', await pg.eval_on_selector(A+'.selQuote','e=>Math.round(e.clientHeight)'), await pg.inner_text(A+'.qMore'))
     # open from rail at top
     await pg.click(A+'.grab'); await pg.wait_for_selector(A+'.aCompose:not([hidden])',timeout=15000)
-    await pg.fill(A+'.takeInput','second'); await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(A+'.takeInput','second'); await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     await pg.click(ANN+'.railOpen >> nth=0'); await asyncio.sleep(.3)
     print('opened from rail at top:', await pg.evaluate("document.getElementById('pane').scrollTop"))
     print('errors:', errs)

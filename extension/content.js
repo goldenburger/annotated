@@ -20,7 +20,8 @@
   const toDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
   const send = async (m) => {
     if (m.blob) { const { blob, ...rest } = m; m = { ...rest, dataUrl: await toDataUrl(blob) }; }
-    chrome.runtime.sendMessage(m).catch(() => {});
+    // A copy left behind by an extension reload throws at the call itself, so the call is guarded.
+    try { if (chrome.runtime && chrome.runtime.id) chrome.runtime.sendMessage(m).catch(() => {}); } catch { /* the extension went away */ }
   };
   const engine = ClipEngine.create({ getVideo, adShowing, meta, send });
   // YouTube's preview thumbnails (the sprite sheets its player shows when you hover the timeline), for the trimmer's filmstrip.

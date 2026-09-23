@@ -43,7 +43,7 @@ async def main():
     # This one goes on to read the page, so it asks for it. Publishing no longer opens it by itself.
     await f.evaluate("() => Prefs.set('afterPublish','page')")
     np=asyncio.ensure_future(ctx.wait_for_event('page'))
-    await f.click('#articleMode .publish')
+    await publish_now(f, '#articleMode .publish')
     ann=await asyncio.wait_for(np, 15); await ann.wait_for_selector('.ann:not(.loading)')
     print('published page:', await ann.inner_text('.take'))
     # switching the setting back to side panel removes the frame

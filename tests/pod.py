@@ -22,7 +22,7 @@ async def main():
       print('checks:', (await pg.inner_text(P+'.vStatus')).replace('\n',' | ')[:300]); await pg.keyboard.press('Shift+D')
       src=await pg.get_attribute(P+'.ccPoster','src'); print('waveform picture:', src[:22], len(src))
       await pg.screenshot(path=f'pod_{scheme}_2.png', clip={'x':986,'y':84,'width':380,'height':716})
-      await pg.fill(P+'.takeInput','The twelve passengers bar is too low to prove much.'); await pg.click(P+'.tagbtn >> text=Hot take'); await pg.click(P+'.publish')
+      await pg.fill(P+'.takeInput','The twelve passengers bar is too low to prove much.'); await pg.click(P+'.tagbtn >> text=Hot take'); await publish_now(pg, P+'.publish')
       await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(2.3)
       print('page audio ready:', await pg.eval_on_selector(ANN+'.clipAudio','a=>[a.readyState, Math.round(a.duration*10)/10]'), '| source card:', (await pg.inner_text(ANN+'.srccard')).replace('\n',' | '))
       await pg.screenshot(path=f'pod_{scheme}_3.png', clip={'x':0,'y':84,'width':986,'height':716})

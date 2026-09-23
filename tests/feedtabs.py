@@ -37,7 +37,9 @@ async def main():
     if sorted(tabs['everyone'])!=['r1','r2']: errs.append(f"Everyone held {tabs['everyone']}, wanted only the published two")
     if '2 annotations from everyone' not in tabs['everyoneNote']: errs.append('the Everyone note counted the wrong thing')
     if tabs['following']: errs.append('Following showed something while nobody is followed')
-    if tabs['foryou']!=5: errs.append('For you dropped your own annotations, which belong there')
+    # For you suggests other people's annotations. Yours are under You, and since 2026-09-22 it leaves them out,
+    # so of these five only r2, the one someone else published, belongs there.
+    if tabs['foryou']!=1: errs.append(f"For you held {tabs['foryou']}, wanted only the one someone else published")
 
     # The cards that are only on this computer say so, and Following says how to fill itself.
     marks=await pg.evaluate("""(recs)=>{

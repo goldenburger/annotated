@@ -49,7 +49,7 @@ async def main():
           await pg.screenshot(path=f'mx_{tag}_2.png')
           await pg.fill(M+'.takeInput',f'Matrix check {W} {scheme} {kind}')
           np=asyncio.ensure_future(ctx.wait_for_event('page'))
-          await pg.click(M+'.publish'); await asyncio.sleep(.6)
+          await publish_now(pg, M+'.publish'); await asyncio.sleep(.6)
           if await pg.is_visible(M+'.dAny'):
             dup_seen.add(kind); await pg.click(M+'.dAny')
           try:

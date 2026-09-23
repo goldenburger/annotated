@@ -17,7 +17,12 @@ const AnnotationPage = (() => {
     return `${d} day${d === 1 ? '' : 's'} ago`;
   }
   const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
-  const statsLine = (st) => `${plural(st.annotations, 'annotation')}, ${plural(st.followers || 0, 'follower')}${st.following !== undefined ? `, ${st.following} following` : ''}`;
+  // The number of people you follow has a name of its own, because pressing Follow has to move it. The same
+  // screen used to say Following on the byline and nought following in your own card.
+  // Every part of this is a number of our own counting, so it carries a span and goes in as markup.
+  const num = (v) => Number(v) || 0;
+  // Each count stays on one line. A narrow card broke "0 following" in two.
+  const statsLine = (st) => `<span class="stat">${plural(num(st.annotations), 'annotation')},</span> <span class="stat">${plural(num(st.followers), 'follower')}${st.following !== undefined ? ',' : ''}</span>${st.following !== undefined ? ` <span class="stat"><span class="youFollowing num">${num(st.following)}</span> following</span>` : ''}`;
 
   function xText(item, take) {
     const src = titleOf(item);
@@ -28,12 +33,20 @@ const AnnotationPage = (() => {
     return t ? t + tail : `On "${src}"`;
   }
   const xUrl = (item, take, permalink) => `https://x.com/intent/post?text=${encodeURIComponent(xText(item, take))}&url=${encodeURIComponent(permalink)}`;
-  const srcUrlOf = (item) => item.kind === 'video' ? `https://www.youtube.com/watch?v=${item.videoId}&t=${Math.floor(item.start)}s`
+  // The video id comes from whoever published it, so it is encoded rather than trusted to be eleven letters.
+  const srcUrlOf = (item) => item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
     : item.kind === 'post' || item.kind === 'audio' ? item.url : item.fragmentUrl;
   const titleOf = (item) => item.kind === 'video' || item.kind === 'audio' ? item.title : item.kind === 'post' ? `${item.author} on X` : item.meta.title;
   const kindLabel = (item) => ({ video: 'Video', post: 'Post', article: 'Article', audio: 'Podcast' }[item.kind] || 'Article');
+  // What the thing this was taken from is called, for the control that opens it. Back is a different job and
+  // wears a different label, because one button doing both under the name Back sent people to X when they
+  // meant to return to the list they came from.
+  const sourceLabel = (item) => ({ video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[item.kind] || 'Read the article');
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
-  const fmtDate = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''; };
+  // A plain day, 2026-09-17, is read as midnight in Greenwich, and shown in local time it came out a day early
+  // anywhere west of there. A date with a time in it is a real moment, and local time is right for that.
+  const dayOnly = (iso) => /^\d{4}-\d{2}-\d{2}$/.test(String(iso || '').trim());
+  const fmtDate = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', ...(dayOnly(iso) ? { timeZone: 'UTC' } : {}) }) : ''; };
 
   let claimHandler = null;
   function claimDialog() {
@@ -45,7 +58,7 @@ const AnnotationPage = (() => {
     dlg.innerHTML = `
       <form method="dialog" class="claimForm">
         <h3 id="claimTitle">File a claim</h3>
-        <p class="note">Use this if the clip uses your work beyond fair use. The clip stays up while the claim is reviewed.</p>
+        <p class="note">Use this if the annotation uses your work beyond fair use. It stays up while the claim is reviewed.</p>
         <label for="cName">Your name</label><input id="cName" type="text" required>
         <label for="cEmail">Email</label><input id="cEmail" type="email" required>
         <fieldset><legend>You are</legend>
@@ -74,7 +87,14 @@ const AnnotationPage = (() => {
       if (claimHandler) {
         send.disabled = true; send.textContent = 'Sending';
         try { await claimHandler(data); }
-        catch (err) { send.disabled = false; send.textContent = 'Send claim'; alert('The claim could not be sent. ' + (err.message || '')); return; }
+        catch (err) {
+          console.warn('claim', err); send.disabled = false; send.textContent = 'Send claim';
+          // The database limits how many claims come in at once and says why in plain words, so that is what
+          // is passed on. Anything else is most likely the connection.
+          const m = String((err && err.message) || '');
+          alert(/lot of claims/.test(m) ? m : 'The claim could not be sent. Check your connection and try again.');
+          return;
+        }
         send.disabled = false; send.textContent = 'Send claim';
       }
       form.hidden = true; dlg.querySelector('.claimDone').hidden = false;
@@ -110,6 +130,18 @@ const AnnotationPage = (() => {
     const you = container.querySelector('.navProfile');
     if (you) you.addEventListener('click', () => onProfile && onProfile());
     return { main: container.querySelector('.sitemain'), rail: container.querySelector('.rail') };
+  }
+
+  // A page for an annotation that is not there, deleted or never found, inside the same frame as every other
+  // page, with the wordmark to go home. It used to be one line of text on an empty page.
+  function renderMissing(container, { title, why = '', onHome, onProfile, siteNav = true }) {
+    stopClock(container);
+    const { main, rail } = shell(container, { active: null, onHome, onProfile, siteNav });
+    main.classList.add('ann');
+    main.innerHTML = `<div class="emptyState shellEmpty"><p class="esTitle">${esc(title)}</p>${why ? `<p>${esc(why)}</p>` : ''}
+      <p><button type="button" class="ghost sm missHome">See annotations</button></p></div>`;
+    rail.remove();
+    main.querySelector('.missHome').addEventListener('click', () => onHome && onHome());
   }
 
   // A small popup menu anchored to a button. Closes on outside click or Escape.
@@ -152,7 +184,9 @@ const AnnotationPage = (() => {
     return Object.entries(c).sort((a, b) => b[1] - a[1]);
   }
   // Only your own. A feed or a shared list also holds other people's annotations.
-  const mineCount = (records) => records.filter((r) => r.mine || !r.author).length;
+  // Your annotations, not the ones this computer happens to hold. Two accounts share one browser and one
+  // store, so counting the store told David he had written four when he had written one.
+  const mineCount = (records, youId) => records.filter((r) => r.mine || !r.author || (youId && r.author && r.author.id === youId)).length;
   // Saved on this computer and nowhere else, so nobody else's feed has it.
   const onlyHere = (r) => !r.cloud && !r.author;
   function railYou(stats) {
@@ -169,16 +203,27 @@ const AnnotationPage = (() => {
   // With shared accounts: people worth following and what is trending. Without, the old placeholder stays in debug mode.
   function railFollow(social) {
     if (!social || !social.people) return `<section class="railcard dbg"><h2>Who to follow</h2><p class="note">Sign in to see people worth following.</p></section>`;
-    if (!social.people.length) return '';
+    // An empty card used to simply disappear, so following the last person made the whole thing vanish with
+    // no word about where everyone went.
+    if (!social.people.length) return `<section class="railcard"><h2>People worth following</h2><p class="note">${social.followed && social.followed.size ? 'You follow everyone who has published this month. Their annotations are under Following.' : 'Nobody else has published this month. Yours will show up here for them.'}</p></section>`;
     return `<section class="railcard"><h2>People worth following</h2><ul class="peopleList">${social.people.map((p) => `<li>
         <button type="button" class="railPerson" data-handle="${esc(p.handle)}">${pAv(p, 'sm')}<span class="rlText"><span class="rlTake">${esc(p.name)}</span><span class="note">@${esc(p.handle)}. ${plural(p.annotations, 'annotation')} this month</span></span></button>
         <button type="button" class="ghost sm followBtn" data-id="${esc(p.id)}" aria-pressed="false">Follow</button></li>`).join('')}</ul></section>`;
   }
-  function railTrending(social) {
-    const t = social && social.trending;
-    if (!t || (!t.sources.length && !t.tags.length)) return '';
+  // here is the annotation on the page, if there is one. Trending listed the very source you were reading
+  // about, and pressing it only drew the same page again, so that row is left out.
+  // also is anything already listed in the rail, such as your recent annotations, so a source is not named
+  // twice in a row. With one person publishing, trending was simply that person's recent list again.
+  function railTrending(social, here = null, also = []) {
+    const t0 = social && social.trending;
+    if (!t0) return '';
+    const keyOf = (it) => (it ? (it.videoId || (it.meta && it.meta.url) || it.url || it.audioUrl || '') : '');
+    const skipIds = new Set([here && here.id, ...also.map((r) => r.id)].filter(Boolean));
+    const skipKeys = new Set([here && keyOf(here.item), ...also.map((r) => keyOf(r.item))].filter(Boolean));
+    const t = { ...t0, sources: (t0.sources || []).filter((x) => !skipIds.has(x.sample_id) && !(x.source_key && skipKeys.has(x.source_key))) };
+    if (!t.sources.length && !(t.tags || []).length) return '';
     return `<section class="railcard"><h2>Trending this week</h2>
-      ${t.sources.length ? `<ul class="raillist trend">${t.sources.map((x) => `<li><button type="button" class="railOpen" data-id="${esc(x.sample_id)}"><span class="rlKind">${kindIcon({ kind: x.kind })}</span><span class="rlText"><span class="rlTake">${esc(x.title)}</span><span class="note">${plural(Number(x.annotations), 'annotation')}${Number(x.activity) > Number(x.annotations) ? (() => { const n = Number(x.activity) - Number(x.annotations); return `, ${n} ${n === 1 ? 'reply or reaction' : 'replies and reactions'}`; })() : ''}</span></span></button></li>`).join('')}</ul>` : ''}
+      ${t.sources.length ? `<ul class="raillist trend">${t.sources.map((x) => `<li><button type="button" class="railOpen" data-id="${esc(x.sample_id)}"><span class="rlKind">${kindIcon({ kind: x.kind })}</span><span class="rlText"><span class="rlTake">${esc(x.title)}</span><span class="note">${x.quote ? `&ldquo;${esc(x.quote)}&rdquo;. ` : ''}${plural(Number(x.annotations), 'annotation')}${Number(x.activity) > Number(x.annotations) ? (() => { const n = Number(x.activity) - Number(x.annotations); return `, ${n} ${n === 1 ? 'reply or reaction' : 'replies and reactions'}`; })() : ''}</span></span></button></li>`).join('')}</ul>` : ''}
       ${t.tags.length ? `<div class="tagcloud">${t.tags.map((x) => `<button type="button" class="tagpill railTag" data-tag="${esc(x.tag)}">${esc(x.tag)} <span class="num">${x.uses}</span></button>`).join('')}</div>` : ''}</section>`;
   }
   // Follow buttons anywhere on the page: optimistic, and put back if saving fails.
@@ -192,8 +237,25 @@ const AnnotationPage = (() => {
         set(on); b.disabled = true;
         const ok = await social.onFollow(b.dataset.id, on).catch(() => false);
         b.disabled = false;
-        if (ok === false) set(!on);
-        else { const n = root.querySelector(`.followCount[data-id="${b.dataset.id}"]`); if (n) n.textContent = String(Math.max(0, Number(n.textContent) + (on ? 1 : -1))); }
+        // A refused follow used to flip the button back and say nothing, which looked like a button that did
+        // not work. The database refuses following yourself, so that is the one worth naming.
+        if (ok === false) {
+          set(!on);
+          let say = b.parentElement && b.parentElement.querySelector('.followErr');
+          if (!say) { say = document.createElement('p'); say.className = 'note followErr'; say.setAttribute('role', 'status'); b.after(say); }
+          say.textContent = social.you && social.you.id === b.dataset.id ? 'That is you.' : 'That did not save. Try again in a moment.';
+          setTimeout(() => say.remove(), 4000);
+        }
+        else {
+          const n = root.querySelector(`.followCount[data-id="${b.dataset.id}"]`);
+          if (n) n.textContent = String(Math.max(0, Number(n.textContent) + (on ? 1 : -1)));
+          // Your own card counts the people you follow, and this is the moment that number changes.
+          root.querySelectorAll('.youFollowing').forEach((mine) => { mine.textContent = String(Math.max(0, Number(mine.textContent) + (on ? 1 : -1))); });
+          // Someone you have just followed is no longer someone worth following, so they leave that list
+          // rather than sitting there under a button that now says Following.
+          const row = b.closest('.peopleList li');
+          if (row && on) row.remove();
+        }
       });
     });
     root.querySelectorAll('.railPerson').forEach((b) => b.addEventListener('click', () => social.onPerson && social.onPerson(b.dataset.handle)));
@@ -211,7 +273,7 @@ const AnnotationPage = (() => {
     try { seen = localStorage.getItem('annotated-about-seen') === '1'; localStorage.setItem('annotated-about-seen', '1'); } catch {}
     if (seen) return '';
     return `<section class="railcard about"><h2>${Brand.wordmark('sm')}</h2>
-      <p>Highlight a passage, clip a video or a podcast, or save a post, then say what you think. Every annotation links back to its source.</p>
+      <p>Select any words on a page, clip a video or a podcast, or save a post, then say what you think. Every annotation links back to its source.</p>
       <p class="note">${Brand.icon('flag')} If an annotation uses your work unfairly, File a claim sends it for review.</p></section>`;
   }
 
@@ -222,7 +284,8 @@ const AnnotationPage = (() => {
   // Who "you" are: the signed-in account when there is one, otherwise the local placeholder.
   let me = { name: 'You', handle: '', avatar: '' };
   const setMe = (p) => { me = p ? { name: p.name || 'You', handle: p.handle || '', avatar: p.avatar || '' } : { name: 'You', handle: '', avatar: '' }; };
-  const meHandle = () => (me.handle ? '@' + me.handle : '@you');
+  // Signed out there is no handle, and "@you" looked like one that somebody owned.
+  const meHandle = () => (me.handle ? '@' + me.handle : '');
   const avInner = () => (me.avatar ? `<img src="${esc(me.avatar)}" alt="" referrerpolicy="no-referrer">` : esc((me.name || 'Y').trim().slice(0, 1).toUpperCase()));
   const av = (cls) => `<span class="avatar ${cls} ${me.avatar ? 'hasImg' : ''}" aria-hidden="true">${avInner()}</span>`;
   // Anyone else: their own name, handle and photo.
@@ -249,9 +312,13 @@ const AnnotationPage = (() => {
   async function render(container, opts, hooks = {}) {
     stopClock(container);
     const { item, take, permalink, backLabel } = opts;
+    // Saved only here, the banner just says so. The line under it already says how to share it, and the
+    // banner used to repeat that in other words, asking to publish "again" something never published.
+    // Straight after publishing, Back already returns to the page you annotated (backIsSource), so the source
+    // control beside it is left out. Two controls to one place under two names read as two different places.
     const records = opts.records || [];
     const showBanner = opts.showBanner !== false;
-    let stats = opts.stats || { annotations: mineCount(records) || 1, followers: 0 };
+    let stats = opts.stats || { annotations: mineCount(records, opts.youId) || 1, followers: 0 };
     const isVideo = item.kind === 'video', isPost = item.kind === 'post', isAudio = item.kind === 'audio';
     const srcUrl = safeLink(srcUrlOf(item)) || '#', title = titleOf(item);
     // Clip addresses made for the previous annotation shown here are released first.
@@ -260,6 +327,10 @@ const AnnotationPage = (() => {
     const own = (u) => { container._urls.push(u); return u; };
     const clipUrl = isVideo || isAudio ? (item.blob ? own(URL.createObjectURL(item.blob)) : safeLink(item.mediaUrl) || null) : null;
     const voiceUrl = take.voice ? (take.voice.blob ? own(URL.createObjectURL(take.voice.blob)) : safeLink(take.voice.url) || null) : null;
+    // The author's own photo or video, from this computer or from the bucket. Other people write this, so the
+    // address is checked like every other one before it reaches the page.
+    const upSrc = take.upload ? (take.upload.blob ? own(URL.createObjectURL(take.upload.blob))
+      : take.upload.kind === 'video' ? safeLink(take.upload.url) : safeImg(take.upload.url)) : '';
     const videoThumb = isVideo ? (item.thumb || item.poster) : null;
     const created = opts.created || Date.now();
     // In the preview, source links are buttons so the host page cannot intercept them. Elsewhere they are real links.
@@ -299,7 +370,7 @@ const AnnotationPage = (() => {
         <figcaption>${Brand.icon('image')} As it appeared on ${esc(item.meta.site || 'the page')}, ${esc(fmtDate(new Date(created).toISOString()))}</figcaption>
       </figure>` : ''}
       <figure class="pq">
-        <blockquote><mark>${esc(item.text)}</mark></blockquote>
+        <blockquote>${/\n\n/.test(item.text || '') ? inked(item.text) : `<mark>${esc(item.text)}</mark>`}</blockquote>
       </figure>`;
     // Clips: one source line attached to the player, with where the clip sits in the original.
     const srcBar = (where, who, action) => {
@@ -311,10 +382,13 @@ const AnnotationPage = (() => {
         <span class="sbPos">${pos}<span class="sbTime num">${fmt(item.start, short)} to ${fmt(item.end, short)}${D > 0 ? ` of ${fmt(D)}` : ''}</span><span class="sbGo">${action} ${Brand.icon('external')}</span></span>
       ${cardClose}`;
     };
+    // An article's card carries the site's own picture or none. It used to fall back to the top left corner
+    // of the page screenshot, which is usually blank margin, so the card showed an empty white box, and the
+    // screenshot is already on the page just above it.
     const source = isAudio ? srcBar(item.show || 'Podcast', '', 'Listen to the episode')
       : isPost ? '' : isVideo ? srcBar('YouTube', item.channel || '', `Watch from ${fmt(item.start)}`) : `
-      ${item.meta.image || item.shot ? cardOpen : cardOpen.replace('class="srccard', 'class="srccard noimg')}
-        ${safeImg(item.meta.image) ? `<img src="${esc(safeImg(item.meta.image))}" alt="">` : safeImg(item.shot) ? `<img class="topleft" src="${esc(safeImg(item.shot))}" alt="">` : ''}
+      ${safeImg(item.meta.image) ? cardOpen : cardOpen.replace('class="srccard', 'class="srccard noimg')}
+        ${safeImg(item.meta.image) ? `<img src="${esc(safeImg(item.meta.image))}" alt="">` : ''}
         <span class="scard"><span class="skind">${kindIcon(item)} ${esc(item.meta.site)}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
       ${cardClose}`;
 
@@ -329,7 +403,6 @@ const AnnotationPage = (() => {
           <div class="toastRow">
             <span class="toastCheck">${Brand.icon('check')}</span>
             <b class="toastText">${opts.localOnly ? 'Saved on this computer' : 'Published'}</b>
-            ${opts.localOnly ? '<span class="toastSub">Sign in and publish it again to share it.</span>' : ''}
             <span class="toastActions" ${opts.localOnly ? 'hidden' : ''}>
               <button type="button" class="ghost sm toastCopy">${Brand.icon('link')} <span>Copy link</span></button>
               <button type="button" class="ghost sm inviteOpen" aria-expanded="false">${Brand.icon('user')} Invite</button>
@@ -340,19 +413,27 @@ const AnnotationPage = (() => {
           <p class="note inviteMsg" hidden></p>
           <p class="note dbg">Nothing is saved or sent in this build.</p>
         </div>` : ''}
-        ${hooks.onBack ? `<button type="button" class="quiet back">${Brand.icon('arrowLeft')} ${esc(backLabel || 'Back')}</button>` : ''}
+        <div class="topRow">
+          ${hooks.onBack ? `<button type="button" class="quiet back">${Brand.icon('arrowLeft')} ${esc(backLabel || 'Back')}</button>` : ''}
+          ${srcUrl && srcUrl !== '#' && !(hooks.onBack && opts.backIsSource) ? (jump
+            ? `<button type="button" class="quiet toSource srcJump">${esc(sourceLabel(item))} ${Brand.icon('external')}</button>`
+            : `<a class="quiet toSource" href="${esc(srcUrl)}" target="_blank" rel="noopener">${esc(sourceLabel(item))} ${Brand.icon('external')}</a>`) : ''}
+        </div>
         ${opts.localOnly ? `<p class="localNote" role="status">${Brand.icon('info')} <span>This annotation is only on this computer.</span>${hooks.onShareNow ? '<button type="button" class="strong sm shareNow">Publish it now</button>' : '<span class="note">Sign in from the panel to share it.</span>'}</p>` : ''}
         <article class="annCard">
           <header class="who">
             <button type="button" class="avatar asLink profileLink ${(opts.author || me).avatar ? 'hasImg' : ''}" aria-label="${opts.author && !opts.mine ? esc(pName(opts.author)) + "'s profile" : 'Your profile'}">${opts.author ? pInner(opts.author) : avInner()}</button>
             <div><div class="name"><button type="button" class="asLink profileLink">${esc(pName(opts.author))}</button> <span class="uname">${esc(pHandle(opts.author))}</span>
-              ${opts.author && !opts.mine && opts.social && opts.social.onFollow ? `<button type="button" class="ghost sm followBtn inline" data-id="${esc(opts.author.id)}" ${opts.social.followsAuthor ? 'data-on="1"' : ''}>Follow</button>` : ''}</div>
+              ${opts.author && !opts.mine && opts.social && opts.social.onFollow && opts.social.youId ? `<button type="button" class="ghost sm followBtn inline" data-id="${esc(opts.author.id)}" ${opts.social.followsAuthor ? 'data-on="1"' : ''}>Follow</button>` : ''}</div>
               <time class="when" datetime="${new Date(created).toISOString()}">${relTime(created)}</time></div>
             <span class="tagSlot">${take.tag ? `<button type="button" class="tag tagLink" title="See all ${esc(take.tag)} annotations">${esc(take.tag)}</button>` : ''}</span>
           </header>
           <p class="take" ${take.text ? '' : 'hidden'}>${esc(take.text || '')}</p>
           ${take.gif && safeImg(take.gif.url) ? `<figure class="takeGif"><img src="${esc(safeImg(take.gif.url))}" alt="${esc(take.gif.alt || 'A GIF')}" loading="lazy">
             <figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}
+          ${upSrc ? (take.upload.kind === 'video'
+            ? `<figure class="takeUp"><video controls preload="metadata" src="${esc(upSrc)}" ${take.upload.alt ? `aria-label="${esc(take.upload.alt)}"` : ''}></video></figure>`
+            : `<figure class="takeUp"><img src="${esc(upSrc)}" alt="${esc(take.upload.alt || '')}" loading="lazy" ${take.upload.w && take.upload.h ? `width="${Number(take.upload.w)}" height="${Number(take.upload.h)}"` : ''}></figure>`) : ''}
           <div class="editBox" hidden></div>
           ${voiceUrl ? `<div class="vnote">${Brand.icon('mic')}<audio class="pageVoice" controls src="${esc(voiceUrl)}"></audio></div>` : ''}
           <div class="mediaUnit ${isVideo || isAudio ? 'av' : ''}">
@@ -366,7 +447,7 @@ const AnnotationPage = (() => {
             <button type="button" class="ghost sm reactBtn" aria-label="Add a reaction">${Brand.icon('smile')} React</button>
             <span class="mwrap" ${opts.localOnly ? 'hidden' : ''}><button type="button" class="ghost sm shareBtn">${Brand.icon('share')} Share</button></span>
             ${hooks.onEdit || hooks.onDelete ? `<span class="mwrap"><button type="button" class="quiet moreBtn" aria-label="More options">${Brand.icon('more', 'lg')}</button></span>` : ''}
-            <button type="button" class="claim">${Brand.icon('flag')} File a claim</button>
+            ${opts.localOnly ? '' : `<button type="button" class="claim">${Brand.icon('flag')} File a claim</button>`}
           </div>
           <div class="delWrap" hidden></div>
         </article>
@@ -374,20 +455,29 @@ const AnnotationPage = (() => {
           <h3 class="cTitle">Comments</h3>
           <textarea class="cText" rows="2" aria-label="Add a comment" placeholder="Add a comment. Type : for emoji. Ctrl or Cmd + Enter posts it."></textarea>
           <div class="cRow"><span class="cEmojiSlot"></span>
-            <button type="button" class="quiet cGifBtn hasTip" data-tooltip="Add a GIF" aria-label="Add a GIF" hidden>${Brand.icon('image')}</button>
+            ${typeof Compose !== 'undefined' && Compose.checkMedia ? `<button type="button" class="quiet cUpBtn hasTip" data-tooltip="Add a photo or video" aria-label="Add a photo or video">${Brand.icon('image')}</button>
+            <input type="file" class="cUpFile" accept="${Compose.MEDIA_ACCEPT}" hidden>` : ''}
+            <button type="button" class="quiet cGifBtn hasTip" data-tooltip="Add a GIF" aria-label="Add a GIF" hidden><span class="gifMark" aria-hidden="true">GIF</span></button>
             <button type="button" class="strong sm cPost">Comment</button></div>
           <div class="gifPick cGifPick" hidden></div>
           <div class="gifChosen cGifChosen" hidden><img class="gcImg" alt=""><button type="button" class="quiet gcRemove">${Brand.icon('trash')} Remove the GIF</button></div>
+          <div class="upChosen cUpChosen" hidden><div class="upMedia"></div>
+            <input type="text" class="upAlt" maxlength="200" aria-label="Describe it" placeholder="Describe it for anyone who cannot see it">
+        <p class="note upHint">A few words of description let people who cannot see it know what it shows.</p>
+            <button type="button" class="quiet upRemove">${Brand.icon('trash')} <span>Remove</span></button></div>
+          <p class="error upErr cUpErr" role="alert" hidden></p>
           <ul class="cList"></ul>
           <button type="button" class="link cMore" hidden></button>
         </section>
       </div>`;
     const same = records.filter((r) => r.id !== opts.id && sameSourceDoc(r.item, item));
     const social = opts.social || null;
+    const recentHere = yoursOnly(records, opts.youId).filter((r) => r.id !== opts.id && !same.includes(r));
     rail.innerHTML = railYou(social && social.you ? social.you : stats)
       + (same.length ? `<section class="railcard"><h2>More on this source</h2>${railList(same)}</section>` : '')
-      + railRecent(records.filter((r) => r.id !== opts.id && !same.includes(r)))
-      + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
+      // Yours only. This computer can hold another account's annotations as well.
+      + railRecent(recentHere)
+      + railTrending(social, { id: opts.id, item }, recentHere.slice().sort((a, b) => b.created - a.created).slice(0, 4)) + railFollow(social) + railTags(records) + railAbout();
     const q = (s) => container.querySelector(s);
 
     // Share and more menus
@@ -512,10 +602,10 @@ const AnnotationPage = (() => {
       q('.editBtn').addEventListener('click', () => {
         let tag = take.tag || null;
         box.innerHTML = `
-          <div class="kindLabel">Kind <span>(optional)</span></div>
-          <div class="tags" role="radiogroup" aria-label="Kind of annotation">${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="${t === tag}">${t}</button>`).join('')}</div>
+          <div class="kindLabel">Tag <span>(optional)</span></div>
+          <div class="tags" role="radiogroup" aria-label="Tag for this annotation">${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="${t === tag}">${t}</button>`).join('')}</div>
           <textarea class="editText" rows="3" maxlength="500" aria-label="Your take"></textarea>
-          <p class="error editErr" hidden>Add a written take, or keep the voice note.</p>
+          <p class="error editErr" hidden>Write something, or the annotation has nothing of yours on it.</p>
           <div class="row"><button type="button" class="ghost editCancel">Cancel</button><button type="button" class="strong editSave">Save</button></div>`;
         box.querySelector('.editText').value = take.text || '';
         EmojiKit.autocomplete(box.querySelector('.editText'));
@@ -529,7 +619,9 @@ const AnnotationPage = (() => {
         box.querySelector('.editCancel').addEventListener('click', close);
         box.querySelector('.editSave').addEventListener('click', async () => {
           const text = box.querySelector('.editText').value.trim();
-          if (!text && !take.voice) { box.querySelector('.editErr').hidden = false; return; }
+          // Words may go when something else of yours stays: a voice note, a GIF, a photo or a poll.
+          const rest = take.voice || take.gif || take.upload || (take.poll && take.poll.options && take.poll.options.length >= 2);
+          if (!text && !rest) { box.querySelector('.editErr').hidden = false; return; }
           take.text = text; take.tag = tag;
           await hooks.onEdit({ text, tag });
           q('.take').textContent = text;
@@ -601,7 +693,9 @@ const AnnotationPage = (() => {
       clearTimeout(cpTimer);
       cpTimer = setTimeout(() => { lab.textContent = 'Copy link'; cp.classList.remove('done'); cp.querySelector('svg').outerHTML = Brand.icon('link'); }, 2000);
     });
-    q('.claim').addEventListener('click', () => {
+    // An annotation kept only on this computer has nobody else looking at it and nowhere a claim could go, and
+    // the form used to say "Claim received" while sending nothing. The button comes with publishing.
+    if (q('.claim')) q('.claim').addEventListener('click', () => {
       claimHandler = hooks.onClaim || null;
       const dlg = claimDialog();
       const form = dlg.querySelector('.claimForm');
@@ -623,7 +717,7 @@ const AnnotationPage = (() => {
       q('.cList').innerHTML = list.length ? shown.map((c) => `
         <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeImg(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeImg(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeImg(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeImg(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
         : '<li class="empty">No comments yet. Start the conversation.</li>';
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
@@ -656,6 +750,7 @@ const AnnotationPage = (() => {
     let cGif = null;
     const cGifShown = (g) => {
       cGif = g;
+      if (g && cUp) cUpShown(null);
       q('.cGifChosen').hidden = !g;
       if (g) { q('.cGifChosen .gcImg').src = g.preview || g.url; q('.cGifChosen .gcImg').alt = g.alt || 'A GIF'; }
     };
@@ -671,13 +766,44 @@ const AnnotationPage = (() => {
       if (!box.hidden) { box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); cPicker.opened(); }
     });
     q('.cGifChosen .gcRemove').addEventListener('click', () => { cGifShown(null); q('.cGifBtn').focus(); });
+    // A photo or video in a comment, checked by the same rules as the take box.
+    let cUp = null;
+    const cUpErr = (t) => { const e = q('.cUpErr'); if (e) { e.textContent = t || ''; e.hidden = !t; } };
+    function cUpShown(u) {
+      if (cUp && cUp.url && (!u || u.url !== cUp.url)) URL.revokeObjectURL(cUp.url);
+      cUp = u;
+      const box = q('.cUpChosen');
+      if (!box) return;
+      if (u) {
+        Compose.showMedia(box.querySelector('.upMedia'), u);
+        box.querySelector('.upRemove span').textContent = u.kind === 'video' ? 'Remove the video' : 'Remove the photo';
+        if (cGif) cGifShown(null);
+      } else { box.querySelector('.upMedia').textContent = ''; box.querySelector('.upAlt').value = ''; }
+      box.hidden = !u;
+    }
+    const cTakeFile = async (file) => {
+      cUpErr('');
+      if (!file) return;
+      const r = await Compose.checkMedia(file);
+      if (r.error) { cUpErr(r.error); return; }
+      cUpShown(r.upload);
+    };
+    if (q('.cUpBtn')) {
+      q('.cUpBtn').addEventListener('click', (e) => { q('.cUpFile').click(); if (e.detail) e.currentTarget.blur(); });
+      q('.cUpFile').addEventListener('change', (e) => { cTakeFile(e.target.files && e.target.files[0]); e.target.value = ''; });
+      q('.cUpChosen .upRemove').addEventListener('click', () => { cUpShown(null); q('.cUpBtn').focus(); });
+      q('.cText').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f) { e.preventDefault(); cTakeFile(f); } });
+      container._takeCommentFile = cTakeFile;
+    }
     const post = () => {
       const txt = q('.cText').value.trim();
-      // A GIF on its own is a reply, the same as a word is.
-      if (!txt && !cGif) return;
-      const added = { text: txt, gif: cGif || null, t: Date.now(), mine: true };
+      // A GIF on its own is a reply, the same as a word is, and so is a photo.
+      if (!txt && !cGif && !cUp) return;
+      const upload = cUp ? { blob: cUp.blob, kind: cUp.kind, type: cUp.type, w: cUp.w, h: cUp.h, alt: q('.cUpChosen .upAlt').value.trim() } : null;
+      const added = { text: txt, gif: cGif || null, upload, t: Date.now(), mine: true };
       comments.push(added);
       q('.cText').value = '';
+      cUp = null; cUpShown(null);
       cGifShown(null);
       if (cPicker) cPicker.clear();
       q('.cGifPick').hidden = true;
@@ -692,6 +818,8 @@ const AnnotationPage = (() => {
     EmojiKit.reactions(q('.reactHost'), { list: opts.reactions || [], addButton: q('.reactBtn'), onChange: (list, change) => hooks.onReactions && hooks.onReactions(list, change) });
 
     // Poll: tap an option to vote. With no accounts yet, your vote is the only one.
+    // Pressing your own choice again takes the vote back. That is worth saying the moment it happens.
+    let pollSaid = '';
     const drawPollBox = () => {
       const p = take.poll, box = q('.pollBox');
       if (!p) { box.hidden = true; return; }
@@ -704,10 +832,11 @@ const AnnotationPage = (() => {
         const pct = voted && total ? Math.round((counts[i] / total) * 100) : 0;
         return `<button type="button" class="pollOpt ${voted ? 'voted' : ''} ${i === p.vote ? 'mine' : ''}" data-i="${i}" aria-pressed="${i === p.vote}">
           <span class="pollFill" style="width:${pct}%"></span><span class="pollLabel">${esc(o)}${i === p.vote ? ` ${Brand.icon('check')}` : ''}</span>${voted ? `<span class="pollPct num">${pct}%</span>` : ''}</button>`;
-      }).join('') + `<p class="note pollNote">${voted ? `${total} vote${total === 1 ? '' : 's'}. Tap another option to change yours.` : total ? `${total} vote${total === 1 ? '' : 's'} so far. Tap an option to vote.` : 'Tap an option to vote.'}</p>`;
+      }).join('') + `<p class="note pollNote">${pollSaid ? `${pollSaid} ` : ''}${voted ? `${total} vote${total === 1 ? '' : 's'}. Choose another option to change yours, or the same one to take it back.` : total ? `${total} vote${total === 1 ? '' : 's'} so far. Choose an option to vote.` : 'Choose an option to vote.'}</p>`;
       box.querySelectorAll('.pollOpt').forEach((b) => b.addEventListener('click', () => {
         const i = Number(b.dataset.i);
         if (p.counts) { if (p.vote !== null && p.vote !== undefined) p.counts[p.vote]--; if (p.vote !== i) p.counts[i]++; }
+        pollSaid = p.vote === i ? 'Your vote is taken back.' : '';
         p.vote = p.vote === i ? null : i;
         drawPollBox();
         hooks.onPollVote && hooks.onPollVote(p.vote);
@@ -717,7 +846,9 @@ const AnnotationPage = (() => {
     q('.cText').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); post(); } });
     drawComments();
     container.__annClock = setInterval(() => {
-      if (!container.isConnected) return stopClock(container);
+      // The page this clock keeps current can be replaced without a new render, when the annotation is
+      // deleted while it is open, and the clock then threw every thirty seconds for as long as the tab stayed.
+      if (!container.isConnected || !q('.cTitle') || !q('.when')) return stopClock(container);
       drawComments();
       q('.when').textContent = relTime(created);
     }, 30000);
@@ -726,7 +857,7 @@ const AnnotationPage = (() => {
     if (jump) container.querySelectorAll('.srcJump').forEach((b) => b.addEventListener('click', () => hooks.onOpenSource(item)));
 
     return {
-      setStats(s) { stats = s; const e = q('.rail .stats'); if (e) e.textContent = statsLine(stats); },
+      setStats(s) { stats = s; const e = q('.rail .stats'); if (e) e.innerHTML = statsLine(stats); },
       hideBanner() { const b = q('.banner'); if (b) b.remove(); },
     };
   }
@@ -734,7 +865,22 @@ const AnnotationPage = (() => {
   // Which source a card is about. Empty when there is nothing to go on, so those are never grouped.
   // What to call an annotation in a list. A poll is a take of its own now, so it is named by its question
   // rather than being filed under Untitled.
-  const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '') || (t && t.gif ? 'A GIF' : '');
+  const blobUrls = new WeakMap();
+  function cmtUpload(c) {
+    const u = c && c.upload;
+    if (!u) return '';
+    // A file saved on this computer gets one address per file, held beside it rather than on it, because the
+    // comment is saved again later and an address written into it would be dead after a reload.
+    let src;
+    if (u.blob) { src = blobUrls.get(u.blob); if (!src) { src = URL.createObjectURL(u.blob); blobUrls.set(u.blob, src); } }
+    else src = u.kind === 'video' ? safeLink(u.url) : safeImg(u.url);
+    if (!src) return '';
+    return u.kind === 'video'
+      ? `<figure class="cmtUp"><video controls preload="metadata" src="${esc(src)}" ${u.alt ? `aria-label="${esc(u.alt)}"` : ''}></video></figure>`
+      : `<figure class="cmtUp"><img src="${esc(src)}" alt="${esc(u.alt || '')}" loading="lazy" ${u.w && u.h ? `width="${Number(u.w)}" height="${Number(u.h)}"` : ''}></figure>`;
+  }
+  const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '') || (t && t.gif ? 'A GIF' : '')
+    || (t && t.upload ? (t.upload.kind === 'video' ? 'A video' : 'A photo') : '');
   const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || '')
     : it.kind === 'audio' ? 'a:' + (it.url || '')
       : it.kind === 'post' ? 'p:' + (it.id || it.url || '')
@@ -760,13 +906,18 @@ const AnnotationPage = (() => {
     .map((para) => para.split('\n').filter((l) => l.trim()).map((l) => `<mark>${esc(l)}</mark>`).join('<br>'))
     .filter(Boolean).map((para) => `<p>${para}</p>`).join('');
 
-  function renderFeed(container, { records, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true }) {
+  // yours is everything of yours, before a tab narrowed the list. Your card and your tags describe you, not
+  // the tab you are on, and counting the tab's list said nought annotations on Following.
+  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true }) {
     stopClock(container);
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
     main.classList.add('ann', 'feed');
+    // Someone else's profile counts their follows, and your own counts yours. Only the first used to be
+    // asked for, so your own profile said nought followers beside a card that said one.
+    const pStats = (person ? social && social.personStats : social && social.youCounts) || {};
     const draw = () => {
       // "For you" arrives already ranked, so its order is kept.
       const ranked = social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag;
@@ -782,21 +933,23 @@ const AnnotationPage = (() => {
         <header class="feedHead">
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
-               <div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${social && social.personStats ? social.personStats.followers : 0}</span> follower${social && social.personStats && social.personStats.followers === 1 ? '' : 's'}, ${social && social.personStats ? social.personStats.following : 0} following</div>
+               <div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
                ${onDeleteAll && !person && records.length ? delAllBox(records) : ''}`
             : `<h1>Home</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
-        ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
-          ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
-        </div>` : ''}
-        <div class="seg feedFilter" role="radiogroup" aria-label="Show">
-          ${kinds.map(([k, l]) => `<label><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
+        <div class="feedBar">
+          ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
+            ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
+          </div>` : ''}
+          <div class="feedSortRow" ${social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
+            <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>Newest</span></label>
+            <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>Most discussed</span></label>
+          </div></div>
+          <div class="seg feedFilter" role="radiogroup" aria-label="Show">
+            ${kinds.map(([k, l]) => `<label><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
+          </div>
         </div>
-        <div class="feedSortRow" ${social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
-          <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>Newest</span></label>
-          <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>Most discussed</span></label>
-        </div></div>
         <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => {
           const it = r.item;
           // Three takes on one post used to repeat the author and the post three times over. The source is
@@ -829,11 +982,14 @@ const AnnotationPage = (() => {
           const nC = (r.comments || []).length, nReact = reactTotal(r.reactions), poll = r.take.poll;
           const stats = [];
           if (nReact) stats.push(`<span class="fStat fReact" aria-label="${plural(nReact, 'reaction')}">${reactEmojis(r.reactions).slice(0, 4).join('')}<span class="num">${nReact}</span></span>`);
-          if (poll) stats.push(`<span class="fStat" aria-label="Poll">${Brand.icon('poll')}${poll.vote !== null && poll.vote !== undefined ? '1 vote' : 'Poll'}</span>`);
+          const nVotes = poll ? (poll.counts ? poll.counts.reduce((a, b) => a + (Number(b) || 0), 0) : Number.isFinite(r.pollVotes) ? r.pollVotes : (poll.vote !== null && poll.vote !== undefined ? 1 : 0)) : 0;
+          if (poll) stats.push(`<span class="fStat" aria-label="Poll">${Brand.icon('poll')}${nVotes ? plural(nVotes, 'vote') : 'Poll'}</span>`);
           if (nC) stats.push(`<span class="fStat" aria-label="${plural(nC, 'comment')}">${Brand.icon('comment')}<span class="num">${nC}</span></span>`);
           if (r.take.voice) stats.push(`<span class="fStat" aria-label="Voice note">${Brand.icon('mic')}Voice</span>`);
+          if (r.take.upload) stats.push(`<span class="fStat" aria-label="${r.take.upload.kind === 'video' ? 'A video' : 'A photo'}">${Brand.icon('image')}${r.take.upload.kind === 'video' ? 'Video' : 'Photo'}</span>`);
           return `<li class="cardItem"><button type="button" class="card ${thumb ? '' : 'nothumb'}" data-id="${esc(r.id)}">
             <span class="cbody">
+              ${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(takeLine(r.take))}</span>
               <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
@@ -843,8 +999,8 @@ const AnnotationPage = (() => {
           </button>
           ${thumb && playable ? `<button type="button" class="cthumb cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here" aria-expanded="false"><img src="${esc(thumb)}" alt="" loading="lazy"><span class="cdur num">${fmt(it.end - it.start)}</span><span class="cplay">${Brand.icon('play')}</span></button>` : ''}
           </li>`;
-        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? 'Follow someone and their annotations show up here.' : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select a passage in any article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
-      rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(records), followers: 0 }) + railTrending(social) + railFollow(social) + railTags(records) + railAbout();
+        }).join('') : `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${social && social.tabs && social.tabs.current === 'following' ? esc(social.tabs.empty || 'Follow someone and their annotations show up here.') : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter]}</p></li>`; })()}</ul>`;
+      rail.innerHTML = railYou(social && social.you ? social.you : { annotations: mineCount(yours || records, social && social.youId), followers: 0 }) + railTrending(social, null, mode === 'profile' && !person ? records : []) + railFollow(social) + railTags(yours || records) + railAbout();
       wireDelAll(main, onDeleteAll);
       main.querySelectorAll('.card').forEach((c) => c.addEventListener('click', () => onOpen(c.dataset.id)));
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
@@ -888,7 +1044,7 @@ const AnnotationPage = (() => {
   // both on your profile page and in the panel, because on the page alone it took some finding.
   const delAllBox = (records) => {
     const shared = records.filter((r) => r.cloud || r.author).length;
-    return `<div class="delAll"><button type="button" class="link delAllOpen">Delete all your annotations</button>
+    return `<div class="delAll"><button type="button" class="ghost sm danger delAllOpen">${Brand.icon('trash')} Delete all your annotations</button>
       <div class="delAllAsk" hidden role="alertdialog"><p>${plural(records.length, 'annotation')} will be deleted${shared ? `, including ${shared} published for everyone` : ''}. This cannot be undone.</p>
         <div class="row"><button type="button" class="ghost sm delAllNo">Keep them</button><button type="button" class="primary sm delAllYes">Delete ${plural(records.length, 'annotation')}</button></div>
         <p class="note delAllMsg" role="status"></p></div></div>`;
@@ -911,9 +1067,10 @@ const AnnotationPage = (() => {
   // The panel's own Home and profile. A menu shows you its contents where you are, so these read inside the
   // panel rather than taking a tab. Opening one annotation is a page, because that is where its comments,
   // its source and the conversation live, and that page still shares the one annotated tab.
-  function renderBrowse(container, { title, records, note = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true }) {
+  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true }) {
     stopClock(container);
-    const list = records.slice().sort((a, b) => b.created - a.created);
+    // For you arrives ranked, so its order is kept. Everything else is newest first.
+    const list = tabs && tabs.current === 'foryou' ? records.slice() : records.slice().sort((a, b) => b.created - a.created);
     container.innerHTML = `<div class="annside browse">
       <div class="browseHead"><button type="button" class="browseBack" aria-label="Back to this page">${Brand.icon('arrowLeft')}</button>
         <h2>${esc(title)}</h2>
@@ -923,8 +1080,8 @@ const AnnotationPage = (() => {
       ${note ? `<p class="note browseNote">${esc(note)}</p>` : ''}
       <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
         <span class="rlKind">${kindIcon(r.item)}</span>
-        <span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
-        </button></li>`).join('') : '<li class="browseEmpty"><p class="note">Nothing here yet. Capture something and it shows up.</p></li>'}</ul>
+        <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
+        </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Capture something and it shows up.')}</p></li>`}</ul>
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
     </div>`;
     wireDelAll(container, onDeleteAll);
@@ -935,19 +1092,40 @@ const AnnotationPage = (() => {
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
   }
 
-  function renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware = false }) {
+  // Everything in the local store belongs to this computer, not to whoever is signed in, because one browser
+  // can be used by two accounts. Yours means you published it, or it has never been published at all.
+  const yoursOnly = (records, youId) => records.filter((r) => !r.author || (youId && r.author.id === youId));
+  function renderSide(container, { current, records, youId = null, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware = false, mirrors = '', onSource = null, sourceName = '' }) {
     stopClock(container);
-    const list = records.slice().sort((a, b) => b.created - a.created);
+    // The tab is already showing this list, so the panel does not show it again with a link to where you
+    // already are. It offers the way back, named, says what is open, and leaves .mirrorStart for the panel
+    // to put the start page in. On its own the sentence and one button were a dead end for twenty seconds
+    // at a time in the recording of 2026-09-23 at 02:48.
+    if (mirrors) {
+      const where = sourceName ? `Back to ${sourceName}` : 'Back to what you were reading';
+      container.innerHTML = `<div class="annside mirror">
+        ${onSource ? `<button type="button" class="ghost sm sideBack" title="${esc(where)}">${Brand.icon('arrowLeft')}<span>${esc(where)}</span></button>` : ''}
+        <p class="mirrorWhat">${esc(mirrors)} is open beside this.</p>
+        <div class="mirrorStart"></div></div>`;
+      const back = container.querySelector('.sideBack');
+      if (back) back.addEventListener('click', onSource);
+      return;
+    }
+    const list = yoursOnly(records, youId).slice().sort((a, b) => b.created - a.created);
+    // Delete belongs to the person who wrote it. Offering it on someone else's annotation used to take away
+    // the copy held here and report success, while the shared one stayed where it was.
+    const canDelete = !!(current && (!current.author || (youId && current.author.id === youId)));
     const statsOf = (r) => {
       const nC = (r.comments || []).length, nR = reactTotal(r.reactions), bits = [];
       if (nR) bits.push(`<span class="fStat fReact">${reactEmojis(r.reactions).slice(0, 4).join('')}<span class="num">${nR}</span></span>`);
-      if (r.take.poll) bits.push(`<span class="fStat">${Brand.icon('poll')}Poll</span>`);
+      const votes = r.take.poll && r.take.poll.counts ? r.take.poll.counts.reduce((a, b) => a + (Number(b) || 0), 0) : 0;
+      if (r.take.poll) bits.push(`<span class="fStat">${Brand.icon('poll')}${votes ? plural(votes, 'vote') : 'Poll'}</span>`);
       if (nC) bits.push(`<span class="fStat">${Brand.icon('comment')}<span class="num">${nC}</span></span>`);
       return bits.length ? `<span class="fStats">${bits.join('')}</span>` : '';
     };
     container.innerHTML = `<div class="annside">
       ${current ? `<section class="sideNow" aria-label="This annotation">
-        <div class="snHead"><span class="rlKind">${kindIcon(current.item)}</span><span class="snLabel">This annotation</span>${current.take.tag ? `<span class="tag sm">${esc(current.take.tag)}</span>` : ''}</div>
+        <div class="snHead"><span class="rlKind">${kindIcon(current.item)}</span><span class="snLabel">${current.author && current.author.name && !(youId && current.author.id === youId) ? `By ${esc(current.author.name)}` : 'This annotation'}</span>${current.take.tag ? `<span class="tag sm">${esc(current.take.tag)}</span>` : ''}</div>
         <p class="snTake">${esc(takeLine(current.take) || 'Untitled')}</p>
         <p class="note snSrc">${esc(withTime(titleOf(current.item), relTime(current.created)))}</p>
         ${statsOf(current)}
@@ -955,7 +1133,7 @@ const AnnotationPage = (() => {
           <a class="ghost sm" target="_blank" rel="noopener" href="${xUrl(current.item, current.take, permalinkOf(current.id))}">${Brand.icon('x')} Post to X</a></div>`
           : `<p class="note snLocal">${Brand.icon('info')} Only on this computer, so there is no link to share yet.</p>
           ${onPublishNow ? '<p class="row"><button type="button" class="strong sm sidePub">Publish it now</button></p>' : ''}`}
-        ${onDelete ? '<p class="sideDel"><button type="button" class="link sideDelBtn">Delete this annotation</button></p>' : ''}
+        ${onDelete && canDelete ? '<p class="sideDel"><button type="button" class="link sideDelBtn">Delete this annotation</button></p>' : ''}
       </section>` : ''}
       <div class="sideListHead"><h2>Your annotations</h2><button type="button" class="link sideFeed">Open your profile</button></div>
       <ul class="sideList">${list.map((r) => {
@@ -965,6 +1143,7 @@ const AnnotationPage = (() => {
           <span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
           ${now ? '<span class="nowBadge">Viewing</span>' : ''}</button></li>`;
       }).join('')}</ul>
+      ${list.length ? '' : '<p class="note sideNone">You have no annotations yet. Capture something on a page and it shows up here.</p>'}
     </div>`;
     const pub = container.querySelector('.sidePub');
     if (pub) pub.addEventListener('click', async () => {
@@ -983,7 +1162,7 @@ const AnnotationPage = (() => {
       const p = sd.parentElement;
       p.innerHTML = 'Delete this annotation? <button type="button" class="link sdYes">Delete</button> <button type="button" class="link sdNo">Keep</button>';
       p.querySelector('.sdYes').addEventListener('click', () => onDelete(current.id));
-      p.querySelector('.sdNo').addEventListener('click', () => renderSide(container, { current, records, permalinkOf, onOpen, onFeed, onDelete }));
+      p.querySelector('.sdNo').addEventListener('click', () => renderSide(container, { current, records, youId, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware }));
     });
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
   }
@@ -998,5 +1177,5 @@ const AnnotationPage = (() => {
     return a.text === b.text && (a.meta.url || '') === (b.meta.url || '');
   }
 
-  return { kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe };
+  return { renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
 })();

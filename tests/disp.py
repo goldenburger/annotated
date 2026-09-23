@@ -41,7 +41,7 @@ async def main():
     print('dark theme applied:', await pg.evaluate("document.documentElement.getAttribute('data-theme')"), '| frame dark:', await pg.eval_on_selector('.ff','e=>e.classList.contains("dark")'))
     await pg.check('.dmPop input[name="dm-density"][value="compact"]'); print('compact:', await pg.evaluate("document.body.classList.contains('compact')"))
     await pg.click('.dmPop .dmSwitch'); await pg.click('.dmPop .dmDone')
-    await pg.fill(V+'.takeInput','Floating mode works'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.3)
+    await pg.fill(V+'.takeInput','Floating mode works'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(.3)
     print('after publish, shrank to pill:', await pg.is_visible('.ffPill'))
     await pg.click('.ffPill'); await pg.click('.tab >> nth=1'); await asyncio.sleep(.4)
     await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')

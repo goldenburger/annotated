@@ -12,8 +12,10 @@
   const linkFor = (id) => `/@${handleOf.get(id) || 'annotated'}/${encodeURIComponent(id)}`;
   const remember = (records) => records.forEach((r) => handleOf.set(r.id, (r.author && r.author.handle) || 'annotated'));
   const signIn = () => Backend.signIn().catch((e) => alert('Sign-in did not start. ' + e.message));
-  const TAB_KEY = 'annotated-feed-tab';
-  let tab = (() => { try { return localStorage.getItem(TAB_KEY) || 'foryou'; } catch { return 'foryou'; } })();
+  // Back is only offered when the page behind you is one of ours. A same origin referrer is how you know,
+  // and it is set by every link and every location change this site makes.
+  const cameFromHere = () => { try { return new URL(document.referrer).origin === location.origin; } catch { return false; } };
+  let tab = Cloud.savedTab(), pressed = false;
   const discover = (opts = {}) => Cloud.discovery(me, { signIn: () => { if (confirm('Sign in with Google to follow people?')) signIn(); }, onPerson: (h) => { location.href = '/@' + h; }, ...opts }).catch(() => null);
   const youOf = (soc, n) => (me && soc && soc.youCounts ? { annotations: n, ...soc.youCounts } : null);
   const nav = {
@@ -32,21 +34,17 @@
     if (!navEl) return;
     if (!me) {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'navBtn webSignIn'; b.textContent = 'Sign in with Google';
+      b.type = 'button'; b.className = 'navBtn webSignIn'; b.innerHTML = 'Sign in<span class="wideOnly"> with Google</span>'; b.setAttribute('aria-label', 'Sign in with Google');
       b.addEventListener('click', signIn);
       navEl.appendChild(b);
       const you = navEl.querySelector('.navProfile'); if (you) you.hidden = true;
     }
   }
+  // The front page. It goes above the list rather than inside it, so it has the full width, and it is only
+  // for the home page with nothing filtered, because anyone on a tag or a profile came for the annotations.
   function intro() {
-    const main = page.querySelector('.sitemain');
-    if (!main) return;
-    const box = document.createElement('section');
-    box.className = 'webIntro';
-    box.innerHTML = `<h1>Say what you think about anything on the web</h1>
-      <p>annotated turns a passage from an article, a clip of a video or podcast, or a post on X into a page with your take on top and the source underneath. Every annotation links back to its source.</p>
-      <p class="webGet"><a class="primary sm" href="/annotated-extension.zip" download>Get the Chrome extension</a> <a href="/install" class="link">How to install it</a></p>`;
-    main.prepend(box);
+    if (typeof Hero === 'undefined') return;
+    Hero.mount(page, { onLook: () => {} });
   }
 
   async function home(tag) {
@@ -60,12 +58,13 @@
     let records = all;
     if (!tag && soc) {
       const tabs = Cloud.homeTabs(all, soc, me, mine);
-      const cur = tabs[tab] ? tab : 'foryou';
+      // The same opening tab as the extension's Home: an empty For you gives way to Everyone.
+      const cur = Cloud.startTab(tabs, tab, pressed);
       records = tabs[cur].records;
-      social.tabs = { current: cur, note: tabs[cur].note, onTab: (k) => { tab = k; try { localStorage.setItem(TAB_KEY, k); } catch {} home(tag); } };
+      social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag); } };
     }
     document.title = tag ? `${tag} | annotated` : 'annotated';
-    AnnotationPage.renderFeed(page, { records, tag, mode: 'home', social, ...nav });
+    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav });
     headerAccount();
     if (!tag) intro();
   }
@@ -111,6 +110,7 @@
     let records = [];
     try { records = await Cloud.list({ authorId: rec.author && rec.author.id, limit: 40 }); } catch {}
     remember(records); handleOf.set(id, (rec.author && rec.author.handle) || 'annotated');
+    if (Cloud.markOpened) Cloud.markOpened(id);
     const title = AnnotationPage.titleOf(rec.item);
     document.title = `${rec.take.text || title} | annotated`;
     const soc = await discover();
@@ -120,18 +120,22 @@
       id, item: rec.item, take: rec.take, created: rec.created,
       author: mine ? null : rec.author, mine,
       permalink: location.origin + linkFor(id),
-      backLabel: { video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[rec.item.kind] || 'Read the original',
+      // The source has its own control now, so this one is free to mean what it says. It is offered only
+      // when the page behind you is one of ours, which a same origin referrer is how you know.
+      backLabel: 'Back',
       showBanner: false,
       stats: { annotations: records.filter((r) => r.mine || !r.author).length, followers: 0 },
       comments: sc ? sc.comments : [], reactions: sc ? sc.reactions : [], records, social,
+      // Who is signed in, so "Your recent annotations" lists yours. The records here are the author's.
+      youId: me && me.id,
     }, {
       ...nav,
       onProfile: () => { location.href = '/@' + ((rec.author && rec.author.handle) || ''); },
-      onBack: () => { const u = AnnotationPage.srcUrlOf(rec.item); if (/^https?:\/\//.test(u)) location.href = u; },
+      onBack: cameFromHere() ? () => history.back() : null,
       onComments: async (list, change = {}) => {
         if (needSignIn()) return;
         try {
-          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text, change.added.gif);
+          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload);
           if (change.removed && change.removed.dbId) await Cloud.deleteComment(change.removed.dbId);
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
         } catch (e) { alert('That did not save. ' + (e.message || '')); }
@@ -150,6 +154,7 @@
   function notFound(msg) {
     document.title = 'Not found | annotated';
     page.className = 'ann';
+    AnnotationPage.stopClock(page);
     page.innerHTML = '<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p class="esWhy"></p><p><a href="/">See annotations</a></p></div>';
     page.querySelector('.esWhy').textContent = msg;
   }

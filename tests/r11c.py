@@ -14,7 +14,7 @@ async def main():
     await pg.click(V+'.capBtn'); await pg.wait_for_selector(V+'.failBox:not([hidden])',timeout=30000)
     print('fail box:', (await pg.inner_text(V+'.failBox')).replace('\n',' | '), '| card:', await pg.inner_text(V+'.ccMeta'))
     await pg.screenshot(path='r11_fail.png', clip={'x':986,'y':84,'width':380,'height':716})
-    await pg.fill(V+'.takeInput','x'); await pg.click(V+'.publish'); await asyncio.sleep(.3)
+    await pg.fill(V+'.takeInput','x'); await publish_now(pg, V+'.publish'); await asyncio.sleep(.3)
     print('publish asks:', (await pg.inner_text(V+'.vDup')).replace('\n',' | '))
     await pg.click(V+'.vDup .dAny'); await pg.wait_for_selector('.annpage:not([hidden]) .ann:not(.loading)'); print('publish anyway worked')
     await pg.click('.tab >> nth=0'); await asyncio.sleep(.4)

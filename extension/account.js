@@ -4,6 +4,10 @@ const Account = (() => {
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let me = null, btn = null, pop = null;
   const subs = [];
+  // What the panel does for the two actions here. The menu only asks.
+  let actions = {};
+  const HANDLE = /^[a-z0-9_]{2,30}$/;
+  const site = () => (typeof Backend !== 'undefined' && Backend.site ? Backend.site.replace(/^https?:\/\//, '') : 'annotated-app.netlify.app');
 
   function draw() {
     if (!btn) return;
@@ -28,10 +32,16 @@ const Account = (() => {
     pop.className = 'acctPop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Account');
     pop.innerHTML = me
       ? `<div class="who"><span class="avatar ${me.avatar ? 'hasImg' : ''}" aria-hidden="true">${me.avatar ? `<img src="${esc(me.avatar)}" alt="" referrerpolicy="no-referrer">` : esc(me.name.slice(0, 1))}</span>
-           <div><b>${esc(me.name)}</b><span>${me.handle ? '@' + esc(me.handle) : ''}</span></div></div>
+           <div><b>${esc(me.name)}</b><span class="acctAt">${me.handle ? '@' + esc(me.handle) : ''}</span></div></div>
+         ${actions.onProfile ? '<button type="button" class="ghost sm acctProfile">Your profile</button>' : ''}
          <form class="acctHandle" novalidate><label for="acctH">Your handle</label>
-           <div class="row"><span class="at">@</span><input id="acctH" value="${esc(me.handle || '')}" maxlength="30" autocomplete="off" spellcheck="false" pattern="[a-z0-9_]{2,30}" title="2 to 30 lowercase letters, numbers or underscores">
-           <button class="strong sm">Save</button></div><p class="note acctHMsg" role="status"></p></form>
+           <p class="note acctHWhat">Your name on annotated. It shows on everything you publish and in the link to your profile.</p>
+           <div class="row"><span class="at">@</span><input id="acctH" value="${esc(me.handle || '')}" maxlength="30" autocomplete="off" spellcheck="false" pattern="[a-z0-9_]{2,30}" aria-describedby="acctHRule acctHLink">
+           <button class="strong sm acctHSave" disabled>Save</button></div>
+           <p class="note acctHLink" id="acctHLink"></p>
+           <p class="note acctHRule" id="acctHRule">2 to 30 lowercase letters, numbers or underscores.</p>
+           <p class="note acctHMsg" role="status"></p></form>
+         ${actions.onDeleteAll ? '<button type="button" class="quiet danger sm acctDelAll">Delete all my annotations</button>' : ''}
          <button type="button" class="ghost sm acctOut">Sign out</button>`
       : `<p class="err">${esc(errText || '')}</p><button type="button" class="ghost sm acctIn">${G} Try again</button>`;
     document.body.appendChild(pop);
@@ -40,24 +50,62 @@ const Account = (() => {
     pop.style.left = Math.max(8, Math.min(window.innerWidth - 268, r.right - 260)) + 'px';
     const out = pop.querySelector('.acctOut'), again = pop.querySelector('.acctIn');
     if (out) out.addEventListener('click', async () => { close(); await Backend.signOut(); me = null; draw(); });
+    // Nothing here is a password field, and a handle is two to thirty characters, so the browser's saved
+    // entries are only ever in the way.
+    const hIn = pop.querySelector('#acctH');
+    if (hIn) hIn.setAttribute('autocomplete', 'off');
     // Handles are public and shown on every annotation. They can be changed here.
     const hf = pop.querySelector('.acctHandle');
+    // The link it makes, as you type, and what changing it costs before you press Save rather than after.
+    const hLive = () => {
+      const h = hIn.value.trim().toLowerCase().replace(/^@/, '');
+      const ok = HANDLE.test(h), changed = h !== me.handle;
+      // The link only ever shows a handle that could be saved, so it never reads as an address with a space in it.
+      pop.querySelector('.acctHLink').textContent = `${site()}/@${ok ? h : me.handle || ''}`;
+      pop.querySelector('.acctHRule').classList.toggle('bad', !!h && !ok);
+      pop.querySelector('.acctHSave').disabled = !ok || !changed;
+      const m = pop.querySelector('.acctHMsg');
+      if (!m.dataset.sticky) m.textContent = ok && changed && me.handle ? `Links to @${me.handle} will stop working. Links to each annotation keep working.` : '';
+    };
+    if (hIn) { hIn.addEventListener('input', () => { pop.querySelector('.acctHMsg').dataset.sticky = ''; hLive(); }); hLive(); }
+    const pr = pop.querySelector('.acctProfile');
+    if (pr) pr.addEventListener('click', () => { close(); actions.onProfile(); });
+    const da = pop.querySelector('.acctDelAll');
+    if (da) da.addEventListener('click', () => { close(); actions.onDeleteAll(); });
     if (hf) hf.addEventListener('submit', async (e) => {
       e.preventDefault();
       const input = hf.querySelector('input'), msg = hf.querySelector('.acctHMsg');
       const h = input.value.trim().toLowerCase().replace(/^@/, '');
-      if (!/^[a-z0-9_]{2,30}$/.test(h)) { msg.textContent = 'Use 2 to 30 lowercase letters, numbers or underscores.'; return; }
+      msg.dataset.sticky = '1';
+      if (!HANDLE.test(h)) { msg.textContent = 'Use 2 to 30 lowercase letters, numbers or underscores.'; return; }
       if (h === me.handle) { msg.textContent = 'That is already your handle.'; return; }
       msg.textContent = 'Saving';
       const { error } = await Backend.client.from('profiles').update({ handle: h }).eq('id', me.id);
       if (error) { msg.textContent = /duplicate|unique/i.test(error.message) ? 'Someone already has that handle.' : 'It did not save. ' + error.message; return; }
-      me = { ...me, handle: h }; msg.textContent = 'Saved. It shows on your annotations now.';
-      pop.querySelector('.who span').textContent = '@' + h;
+      const was = me.handle; me = { ...me, handle: h };
+      // The first span inside .who is the avatar, so writing there put the handle inside the circle and
+      // left the old one on screen underneath. The handle has a name of its own now.
+      msg.textContent = `Saved. It shows on your annotations now, and links to your old handle, @${was}, no longer work.`;
+      pop.querySelector('.acctAt').textContent = '@' + h;
+      pop.querySelector('.acctHSave').disabled = true;
+      draw();
       subs.forEach((f) => f(me));
     });
     if (again) again.addEventListener('click', () => { close(); signIn(); });
     setTimeout(() => document.addEventListener('mousedown', function o(e) { if (!pop) return document.removeEventListener('mousedown', o); if (!pop.contains(e.target) && e.target !== btn) { document.removeEventListener('mousedown', o); close(); } }), 0);
-    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); btn.focus(); } });
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { close(); btn.focus(); return; }
+      // Tab stays inside the menu while it is open. It used to walk the panel behind it first.
+      if (e.key !== 'Tab') return;
+      const f = [...pop.querySelectorAll('button:not([disabled]), input, a[href]')].filter((x) => x.offsetParent !== null);
+      if (!f.length) return;
+      const i = f.indexOf(document.activeElement);
+      const next = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i < 0 || i === f.length - 1 ? 0 : i + 1);
+      e.preventDefault(); f[next].focus();
+    });
+    // Focus goes into the menu when it opens, so the keyboard lands where the menu is.
+    const first = pop.querySelector('button:not([disabled]), input');
+    if (first) first.focus();
   }
   async function signIn() {
     btn.disabled = true; btn.innerHTML = `${G} Signing in`;
@@ -76,5 +124,5 @@ const Account = (() => {
     Backend.profile().then((p) => { me = p; draw(); }).catch(() => {});
     Backend.onChange((p) => { me = p; draw(); });
   }
-  return { mount, signIn, get me() { return me; }, onChange: (f) => subs.push(f) };
+  return { mount, signIn, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
 })();

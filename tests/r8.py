@@ -14,7 +14,7 @@ async def main():
     await pg.wait_for_selector(V+'.vCompose:not([hidden])',timeout=20000)
     print('video: take step shown with trimmer folded:', not await pg.is_visible(V+'.clipper'), '| meta at that moment:', await pg.inner_text(V+'.ccMeta'))
     await asyncio.sleep(1.5); print('video meta after checks:', await pg.inner_text(V+'.ccMeta'))
-    await pg.fill(V+'.takeInput','v'); await pg.click(V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
+    await pg.fill(V+'.takeInput','v'); await publish_now(pg, V+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)')
     print('page video controls at reveal:', await pg.eval_on_selector(ANN+'.clipVideo','v=>v.controls'), end=' '); await asyncio.sleep(1.3)
     print('-> after first frame:', await pg.eval_on_selector(ANN+'.clipVideo','v=>v.controls'))
     # podcast

@@ -30,7 +30,7 @@ async def main():
     await pg.click(A+'.pollBtn'); await asyncio.sleep(.2)
     await pg.click(A+'.peAdd'); await pg.fill(A+'.peOpt >> nth=2','Need more data')
     await pg.screenshot(path='emo_compose.png', clip={'x':986,'y':84,'width':380,'height':716})
-    await pg.click(A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(2)
+    await publish_now(pg, A+'.publish'); await pg.wait_for_selector(ANN+'.ann:not(.loading)'); await asyncio.sleep(2)
     print('poll options:', await pg.locator(ANN+'.pollOpt').count())
     await pg.click(ANN+'.pollOpt >> nth=1'); await asyncio.sleep(.6)
     print('poll after vote:', (await pg.inner_text(ANN+'.pollBox')).replace('\n',' | '))
