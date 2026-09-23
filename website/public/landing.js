@@ -33,7 +33,7 @@ var Landing = (() => {
     el.innerHTML = `
       <div class="heroCopy">
         <p class="heroKicker">A Chrome sidebar for the open web</p>
-        <h1 class="heroH" aria-label="Say what you think about anything on the web: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true"> on the web</span></h1>
+        <h1 class="heroH" aria-label="Say what you think about anything: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true">.</span></h1>
         <p class="heroSub">Your take on top, the source underneath, always linked back to where it came from.</p>
         <p class="heroDo heroGetRow"><a class="primary heroGet" href="#get">Get the Chrome extension</a><a class="link heroLook" href="/?feed">Look around first</a></p>
         <p class="heroHave" hidden>You have annotated. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a></p>
@@ -55,6 +55,8 @@ var Landing = (() => {
       if (focus) tabs[i].focus();
       cyc.set(TABS[i].word);
       document.dispatchEvent(new CustomEvent('annotated-tryit-touched'));
+      // A card measured while its panel was hidden sits in the wrong place, so shown again it is placed again.
+      window.dispatchEvent(new Event('resize'));
     };
     tabs.forEach((b, i) => {
       b.addEventListener('click', () => pick(i));
@@ -69,12 +71,12 @@ var Landing = (() => {
   // The headline's word, redrawn by the pen. It waits for the example to finish, so two pens are never
   // moving at once, runs two rounds, and stops for good the moment anything on the try-it is touched.
   function cycle(hero) {
-    const h = hero.querySelector('.heroH'), mark = hero.querySelector('.heroMark'), tail = hero.querySelector('.heroTail');
+    const h = hero.querySelector('.heroH'), mark = hero.querySelector('.heroMark');
     let tallest = 0;
-    for (const w of WORDS) { mark.textContent = w; tail.hidden = w !== 'anything'; tallest = Math.max(tallest, h.offsetHeight); }
-    mark.textContent = 'anything'; tail.hidden = false; h.style.minHeight = tallest + 'px';
+    for (const w of WORDS) { mark.textContent = w; tallest = Math.max(tallest, h.offsetHeight); }
+    mark.textContent = 'anything'; h.style.minHeight = tallest + 'px';
     let i = 0, rounds = 0, timer = null, stopped = false;
-    const show = (w) => { mark.textContent = w; tail.hidden = w !== 'anything'; mark.classList.remove('lifting', 'drawn'); void mark.offsetWidth; mark.classList.add('redraw'); };
+    const show = (w) => { mark.textContent = w; mark.classList.remove('lifting', 'drawn'); void mark.offsetWidth; mark.classList.add('redraw'); };
     const stop = () => { stopped = true; clearTimeout(timer); mark.classList.remove('lifting'); };
     const next = () => {
       if (stopped) return;
@@ -135,6 +137,7 @@ var Landing = (() => {
         AnnotationPage.renderFeed(tmp, { records: shared, mode: 'home', social: null, siteNav: false, onOpen, onHome() {}, onAll() {}, onProfile() {}, onTag() {} });
         const row = box.querySelector('.llRow');
         tmp.querySelectorAll('.cards > .cardItem').forEach((li) => row.appendChild(li));
+        row.style.setProperty('--n', row.children.length);
         box.hidden = !row.children.length;
       },
     };
@@ -180,5 +183,24 @@ var Landing = (() => {
     main.prepend(p);
   }
 
-  return { mount, slimLine, TABS };
+  // /install, the page the footer's Get the extension opens: the same three steps as the front page, under
+  // the same header. It used to be an older list of four, worded differently, with no way back but the footer.
+  function mountInstall(root) {
+    root.className = 'land';
+    root.innerHTML = '';
+    const bar = document.createElement('header');
+    bar.className = 'sitebar landBar';
+    bar.innerHTML = `<a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
+      <nav class="sitenav" aria-label="Site"><a class="navBtn" href="/">Try it first</a></nav>`;
+    root.appendChild(bar);
+    const main = document.createElement('main'); main.className = 'landMain installMain'; root.appendChild(main);
+    const have = document.createElement('p'); have.className = 'heroHave installHave'; have.hidden = true;
+    have.innerHTML = 'You have annotated already. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a>';
+    main.appendChild(have);
+    install(main);
+    main.insertAdjacentHTML('beforeend', '<p class="note installAfter">Sign in with Google from the panel to publish annotations everyone can see.</p>');
+    watchInstalled(root);
+  }
+
+  return { mount, mountInstall, slimLine, TABS };
 })();

@@ -37,6 +37,8 @@ def site(route):
   from urllib.parse import urlparse
   path = urlparse(route.request.url).path.lstrip('/') or 'index.html'
   f = PUB / path
+  # Netlify serves /install from install.html.
+  if not f.is_file() and (PUB / (path + '.html')).is_file(): f = PUB / (path + '.html')
   if not f.is_file(): f = PUB / 'index.html'
   return route.fulfill(status=200, body=f.read_bytes(), headers={'Content-Type': mimetypes.guess_type(str(f))[0] or 'application/octet-stream'})
 
@@ -87,6 +89,18 @@ async def main():
     print('4. while the example runs the headline says', repr(during['word']), '| after it', repr(after))
     if not during['example'] or during['word'] != 'anything': errs.append(f'two things moved at once: {during}')
     if after == 'anything': errs.append('the headline never took its turn after the example')
+    # Fixes of the pass after: a tab chosen mid-example puts the example away, and the headline is two lines
+    # for every word, with no empty third line held for "on the web".
+    await pg.reload(); await pg.wait_for_selector('.tryTabs'); await pg.mouse.move(700, 890); await asyncio.sleep(4.9)
+    mid = await pg.evaluate("!document.querySelector('.tiLift').hidden || !!document.querySelector('.tiText mark.annotated-hl')")
+    await pg.click('#tab-video'); await asyncio.sleep(.8); await pg.click('#tab-article'); await asyncio.sleep(.8)
+    left = await pg.evaluate("({ lift: !document.querySelector('.tiLift').hidden, marks: document.querySelectorAll('.tiText mark.annotated-hl').length })")
+    print('   example running when the tab changed:', mid, '| left behind on coming back:', left)
+    if left['lift'] or left['marks']: errs.append(f'the example was left on the paper: {left}')
+    lines = await pg.evaluate("""(() => { const h = document.querySelector('.heroH'), m = document.querySelector('.heroMark'), lh = parseFloat(getComputedStyle(h).lineHeight);
+      const out = {}; for (const w of ['anything', 'a passage', 'a clip', 'a podcast', 'a post on X']) { m.textContent = w; out[w] = Math.round(h.getBoundingClientRect().height / lh); } return out; })()""")
+    print('   headline lines for each word:', lines)
+    if any(v != 2 for v in lines.values()): errs.append(f'the headline is not two lines for every word: {lines}')
     # 5, 6, 12.
     await pg.reload(); await pg.wait_for_selector('.tryTabs'); await asyncio.sleep(.8)
     shape = await pg.evaluate("""() => ({ tabs: [...document.querySelectorAll('.tryTab')].map((t) => t.textContent.trim()), scenes: !!document.querySelector('.scenes'),
@@ -136,6 +150,8 @@ async def main():
     # 11.
     cards = await pg.evaluate("({ n: document.querySelectorAll('.landLatest .llRow .cardItem').length, shown: !document.querySelector('.landLatest').hidden, all: document.querySelector('.llHead a').getAttribute('href') })")
     print('11. latest:', cards)
+    cols = await pg.evaluate("getComputedStyle(document.querySelector('.llRow')).gridTemplateColumns.split(' ').length")
+    if cols != 4: errs.append(f'four cards took {cols} columns')
     if cards != {'n': 4, 'shown': True, 'all': '/?feed'}: errs.append(f'the latest row read {cards}')
     # 13.
     small = await pg.evaluate("""[...document.querySelectorAll('.landHero *, .landGet *')].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim()) && e.offsetParent && parseFloat(getComputedStyle(e).fontSize) < 12.5).map((e) => e.className + ' ' + getComputedStyle(e).fontSize)""")
@@ -143,6 +159,20 @@ async def main():
     if small: errs.append(f'small text left: {small}')
     await c.close()
 
+    # Three published take three columns, not three of four.
+    rows['list'] = ALL[:3]
+    c = await ctx_with(db); pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(2)
+    cols3 = await pg.evaluate("getComputedStyle(document.querySelector('.llRow')).gridTemplateColumns.split(' ').length")
+    print('   three annotations take', cols3, 'columns')
+    if cols3 != 3: errs.append(f'three cards took {cols3} columns')
+    await c.close()
+    # The install page: the same header and the same three steps.
+    c = await ctx_with(db); pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('INSTALL ' + str(e)))
+    await pg.goto('https://annotated-app.netlify.app/install'); await asyncio.sleep(1)
+    ins = await pg.evaluate("({ header: !!document.querySelector('.landBar'), steps: document.querySelectorAll('#get .giSteps li').length, copy: !!document.querySelector('.giCopy'), old: !!document.querySelector('main.doc') })")
+    print('   the install page:', ins)
+    if ins != {'header': True, 'steps': 3, 'copy': True, 'old': False}: errs.append(f'the install page read {ins}')
+    await c.close()
     # 11, fewer than three published: no row.
     rows['list'] = ALL[:2]
     c = await ctx_with(db); pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(2)

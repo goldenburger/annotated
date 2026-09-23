@@ -293,6 +293,9 @@ var TryIt = (() => {
       if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 4000); io.disconnect(); }
     }, { threshold: 0.6 });
     io.observe(el);
+    // Choosing another tab counts as touching the try-it: the example is put away, rather than left on the
+    // paper to be found half done on coming back.
+    document.addEventListener('annotated-tryit-touched', () => { clearTimeout(demoTimer); touched = true; if (demoing) stopDemo(); });
     el.addEventListener('pointerdown', () => quiet());
     el.addEventListener('keydown', () => quiet());
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearTimeout(demoTimer); });

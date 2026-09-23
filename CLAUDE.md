@@ -355,7 +355,11 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   pages (`data-annotated-installed`, from `article.js`), and then the hero says you have it and the steps
   hide. The paper keeps its own light ink in dark mode, the headline word keeps dark ink on its stroke, and
   nothing in the hero or steps is under 12.5 pixels. `og.png` and the `og:` and `twitter:` tags give the link
-  a preview. `hero.js` and the scenes section are gone.
+  a preview. `hero.js` and the scenes section are gone. After that: choosing a tab mid-example puts the
+  example away (TryIt listens for `annotated-tryit-touched`); the headline is "Say what you think about
+  anything." with no "on the web", so every word fits two lines and no empty third line is held; the Latest
+  row takes as many columns as it has cards (`--n`); and `/install` (`installpage.js`) is the same header and
+  the same three steps as the front page, where it was an older list of four with no header.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

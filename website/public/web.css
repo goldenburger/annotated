@@ -467,3 +467,13 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
   .tryTabs { margin: 0 0 6px; }
 }
 .tiLabel { font-size: 12.5px; }
+
+/* The latest row takes as many columns as it has cards. */
+@media (min-width: 1061px) { .llRow { grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); } }
+/* The install page. */
+.installMain { max-width: 1000px; padding-top: 30px; }
+.installMain .landGet { border-top: 0; margin-top: 0; }
+.installMain .giH { font-size: clamp(26px, 3vw, 36px); }
+.installHave { margin: 0 0 20px; }
+.installHave[hidden] { display: none; }
+.giSteps li { grid-template-rows: auto 1fr; align-content: start; align-items: start; } .giSteps li > span { align-self: start; }
