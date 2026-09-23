@@ -6,10 +6,7 @@
 #   4. A quote over two paragraphs keeps a break between them ("URL. The", not "URL.The").
 #   5. The card is placed by the paper's layout, the same after a scroll, and under the paper when no room above.
 #   6. Follow signed out asks inline, with a button, and never says it failed. No browser dialog.
-#   8. The feed under the scenes leaves out what they show.
-#   9. The hero's Get the Chrome extension leads to the steps, and Look around first to the scenes.
-#  10. Scene motion plays while the scene is mid screen, not as it enters.
-#  11. A scene's card picture is held to the drawing's height.
+#   9. The hero's Get the Chrome extension leads to the steps, and Look around first to the feed.
 #  12. Downloading ticks the first step and brings the second forward, which has a Copy button.
 import asyncio, json, pathlib, mimetypes
 from playwright.async_api import async_playwright
@@ -123,42 +120,13 @@ async def main():
     print('5. with no room above, the card:', low)
     if not all(low.values()): errs.append(f'the card with no room above sat wrong: {low}')
     await pg.evaluate("document.querySelector('.tiRedo').click()"); await asyncio.sleep(.8)
-    # 9.
-    await pg.evaluate("scrollTo(0, 0)"); await asyncio.sleep(.4)
-    await pg.click('.heroGet'); await asyncio.sleep(1.4)
-    at = await pg.evaluate("Math.round(document.querySelector('#get').getBoundingClientRect().top)")
-    await pg.evaluate("scrollTo(0, 0)"); await asyncio.sleep(.4)
-    await pg.click('.heroLook'); await asyncio.sleep(1.4)
-    at2 = await pg.evaluate("Math.round(document.querySelector('.scenes').getBoundingClientRect().top)")
-    print('9. Get the Chrome extension lands', at, 'px from the top of the steps, Look around first', at2, 'from the scenes')
-    if not (-5 <= at <= 120) or not (-5 <= at2 <= 120): errs.append(f'the hero buttons led elsewhere: {at}, {at2}')
-    # 8.
-    shown = await pg.evaluate("[...document.querySelectorAll('.scCard.real .card')].map((c) => c.dataset.id)")
-    feed = await pg.evaluate("[...document.querySelectorAll('.sitegrid .cards .card')].map((c) => c.dataset.id)")
-    print('8. in the scenes', shown, '| in the feed', feed)
-    if set(shown) & set(feed): errs.append('the feed repeated what the scenes show')
-    # 11.
-    h = await pg.evaluate("(() => { const i = document.querySelector('.sc-post .scCard img'); return i ? Math.round(i.getBoundingClientRect().height) : null; })()")
-    print('11. the post card picture in its scene is', h, 'px tall')
-    if not h or h > 200: errs.append(f'the post card picture swamps its scene at {h}px')
-    # 10. Scroll a scene to just entering, then to mid screen.
-    # The scenes work by hand now, so what plays by scrolling is the real card each one ends on.
-    frac = "(() => +getComputedStyle(document.querySelector('.sc-video .scCard')).opacity)()"
-    top = await pg.evaluate("document.querySelector('.sc-video').getBoundingClientRect().top + scrollY")
-    await pg.evaluate(f"scrollTo(0, {top} - innerHeight + 120)"); await asyncio.sleep(.5)
-    entering = await pg.evaluate(frac)
-    await pg.evaluate(f"scrollTo(0, {top} - innerHeight * .3)"); await asyncio.sleep(.5)
-    middle = await pg.evaluate(frac)
-    print('10. the clip scene card is shown', entering, 'entering and', middle, 'mid screen')
-    if entering > 0.3 or middle < 0.95: errs.append(f'the scene played at the wrong point: {entering} entering, {middle} mid screen')
-    # 12.
-    await pg.evaluate("document.querySelector('#get').scrollIntoView()")
-    await pg.evaluate("document.querySelector('#get a[download]').addEventListener('click', (e) => e.preventDefault())")
-    await pg.click('#get .giDo a[download]'); await asyncio.sleep(.4)
-    st = await pg.evaluate("({ done: document.querySelector('.giSteps li').classList.contains('done'), now: document.querySelector('.giSteps li:nth-child(2)').classList.contains('now'), copy: !!document.querySelector('.giCopy') })")
-    print('12. after the download:', st)
-    if not all(st.values()): errs.append(f'the steps did not follow the download: {st}')
+    # 9 and 12. With the extension loaded, the front page says so, and neither offers to get it nor shows the
+    #    steps. (The steps and the hero's buttons are checked without the extension in homepage.py.)
+    have = await pg.evaluate("({ get: !document.querySelector('.heroGetRow').hidden, steps: !document.querySelector('.landGet').hidden, have: !document.querySelector('.heroHave').hidden })")
+    print('9, 12. with the extension loaded:', have)
+    if have != {'get': False, 'steps': False, 'have': True}: errs.append(f'with the extension the front page read {have}')
     # 6.
+    await pg.goto('https://annotated-app.netlify.app/?feed'); await pg.wait_for_selector('.rail'); await asyncio.sleep(2)
     fb = await pg.query_selector('.rail .followBtn')
     if not fb: errs.append('no Follow button in people worth following')
     else:

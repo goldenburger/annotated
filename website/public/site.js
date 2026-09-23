@@ -3,11 +3,29 @@
 // Google sign-in, which returns to the same page.
 (async () => {
   Prefs.init(Prefs.localBackend());
-  let me = null;
-  try { me = await Backend.profile(); AnnotationPage.setMe(me); } catch {}
   const page = document.getElementById('page');
   const parts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(location.search);
+  // The front page waits for nothing on the network. Whether anyone is signed in is read from this browser,
+  // which is instant, and a visitor's front page is drawn before the database is asked anything. It used to
+  // wait on the profile and the whole feed, which left a blank page for a second, and for good when the
+  // database could not be reached.
+  const frontPage = !parts.length && !query.has('tag') && !query.has('feed');
+  if (frontPage && typeof Landing !== 'undefined') {
+    let session = null;
+    try { session = (await Backend.client.auth.getSession()).data.session; } catch { /* no storage */ }
+    if (!session || query.has('try')) {
+      const signInNow = () => Backend.signIn().catch(() => {});
+      const land = Landing.mount(page, { signedIn: !!session, onSignIn: signInNow });
+      document.title = 'annotated: say what you think about anything on the web';
+      Cloud.list({ limit: 24 }).then((all) => land.fillLatest(all, (id) => {
+        const r = all.find((x) => x.id === id); location.href = `/@${(r && r.author && r.author.handle) || 'annotated'}/${encodeURIComponent(id)}`;
+      })).catch(() => { /* no row, then */ });
+      return;
+    }
+  }
+  let me = null;
+  try { me = await Backend.profile(); AnnotationPage.setMe(me); } catch {}
   const handleOf = new Map();
   const linkFor = (id) => `/@${handleOf.get(id) || 'annotated'}/${encodeURIComponent(id)}`;
   const remember = (records) => records.forEach((r) => handleOf.set(r.id, (r.author && r.author.handle) || 'annotated'));
@@ -40,14 +58,6 @@
       const you = navEl.querySelector('.navProfile'); if (you) you.hidden = true;
     }
   }
-  // The front page. It goes above the list rather than inside it, so it has the full width, and it is only
-  // for the home page with nothing filtered, because anyone on a tag or a profile came for the annotations.
-  function intro(all) {
-    if (typeof Hero === 'undefined') return;
-    Hero.mount(page, { onLook: () => {} });
-    if (Hero.showcase) Hero.showcase(page, { records: all || [], onOpen: nav.onOpen });
-    if (Hero.install) Hero.install(page);
-  }
 
   async function home(tag) {
     let all = [];
@@ -68,7 +78,8 @@
     document.title = tag ? `${tag} | annotated` : 'annotated';
     AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav });
     headerAccount();
-    if (!tag) intro(all);
+    // Signed in, the front page is the feed, with the try-it one line away.
+    if (!tag && me && typeof Landing !== 'undefined') Landing.slimLine(page);
   }
 
   async function profile(handle) {

@@ -404,3 +404,66 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stWin { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: #CFCBBE; }
 .sceneTry .stDot { position: absolute; top: -2px; bottom: -2px; border-radius: 3px; background: #F2C600; }
 .sceneTry .stAllLbl { display: flex; justify-content: space-between; margin: 4px 8px 0; font: 500 11px/1 var(--sans); color: var(--ink-3); }
+
+/* ---------- The front page (landing.js): one hero with a four-tab try-it, the steps, and the latest. ---------- */
+.land { min-height: 100vh; }
+.landBar { position: sticky; top: 0; z-index: 20; }
+.landBar .wmBtn { text-decoration: none; }
+.landBar .sitenav a.navBtn { text-decoration: none; }
+.landMain { max-width: 1160px; margin: 0 auto; padding: 0 20px 40px; }
+/* The hero keeps both columns at the top, so a growing try-it never moves the headline. */
+.landHero { max-width: none; padding: 44px 0 30px; align-items: start; }
+.landHero .heroSub { max-width: 40ch; }
+.landHero .heroHave { max-width: 42ch; margin: 0; font: var(--t-m)/1.55 var(--sans); color: var(--ink-2); }
+.landHero .heroHave[hidden], .heroGetRow[hidden], .landGet[hidden], .landLatest[hidden] { display: none; }
+.heroDo .link { text-decoration: underline; }
+/* The paper is always paper: its own light ink in either theme, so dark mode never turns its words pale. */
+.heroTry { --ink: #1C2433; --ink-2: #3A3F4A; --ink-3: #5B616E; --rule: #E1DCCB; --sheet: #FFFFFF; --paper: #FFFDF7; --newsprint: #F2EEE2; }
+.tryTabs { display: flex; gap: 4px; margin: 0 6px 6px; padding: 4px; border-radius: 999px; background: var(--newsprint); width: max-content; max-width: 100%;
+  overflow-x: auto; scrollbar-width: none; }
+.tryTabs::-webkit-scrollbar { display: none; }
+.tryTab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 0; border-radius: 999px; background: none;
+  color: #3A3F4A; font: 600 13px/1 var(--sans); cursor: pointer; white-space: nowrap; }
+.tryTab .ic { width: 14px; height: 14px; }
+.tryTab[aria-selected="true"] { background: #fff; color: #16181D; box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.tryTab:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.tryPanel[hidden] { display: none; }
+/* The other three tabs sit on the same paper as the brief. */
+.tryPanel.sceneTry { margin: 34px 6px 0; border-radius: 4px; background-color: #FFFDF7;
+  background-image: radial-gradient(rgba(60, 50, 20, .045) 1px, transparent 1.2px); background-size: 7px 7px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .04), 0 24px 40px -18px rgba(30, 26, 12, .35), 0 6px 14px -8px rgba(30, 26, 12, .18); }
+/* The ending after a take, one line. */
+.tiAfter .tiNext { margin: 0; font: var(--t-s)/1.5 var(--sans); color: var(--ink-2); }
+.tiAfter .tiNext .link { margin-left: 4px; }
+.tiBar .tiForMe, .sceneTry .stForMe { flex: 0 0 auto; font: 500 var(--t-s)/1 var(--sans); }
+/* Getting it, three steps in a row. */
+.landGet { max-width: none; margin: 10px 0 34px; padding: 22px 0; display: grid; grid-template-columns: 1fr; gap: 14px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.landGet .giH { margin: 0; font: 600 clamp(20px, 2.2vw, 26px)/1.2 var(--serif); }
+.landGet .giSteps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px 28px; }
+.landGet .giDo { grid-column: auto; }
+@media (max-width: 820px) { .landGet .giSteps { grid-template-columns: 1fr; } }
+/* The latest four. */
+.landLatest { margin: 0 0 20px; container-type: inline-size; }
+.llHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 14px; }
+.llHead h2 { margin: 0; font: 600 clamp(20px, 2.2vw, 26px)/1.2 var(--serif); }
+.llRow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 1060px) { .llRow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .llRow { grid-template-columns: minmax(0, 1fr); } }
+.llRow .card.mf { padding: 14px; }
+.llRow .card.mf .ctake { font-size: 16px; }
+.llRow .cthumb.cwide img { max-height: 150px; height: 150px; aspect-ratio: auto; object-position: center top; }
+/* Signed in, the feed with one line to the try-it. */
+.slimTry { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 10px 14px; border: 1px solid var(--rule); border-radius: var(--r-m);
+  background: var(--sheet); font: 500 var(--t-s)/1.3 var(--sans); color: var(--ink-2); }
+.slimTry .ic { width: 16px; height: 16px; }
+.slimTry span { flex: 1; }
+/* Small text, readable: nothing under 12.5 pixels, and grey dark enough to read on cream. */
+.tiSrc, .sceneTry .stKicker, .sceneTry .stAllLbl, .scKind, .heroKicker, .tiExample, .giSteps code, .sceneTry .stCardSrc { font-size: 12.5px; }
+.sceneTry .stKicker, .sceneTry .stAllLbl, .tiSrc { color: #5B616E; }
+/* The headline's word keeps dark ink on its stroke in either theme, as the pen does on a page. */
+.heroMark { color: #1C2433; }
+@media (max-width: 760px) {
+  .landHero { padding-top: 22px; }
+  .tryTabs { margin: 0 0 6px; }
+}
+.tiLabel { font-size: 12.5px; }

@@ -342,6 +342,20 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   the card it becomes, with Start over and Make another. The drawn SVG is only the fallback if the pen did not
   load, and the static Example card beside a working scene is gone, because the scene makes its own. A real
   published annotation of that kind still sits beside it.
+- **The front page, rebuilt 2026-09-23 afternoon** (`website/public/landing.js`, `tests/homepage.py`). It is drawn
+  at once, before the database is asked anything: `site.js` reads the session from this browser and, for a
+  visitor, mounts `Landing` and only then asks for the latest annotations. It used to wait on the profile and
+  the whole feed, a blank page for a second and for good with the database unreachable. Signed in, "/" is the
+  feed, with a slim "Try annotated on this page" line (`slimTry`) to `/?try`. `/?feed` is the feed for anyone.
+  The hero is the kicker, the headline, one line and two buttons, with a four-tab try-it (Article is `TryIt`,
+  the brief; YouTube clip, Podcast and Post on X are `SceneTry` on the same paper). A tab sets the headline's
+  word, and the headline only starts changing after the example has played (`annotated-tryit-demo-done`), so
+  two pens never move at once. Under it, the install steps in a row (`#get`), and "Latest on annotated", the
+  four newest shared annotations with See everything, hidden with fewer than three. The extension marks our
+  pages (`data-annotated-installed`, from `article.js`), and then the hero says you have it and the steps
+  hide. The paper keeps its own light ink in dark mode, the headline word keeps dark ink on its stroke, and
+  nothing in the hero or steps is under 12.5 pixels. `og.png` and the `og:` and `twitter:` tags give the link
+  a preview. `hero.js` and the scenes section are gone.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

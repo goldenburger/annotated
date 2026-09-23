@@ -45,10 +45,11 @@ var SceneTry = (() => {
   }
 
   // ---- words: a passage or a post, selected and marked with the real pen.
-  function words(root, { kind, html, source, kindIcon, whole = null }) {
+  function words(root, { kind, html, source, kindIcon, whole = null, forMe = '' }) {
     pen();
     root.innerHTML = `<div class="stStage">${html}</div>
       <div class="stBar"><p class="stHint" role="status">Select any words above.</p>
+        ${forMe ? '<button type="button" class="link stForMe">Mark a sentence for me</button>' : ''}
         ${whole ? `<button type="button" class="link stWhole">${esc(whole)}</button>` : ''}
         <button type="button" class="stGo" hidden><i aria-hidden="true"></i>Annotate</button></div>
       <div class="stTake" hidden></div>`;
@@ -82,6 +83,8 @@ var SceneTry = (() => {
     };
     go.addEventListener('mousedown', (e) => e.preventDefault());
     go.addEventListener('click', () => { const s = getSelection(); if (s && s.rangeCount && !s.isCollapsed) mark(s.getRangeAt(0)); });
+    const fm = root.querySelector('.stForMe');
+    if (fm) fm.addEventListener('click', () => { if (root.classList.contains('taken')) return; const r = ArticleCore.findText(text, forMe); if (r) mark(r); });
     const w = root.querySelector('.stWhole');
     if (w) w.addEventListener('click', () => { if (root.classList.contains('taken')) return; const r = document.createRange(); r.selectNodeContents(text.querySelector('.stPostText') || text); mark(r); });
   }
@@ -180,12 +183,12 @@ var SceneTry = (() => {
   }
 
   const SCENES = {
-    article: (root) => words(root, { kind: 'article', source: 'An example article', kindIcon: 'article',
+    article: (root) => words(root, { kind: 'article', source: 'An example article', kindIcon: 'article', forMe: 'The council voted 7 to 2 to run buses through the night on three routes.',
       html: `<div class="stPaper"><p class="stKicker">Example article</p><div data-annotated-self><p class="stH">Council backs a six-month overnight bus trial</p>
         <p>The council voted 7 to 2 to run buses through the night on three routes. Supporters pointed to a survey in which six in ten night-shift workers said they had missed a shift for lack of a ride home.</p></div></div>` }),
     video: (root) => trimmer(root, { kind: 'video', duration: 760, start: 190, end: 232, source: 'An example YouTube video, 12:40', kindIcon: 'clip', strip: filmstrip() }),
     audio: (root) => trimmer(root, { kind: 'audio', duration: 3480, start: 1265, end: 1285, source: 'An example podcast episode, 58:00, from Spotify or anywhere else', kindIcon: 'podcast', strip: waveform() }),
-    post: (root) => words(root, { kind: 'post', source: 'An example post on X', kindIcon: 'post', whole: 'Use the whole post',
+    post: (root) => words(root, { kind: 'post', source: 'An example post on X', kindIcon: 'post', whole: 'Use the whole post', forMe: 'Sign-ups are up 40 percent, and support tickets doubled over the weekend.',
       html: `<div class="stPost"><p class="stPostWho"><span class="stAv" aria-hidden="true"></span><b>Example post</b> <span>@example</span></p>
         <div data-annotated-self><p class="stPostText">We shipped the redesign on Friday. Sign-ups are up 40 percent, and support tickets doubled over the weekend.</p></div></div>` }),
   };

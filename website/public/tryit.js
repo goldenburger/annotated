@@ -53,7 +53,7 @@ var TryIt = (() => {
         <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>
         <span class="tiPen" aria-hidden="true" hidden>${PEN}</span>
       </div>
-      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
+      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
       <form class="tiTake" hidden>
         <label class="tiLabel" for="tiInput">Your take</label>
         <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
@@ -62,9 +62,7 @@ var TryIt = (() => {
         <div class="tiRow"><button class="primary tiMake" disabled>Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
       </form>
       <div class="tiAfter" hidden>
-        <p class="tiNext"><b>That's an annotation.</b> The extension makes these from any page, a YouTube clip, a podcast or a post on X, and each one gets a page people can reply to.</p>
-        <p class="tiRow"><a class="primary tiGet" href="#get">Get it for Chrome</a><button type="button" class="link tiRedo">Make another</button></p>
-        <p class="note tiKept">It's kept in this browser. Once the extension is installed, it offers to publish it.</p>
+        <p class="tiNext"><b>That's an annotation.</b> Yours stays in this browser until the extension is installed. <button type="button" class="link tiRedo">Make another</button></p>
       </div>`;
     host.appendChild(el);
     wire(el);
@@ -210,6 +208,13 @@ var TryIt = (() => {
       hint.textContent = 'That is the pen the extension uses on any page.';
       setTimeout(() => { form.hidden = false; requestAnimationFrame(() => form.classList.add('up')); input.focus({ preventScroll: true }); }, ms + 150);
     };
+    // For the keyboard, and for anyone who does not know the words can be selected: one sentence, marked.
+    q('.tiForMe').addEventListener('click', () => {
+      quiet();
+      if (marks.length) return;
+      const r = ArticleCore.findText(text, 'All clipped content, text, audio, or video, must link back to its original source URL.');
+      if (r) take(r);
+    });
     q('.tiUse').addEventListener('mousedown', (e) => e.preventDefault());
     q('.tiUse').addEventListener('click', () => {
       const s = getSelection();
@@ -254,13 +259,16 @@ var TryIt = (() => {
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function demo() {
-      if (touched || still() || marks.length) return;
+      const skip = () => document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
+      if (touched || still() || marks.length) return skip();
       const r = ArticleCore.findText(text, DEMO.phrase);
-      if (!r) return;
+      if (!r) return skip();
       demoing = true;
       let live = true;
-      stopDemo = () => { live = false; demoing = false; pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words on this page.'; };
+      stopDemo = () => { live = false; demoing = false; document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words on this page.'; };
       const s = stage.getBoundingClientRect(), rs = [...r.getClientRects()].filter((x) => x.width);
+      // The paper is out of sight, on another tab, so there is nothing to show the example on.
+      if (!rs.length || !s.width) { demoing = false; return skip(); }
       const a = rs[0], z = rs[rs.length - 1];
       pen.hidden = false;
       pen.style.transform = `translate(${s.width + 20}px, ${s.height * 0.7}px)`;
@@ -279,6 +287,7 @@ var TryIt = (() => {
       clear();
       demoing = false;
       hint.textContent = 'Now you try. Select any words.';
+      document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
     }
     const io = new IntersectionObserver((rows) => {
       if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 4000); io.disconnect(); }

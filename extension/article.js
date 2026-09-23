@@ -51,6 +51,10 @@
     try { chrome.storage.local.set({ annotatedTryit: draft }); } catch { /* the extension went away */ }
   };
   handTryit();
+  if (location.origin === TRY_ORIGIN) {
+    document.documentElement.dataset.annotatedInstalled = '1';
+    document.dispatchEvent(new CustomEvent('annotated-installed'));
+  }
   document.addEventListener('annotated-tryit-made', handTryit);
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
