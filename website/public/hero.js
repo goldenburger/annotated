@@ -120,7 +120,7 @@ var Hero = (() => {
         <h1 class="heroH" aria-label="Say what you think about anything on the web: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true"> on the web</span></h1>
         <p class="heroSub">Mark a passage in an article, clip a moment out of a video or a podcast, or keep a post from X.
           Add your take and it becomes a page with your take on top and the source underneath, linking back to where it came from.</p>
-        <p class="heroDo"><a class="primary heroGet" href="/annotated-extension.zip" download>Get the Chrome extension</a>
+        <p class="heroDo"><a class="primary heroGet" href="#get">Get the Chrome extension</a>
           <button type="button" class="link heroLook">Look around first</button></p>
         <p class="note heroWhere">Any article, YouTube, most podcasts, and posts on X.</p>
       </div>`;
@@ -133,9 +133,14 @@ var Hero = (() => {
     cycle(hero);
     if (!tried) { side.remove(); hero.appendChild(build()); }
     const stop = tried ? () => {} : run(hero);
+    // Look around first goes to the four kinds, the thing worth looking at, rather than past them to the feed.
     hero.querySelector('.heroLook').addEventListener('click', () => {
       onLook && onLook();
-      grid.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      (page.querySelector('.scenes') || grid).scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    hero.querySelector('.heroGet').addEventListener('click', (e) => {
+      const to = page.querySelector('#get'); if (!to) return;
+      e.preventDefault(); to.scrollIntoView({ block: 'start', behavior: 'smooth' });
     });
     // The loop costs nothing once it is off screen, and a tab nobody is looking at should not run it either.
     const io = new IntersectionObserver((rows) => rows.forEach((r) => { if (!r.isIntersecting) stop(); }), { threshold: 0 });
@@ -197,6 +202,8 @@ var Hero = (() => {
       slot.querySelector('.exSrc span').textContent = s.exSrc;
     });
     grid.parentNode.insertBefore(box, grid);
+    const shown = new Set(picks.filter(Boolean).map((r) => r.id));
+    grid.querySelectorAll('.cards > .cardItem').forEach((li) => { const c = li.querySelector('.card'); if (c && shown.has(c.dataset.id)) li.remove(); });
   }
 
   // How to get it, said plainly, under the examples. Until the Chrome Web Store listing is live it is three
@@ -210,11 +217,24 @@ var Hero = (() => {
         <p class="note">It is a Chrome extension. It is not in the Chrome Web Store yet, so it installs from a file, and the source is open on GitHub.</p></div>
       <ol class="giSteps">
         <li><b>Download it</b><span><a href="/annotated-extension.zip" download>annotated-extension.zip</a>, then unzip it.</span></li>
-        <li><b>Turn on Developer mode</b><span>Open <code>chrome://extensions</code> and flip the switch at the top right.</span></li>
+        <li><b>Turn on Developer mode</b><span>Paste <code>chrome://extensions</code> into the address bar <button type="button" class="link giCopy">Copy it</button>, then flip the switch at the top right.</span></li>
         <li><b>Load it</b><span>Click Load unpacked, choose the unzipped folder, and pin annotated from the puzzle piece.</span></li>
       </ol>
       <p class="giDo"><a class="primary" href="/annotated-extension.zip" download>Download the extension</a><a class="link" href="https://github.com/goldenburger/annotated" target="_blank" rel="noopener">See the source</a></p>`;
     grid.parentNode.insertBefore(box, grid);
+    // A web page may not link to Chrome's own pages, so the address is copied for you to paste.
+    const cp = box.querySelector('.giCopy');
+    cp.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText('chrome://extensions'); cp.textContent = 'Copied'; } catch { cp.textContent = 'Select it and copy'; }
+      setTimeout(() => { cp.textContent = 'Copy it'; }, 2200);
+    });
+    // Pressing download says it worked, since the file arrives with nothing on the page to show for it.
+    box.querySelectorAll('a[download]').forEach((a) => a.addEventListener('click', () => {
+      const first = box.querySelector('.giSteps li');
+      first.classList.add('done');
+      first.querySelector('span').textContent = 'Downloaded. Unzip it wherever you keep things.';
+      box.querySelector('.giSteps li:nth-child(2)').classList.add('now');
+    }));
   }
 
   // The site still calls it showcase.

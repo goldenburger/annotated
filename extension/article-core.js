@@ -246,6 +246,9 @@ var ArticleCore = (() => {
     const touched = new Set();
     root.querySelectorAll('mark.annotated-hl').forEach((mk) => {
       if (keep.includes(mk)) return;
+      // annotated's own front page draws with this pen in a box of its own, and clears it itself. The page
+      // script wiping it on every click left the try-it holding strokes that were no longer there.
+      if (root === document && mk.closest('[data-annotated-self]')) return;
       const p = mk.parentNode;
       while (mk.firstChild) p.insertBefore(mk.firstChild, mk);
       p.removeChild(mk);
@@ -604,10 +607,11 @@ var ArticlePage = (() => {
       // The empty paper below the writing belongs to the page too, and that click lands on the document itself.
       const area = root();
       if (!area) return;
+      if (e.target.closest && e.target.closest('.tryit, [data-annotated-self]')) return;
       if (!area.contains(e.target) && !(area === document.body && e.target === document.documentElement)) return;
       wipe();
     };
-    const onKey = (e) => { if (e.key === 'Escape' && !pendingAnnotate && !shooting) { window.getSelection().removeAllRanges(); wipe(); } };
+    const onKey = (e) => { if (e.key === 'Escape' && !pendingAnnotate && !shooting && !(e.target.closest && e.target.closest('.tryit'))) { window.getSelection().removeAllRanges(); wipe(); } };
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('keydown', onKey, true);
 

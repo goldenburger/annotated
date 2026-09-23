@@ -340,10 +340,12 @@ const Cloud = (() => {
       personId ? followCounts(personId).catch(() => null) : null,
     ]);
     const value = {
+      signIn: signIn || null,
       followed, people: ppl, trending: trend, youCounts, personStats, onPerson,
       followsPerson: !!(personId && followed.has(personId)),
       async onFollow(id, on) {
-        if (!me) { if (signIn) signIn(); return false; }
+        // Signed out nothing was tried, so this is not a failure. The button asks you to sign in instead.
+        if (!me) return null;
         const r = on ? await follow(me.id, id) : await unfollow(me.id, id);
         if (r.error) return false;
         if (on) followed.add(id); else followed.delete(id);

@@ -10,7 +10,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   // every tag, and the account beside it can change without this page reloading.
   const readMe = async () => { try { me = await Backend.profile(); } catch { me = null; } AnnotationPage.setMe(me); };
   const el = document.getElementById('feed');
-  const signIn = () => alert('Sign in from the annotated panel to follow people.');
+  const signIn = () => Backend.signIn().then(() => load()).catch(() => {});
   let tab = Cloud.savedTab(), pressed = false;
 
   const load = async () => {

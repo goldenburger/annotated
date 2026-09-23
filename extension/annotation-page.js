@@ -226,6 +226,22 @@ const AnnotationPage = (() => {
       ${t.sources.length ? `<ul class="raillist trend">${t.sources.map((x) => `<li><button type="button" class="railOpen" data-id="${esc(x.sample_id)}"><span class="rlKind">${kindIcon({ kind: x.kind })}</span><span class="rlText"><span class="rlTake">${esc(x.title)}</span><span class="note">${x.quote ? `&ldquo;${esc(x.quote)}&rdquo;. ` : ''}${plural(Number(x.annotations), 'annotation')}${Number(x.activity) > Number(x.annotations) ? (() => { const n = Number(x.activity) - Number(x.annotations); return `, ${n} ${n === 1 ? 'reply or reaction' : 'replies and reactions'}`; })() : ''}</span></span></button></li>`).join('')}</ul>` : ''}
       ${t.tags.length ? `<div class="tagcloud">${t.tags.map((x) => `<button type="button" class="tagpill railTag" data-tag="${esc(x.tag)}">${esc(x.tag)} <span class="num">${x.uses}</span></button>`).join('')}</div>` : ''}</section>`;
   }
+  // Something that needs an account, asked for signed out. It says so on its own line under what was pressed,
+  // with a button, where a browser dialog used to ask and, cancelled, left the card saying it had failed.
+  function signInPrompt({ text, near = null, onSignIn = null }) {
+    document.querySelectorAll('.signAsk').forEach((x) => x.remove());
+    const box = document.createElement('p');
+    box.className = 'signAsk' + (near ? '' : ' floating');
+    box.setAttribute('role', 'status');
+    box.innerHTML = `<span></span>${onSignIn ? '<button type="button" class="strong sm saYes">Sign in with Google</button>' : ''}<button type="button" class="link saNo">Not now</button>`;
+    box.querySelector('span').textContent = text;
+    if (near) near.after(box); else document.body.appendChild(box);
+    const yes = box.querySelector('.saYes');
+    if (yes) yes.addEventListener('click', () => { box.remove(); onSignIn(); });
+    box.querySelector('.saNo').addEventListener('click', () => box.remove());
+    if (yes) yes.focus({ preventScroll: true });
+    return box;
+  }
   // Follow buttons anywhere on the page: optimistic, and put back if saving fails.
   function wireFollow(root, social) {
     if (!social || !social.onFollow) return;
@@ -237,6 +253,7 @@ const AnnotationPage = (() => {
         set(on); b.disabled = true;
         const ok = await social.onFollow(b.dataset.id, on).catch(() => false);
         b.disabled = false;
+        if (ok === null) { set(!on); signInPrompt({ text: 'Sign in with Google to follow people.', near: b.closest('li') || b, onSignIn: social.signIn }); return; }
         // A refused follow used to flip the button back and say nothing, which looked like a button that did
         // not work. The database refuses following yourself, so that is the one worth naming.
         if (ok === false) {
@@ -1251,5 +1268,5 @@ const AnnotationPage = (() => {
     return a.text === b.text && (a.meta.url || '') === (b.meta.url || '');
   }
 
-  return { renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
+  return { signInPrompt, renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
 })();

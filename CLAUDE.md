@@ -316,6 +316,21 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   the pen underlines (`.drawLine`). Phones get no tilt, and the card lifts straight up under the paper. Reduced
   motion gets no tilt, cycle, example or scene motion, only finished frames. The whole of it adds about 30 KB,
   with no libraries. A shared annotation opened signed out ends with "Make one like this" (`#try`).
+- **The recording of 2026-09-23 at 12:27** (`tests/walk1227.py`, run with the extension loaded). The extension's page
+  script wiped every highlight on a click, the try-it's included, so the try-it held strokes that were gone and
+  stopped working. `clearHighlights(document)` now leaves `[data-annotated-self]` alone, and clicks and Escape in
+  `.tryit` are not the extension's, and the try-it checks its own marks (`intact`, `recover`) and starts clean
+  if they have gone. New words selected with the take box open offer "Use these words instead", keeping the take.
+  Make the annotation waits for words, and its message sits under the box (`.tiSay`). The quote is
+  `ArticleCore.quoteText`, so two paragraphs keep their break. The card is placed by the paper's own layout
+  (`offsetTop`), placed again on scroll, and under the paper when there is no room above. Follow signed out
+  answers `null` (not tried) and `AnnotationPage.signInPrompt` asks inline, where a browser dialog asked and a
+  cancel said it had failed. The same prompt replaces the dialogs for commenting, reacting and voting, and the
+  extension's own pages sign in themselves. The feed under the scenes leaves out what they show, the hero's
+  buttons lead to `#get` and the scenes, the scenes play mid screen, a scene card's picture is held to 190
+  pixels, and downloading ticks the first install step with a Copy button for `chrome://extensions`.
+  `scripts/serve_website.py` serves the site locally as Netlify does, routing `/@...`, sending `_headers`, and
+  caching nothing.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

@@ -1530,3 +1530,11 @@ body.signedOut .steps .stSave { display: inline; }
 .cthumb.cwide.caudio .cdur { position: static; margin-left: auto; background: none; color: var(--ink-3); }
 /* A clip whose poster failed still has its player button, on a dark 16:9 box. */
 .cthumb.cwide.cprev:not(:has(img)) { aspect-ratio: 16 / 9; }
+
+/* Asked to sign in, on its own line under what was pressed, or at the foot of the window. */
+.signAsk { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 8px 0 0; padding: 10px 12px; border: 1px solid var(--rule);
+  border-left: 3px solid var(--hi); border-radius: var(--r-m); background: var(--sheet); font: 500 var(--t-s)/1.35 var(--sans); color: var(--ink); list-style: none; }
+.signAsk span { flex: 1 1 180px; }
+.signAsk .strong { width: auto; }
+.signAsk.floating { position: fixed; z-index: 50; left: 50%; bottom: 20px; transform: translateX(-50%); width: min(560px, calc(100vw - 32px));
+  box-shadow: 0 16px 36px -14px rgba(0, 0, 0, .35); margin: 0; }

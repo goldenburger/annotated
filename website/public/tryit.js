@@ -57,7 +57,9 @@ var TryIt = (() => {
       <form class="tiTake" hidden>
         <label class="tiLabel" for="tiInput">Your take</label>
         <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
-        <div class="tiRow"><button class="primary tiMake">Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
+        <p class="tiSay" role="status" hidden></p>
+        <p class="tiSwap" hidden><button type="button" class="ghost sm tiUse">Use these words instead</button></p>
+        <div class="tiRow"><button class="primary tiMake" disabled>Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
       </form>
       <div class="tiAfter" hidden>
         <p class="tiNext"><b>That's an annotation.</b> The extension makes these from any page, a YouTube clip, a podcast or a post on X, and each one gets a page people can reply to.</p>
@@ -111,29 +113,26 @@ var TryIt = (() => {
 
     // ---- where the card hangs, and where its shadow falls: above the paper, over the words it is about.
     function hang() {
-      const pr = paper.getBoundingClientRect();
-      const rs = marks.map((m) => m.getBoundingClientRect()).filter((r) => r.width);
+      // Placed by the paper's own layout, which does not move as the paper tilts or the page scrolls. Measured
+      // on screen, the card was placed once, and after a scroll it sat somewhere else from its line.
+      const rs = marks.filter((m) => m.isConnected && m.offsetWidth).map((m) => ({ l: m.offsetLeft, t: m.offsetTop, r: m.offsetLeft + m.offsetWidth, b: m.offsetTop + m.offsetHeight }));
       if (!rs.length) return;
-      const box = { l: Math.min(...rs.map((r) => r.left)), r: Math.max(...rs.map((r) => r.right)), t: Math.min(...rs.map((r) => r.top)), b: Math.max(...rs.map((r) => r.bottom)) };
-      // The paper is transformed, so these are measured on screen and scaled back to the paper's own size.
-      const k = paper.offsetWidth / (pr.width || 1);
-      shadow.style.left = ((box.l - pr.left) * k - 6) + 'px'; shadow.style.width = ((box.r - box.l) * k + 12) + 'px';
-      shadow.style.top = ((box.t - pr.top) * k + 6) + 'px'; shadow.style.height = ((box.b - box.t) * k + 10) + 'px';
+      const box = { l: Math.min(...rs.map((r) => r.l)), r: Math.max(...rs.map((r) => r.r)), t: Math.min(...rs.map((r) => r.t)), b: Math.max(...rs.map((r) => r.b)) };
+      shadow.style.left = (box.l - 6) + 'px'; shadow.style.width = (box.r - box.l + 12) + 'px';
+      shadow.style.top = (box.t + 6) + 'px'; shadow.style.height = (box.b - box.t + 10) + 'px';
       // On a phone the card sits in the page under the paper, so it needs no place of its own.
       if (flat()) { stage.style.paddingBottom = ''; lift.classList.remove('under'); return; }
-      // Above the words when there is room, otherwise just below them. Pushed up against the paper's top edge,
-      // a card over the first line covered the very words it was about.
-      const above = (box.t - pr.top) * k - lift.offsetHeight - 34;
-      const below = (box.b - pr.top) * k + 34;
-      lift.classList.toggle('under', above < -30);
-      lift.style.top = (above >= -30 ? above : below) + 'px';
-      // Hanging below, the card may reach past the paper, so the stage makes room rather than covering the bar.
-      const reach = (above >= -30 ? 0 : below + lift.offsetHeight - paper.offsetHeight + 16);
-      stage.style.paddingBottom = reach > 0 ? `${reach + 10}px` : '';
+      // Above the words when there is room. Otherwise under the paper altogether, since hanging just below
+      // the words put it over the last lines of the brief.
+      const above = box.t - lift.offsetHeight - 34;
+      const under = above < -30;
+      lift.classList.toggle('under', under);
+      lift.style.top = (under ? paper.offsetHeight + 14 : above) + 'px';
+      stage.style.paddingBottom = under ? `${lift.offsetHeight + 24}px` : '';
     }
     function showLift(take, { example = false } = {}) {
       q('.tiTakeOut').textContent = take;
-      q('.tiInk').textContent = `“${quote}”`;
+      q('.tiInk').textContent = `“${quote.replace(/\s*\n+\s*/g, ' ')}”`;
       q('.tiExample').hidden = !example; q('.tiWho').hidden = example;
       lift.classList.toggle('example', example);
       lift.hidden = false; lift.classList.remove('up');
@@ -145,7 +144,19 @@ var TryIt = (() => {
       return new Promise((res) => setTimeout(() => { lift.hidden = true; stage.style.paddingBottom = ''; shadow.removeAttribute('style'); res(); }, still() ? 0 : 420));
     }
 
-    const clear = () => { if (marks.length) ArticleCore.clearHighlights(text); marks = []; quote = ''; };
+    const clear = () => { ArticleCore.clearHighlights(text); marks = []; quote = ''; };
+    // Anything else that wipes highlights from the page, the extension on an older build for one, can take the
+    // strokes away underneath the try-it. It checks before every step and starts clean if they have gone.
+    const intact = () => marks.length > 0 && marks.every((m) => m.isConnected && text.contains(m));
+    const recover = () => {
+      if (!marks.length || intact()) return false;
+      clear(); form.hidden = true; form.classList.remove('up');
+      if (!lift.hidden) sinkLift();
+      q('.tiAfter').hidden = true;
+      hint.textContent = 'Select any words on this page.';
+      return true;
+    };
+    const say = (t) => { const s = q('.tiSay'); s.textContent = t || ''; s.hidden = !t; };
     const inText = (r) => r && text.contains(r.commonAncestorContainer);
     let stopDemo = () => {};
     const quiet = () => {
@@ -164,7 +175,12 @@ var TryIt = (() => {
       const r = s.getRangeAt(0);
       if (!inText(r)) return;
       quiet();
-      if (marks.length && !form.hidden) return;
+      recover();
+      if (marks.length && !form.hidden) {
+        const inside = marks.some((m) => r.intersectsNode(m));
+        q('.tiSwap').hidden = inside || ArticleCore.norm(r.toString()).length > MAX_QUOTE;
+        return;
+      }
       const n = ArticleCore.norm(r.toString());
       const words = n.split(' ').filter(Boolean).length;
       if (n.length > MAX_QUOTE) { hint.textContent = 'Shorter, so it fits a card.'; btn.hidden = true; return; }
@@ -179,16 +195,26 @@ var TryIt = (() => {
       if (marks.length && !still()) setTimeout(() => { marks.forEach((m, i) => { if (i === 0 || i === marks.length - 1) m.classList.add('tiPool'); }); }, ms);
       return ms;
     };
-    const take = (r) => {
+    const take = (r, { keepBox = false } = {}) => {
       const range = ArticleCore.expandToWords(r.cloneRange());
-      quote = ArticleCore.norm(range.toString());
-      if (!quote) return;
+      // 4. The words as the extension quotes them: each block on its own, with a break between, so two
+      // paragraphs do not run together as "URL.The".
+      const words = ArticleCore.quoteText(range);
+      if (!ArticleCore.norm(words)) return;
       getSelection().removeAllRanges();
       btn.hidden = true;
+      if (marks.length) ArticleCore.clearHighlights(text);
+      quote = words;
       const ms = ink(range);
+      if (keepBox) { q('.tiSwap').hidden = true; input.focus({ preventScroll: true }); return; }
       hint.textContent = 'That is the pen the extension uses on any page.';
       setTimeout(() => { form.hidden = false; requestAnimationFrame(() => form.classList.add('up')); input.focus({ preventScroll: true }); }, ms + 150);
     };
+    q('.tiUse').addEventListener('mousedown', (e) => e.preventDefault());
+    q('.tiUse').addEventListener('click', () => {
+      const s = getSelection();
+      if (s && s.rangeCount && !s.isCollapsed && inText(s.getRangeAt(0))) take(s.getRangeAt(0), { keepBox: true });
+    });
     btn.addEventListener('mousedown', (e) => e.preventDefault());
     btn.addEventListener('click', () => {
       const s = getSelection();
@@ -196,18 +222,22 @@ var TryIt = (() => {
     });
     const reset = async () => {
       await sinkLift();
-      clear(); form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = '';
+      clear(); form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = ''; say(''); q('.tiSwap').hidden = true; q('.tiMake').disabled = true;
       q('.tiAfter').hidden = true;
       hint.textContent = 'Select any words on this page.';
     };
     q('.tiAgain').addEventListener('click', reset);
     q('.tiRedo').addEventListener('click', reset);
-    input.addEventListener('input', () => { const n = input.value.length; q('.tiCount').textContent = n >= 240 ? `${n} of ${MAX_TAKE}` : ''; });
+    input.addEventListener('input', () => {
+      const n = input.value.length; q('.tiCount').textContent = n >= 240 ? `${n} of ${MAX_TAKE}` : '';
+      q('.tiMake').disabled = !input.value.trim(); say('');
+    });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const t = input.value.trim();
-      if (!t) { input.focus(); form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); hint.textContent = 'Write a sentence first.'; return; }
+      if (recover()) return;
+      if (!t) { input.focus(); form.classList.remove('shake'); void form.offsetWidth; form.classList.add('shake'); say('Write a sentence first.'); return; }
       const made = { quote, take: t, source: SOURCE, at: Date.now() };
       try { localStorage.setItem(KEY, JSON.stringify(made)); } catch { /* private window */ }
       // The extension, if it is installed, hears this and keeps it for its panel.
@@ -217,7 +247,9 @@ var TryIt = (() => {
       q('.tiAfter').hidden = false;
       hint.textContent = 'Your take on top, the source underneath.';
     });
-    window.addEventListener('resize', () => { if (!lift.hidden) { hang(); drawWire(); } });
+    const replace = () => { if (!lift.hidden && lift.classList.contains('up')) { hang(); drawWire(); } };
+    window.addEventListener('resize', replace);
+    window.addEventListener('scroll', () => requestAnimationFrame(replace), { passive: true });
 
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));

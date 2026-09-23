@@ -90,13 +90,13 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const records = await Store.allMeta().catch(() => []);
     // Following and discovery for the rail and the author's Follow button.
     const soc = await Cloud.discovery(me, {
-      signIn: () => alert('Sign in from the annotated panel to follow people.'),
+      signIn: () => Backend.signIn().then(() => load()).catch(() => {}),
       onPerson: (handle) => Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.href = 'feed.html#user=' + encodeURIComponent(data.id); }),
     }).catch(() => null);
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
-    const needSignIn = () => { if (shared && !me) { alert('Sign in from the annotated panel to comment, react or vote.'); return true; } return false; };
+    const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in with Google to comment, react or vote.', onSignIn: () => Backend.signIn().then(() => load()).catch(() => {}) }); return true; } return false; };
 
     // Everything is here, so the skeleton comes down and the page goes up in the same breath.
     page.className = '';

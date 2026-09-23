@@ -11,12 +11,12 @@
   const handleOf = new Map();
   const linkFor = (id) => `/@${handleOf.get(id) || 'annotated'}/${encodeURIComponent(id)}`;
   const remember = (records) => records.forEach((r) => handleOf.set(r.id, (r.author && r.author.handle) || 'annotated'));
-  const signIn = () => Backend.signIn().catch((e) => alert('Sign-in did not start. ' + e.message));
+  const signIn = () => Backend.signIn().catch((e) => AnnotationPage.signInPrompt({ text: 'Sign-in did not start. ' + e.message }));
   // Back is only offered when the page behind you is one of ours. A same origin referrer is how you know,
   // and it is set by every link and every location change this site makes.
   const cameFromHere = () => { try { return new URL(document.referrer).origin === location.origin; } catch { return false; } };
   let tab = Cloud.savedTab(), pressed = false;
-  const discover = (opts = {}) => Cloud.discovery(me, { signIn: () => { if (confirm('Sign in with Google to follow people?')) signIn(); }, onPerson: (h) => { location.href = '/@' + h; }, ...opts }).catch(() => null);
+  const discover = (opts = {}) => Cloud.discovery(me, { signIn, onPerson: (h) => { location.href = '/@' + h; }, ...opts }).catch(() => null);
   const youOf = (soc, n) => (me && soc && soc.youCounts ? { annotations: n, ...soc.youCounts } : null);
   const nav = {
     onHome: () => { location.href = '/'; },
@@ -117,7 +117,7 @@
     document.title = `${rec.take.text || title} | annotated`;
     const soc = await discover();
     const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, 0) } : null;
-    const needSignIn = () => { if (!me) { if (confirm('Sign in with Google to comment, react or vote?')) signIn(); return true; } return false; };
+    const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in with Google to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
       author: mine ? null : rec.author, mine,
