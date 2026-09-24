@@ -83,9 +83,13 @@ var TryIt = (() => {
       tilt.style.transform = !flat() && !still() ? `rotateX(${(6 - cy * 4).toFixed(2)}deg) rotateY(${(cx * 4).toFixed(2)}deg) rotateZ(2deg)` : '';
       drawWire();
       const moving = Math.abs(tx - cx) > 0.002 || Math.abs(ty - cy) > 0.002;
-      raf = moving || !lift.hidden ? requestAnimationFrame(setTilt) : 0;
+      // Only while the paper is leaning or the card is rising: it used to run at 60 frames a second, a full layout
+      // each, for as long as a card was up (audit of 2026-09-24). Scroll and resize redraw the line themselves.
+      raf = moving || performance.now() < liftUntil ? requestAnimationFrame(setTilt) : 0;
     };
+    let liftUntil = 0;
     const kick = () => { if (!raf) raf = requestAnimationFrame(setTilt); };
+    new MutationObserver(() => { liftUntil = performance.now() + 1200; kick(); }).observe(lift, { attributes: true, attributeFilter: ['class', 'hidden', 'style'] });
     stage.addEventListener('pointermove', (e) => {
       const r = stage.getBoundingClientRect();
       tx = Math.max(-1, Math.min(1, ((e.clientX - r.left) / r.width) * 2 - 1));
@@ -193,7 +197,11 @@ var TryIt = (() => {
       if (marks.length && !still()) setTimeout(() => { marks.forEach((m, i) => { if (i === 0 || i === marks.length - 1) m.classList.add('tiPool'); }); }, ms);
       return ms;
     };
+    // A reset waits for the card to sink, and a take made meanwhile (a click that also finished a plane's flight,
+    // which asks for a reset) must not be wiped by it when it lands.
+    let resetGen = 0;
     const take = (r, { keepBox = false } = {}) => {
+      resetGen++;
       const range = ArticleCore.expandToWords(r.cloneRange());
       // 4. The words as the extension quotes them: each block on its own, with a break between, so two
       // paragraphs do not run together as "URL.The".
@@ -211,7 +219,11 @@ var TryIt = (() => {
     // For the keyboard, and for anyone who does not know the words can be selected: one sentence, marked.
     q('.tiForMe').addEventListener('click', () => {
       quiet();
-      if (marks.length) return;
+      // Marks with an open take box are the visitor's own, mid-take; any others (the example's, or a finished
+      // take's) give way.
+      if (marks.length && !form.hidden) return;
+      // A finished take (its card up, the ending showing) is put away first, as Make another would.
+      if (marks.length) { reset(); clear(); }
       const r = ArticleCore.findText(text, 'All clipped content, text, audio, or video, must link back to its original source URL.');
       if (r) take(r);
     });
@@ -225,10 +237,16 @@ var TryIt = (() => {
       const s = getSelection();
       if (s && s.rangeCount && !s.isCollapsed && inText(s.getRangeAt(0))) take(s.getRangeAt(0));
     });
+    // The box is emptied and the ending put away at once; only taking the marks off waits for the card to sink,
+    // and is skipped if a new take was started meanwhile (audit of 2026-09-24: the box reopened holding the old
+    // take when the wait was skipped as a whole).
     const reset = async () => {
-      await sinkLift();
-      clear(); form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = ''; say(''); q('.tiSwap').hidden = true; q('.tiMake').disabled = true;
+      const g = ++resetGen;
+      form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = ''; say(''); q('.tiSwap').hidden = true; q('.tiMake').disabled = true;
       q('.tiAfter').hidden = true;
+      await sinkLift();
+      if (g !== resetGen) return;
+      clear();
       hint.textContent = 'Select any words on this page.';
     };
     q('.tiAgain').addEventListener('click', reset);

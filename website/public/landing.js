@@ -58,6 +58,14 @@ var Landing = (() => {
       // A card measured while its panel was hidden sits in the wrong place, so shown again it is placed again.
       window.dispatchEvent(new Event('resize'));
     };
+    // A card in Yours so far opens the tab it was made in (landing.js yoursCard), since its install link goes
+    // nowhere once the extension is installed (recording of 2026-09-24 at 21:48, five clicks with no answer).
+    document.addEventListener('annotated-open-kind', (e) => {
+      const i = TABS.findIndex((t) => t.kind === (e.detail && e.detail.kind));
+      if (i < 0) return;
+      pick(i);
+      el.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
+    });
     tabs.forEach((b, i) => {
       b.addEventListener('click', () => pick(i));
       b.addEventListener('keydown', (e) => {
@@ -160,6 +168,11 @@ var Landing = (() => {
       <span class="yGet">${get}</span></span></a>
       <button type="button" class="yDel" aria-label="Remove this one" title="Remove">×</button>`;
     li.dataset.at = String(y.at || '');
+    li.firstElementChild.addEventListener('click', (e) => {
+      if (!y.example && !installed()) return;
+      e.preventDefault();
+      document.dispatchEvent(new CustomEvent('annotated-open-kind', { detail: { kind: y.kind || 'article' } }));
+    });
     li.querySelector('.dotsep').textContent = ago(y.at || Date.now());
     if (y.example) { li.querySelector('.cmeta').innerHTML = '<span class="yEx">Example</span>'; }
     li.querySelector('.ctake').textContent = y.take || '';
@@ -257,7 +270,9 @@ var Landing = (() => {
       row.prepend(li); tidy();
       document.dispatchEvent(new CustomEvent('annotated-yours-drawn', { detail: { card: li.firstElementChild, li, fresh: true, example: true, origin: document.querySelector('.tp-article .tiTilt > .tiPaper'), kind: 'article' } }));
     });
+    const endUndo = () => { lastGone = null; clearTimeout(undoTimer); undoBar.hidden = true; };
     const add = (y, origin) => {
+      endUndo();
       row.querySelectorAll('.example').forEach((x) => x.remove());
       y.at = Date.now();
       save([y, ...list()]);
@@ -279,6 +294,7 @@ var Landing = (() => {
     const gone = () => {
       const at = document.documentElement.dataset.annotatedTryitPublished;
       if (!at) return;
+      endUndo();
       const all = list(), keep = all.filter((y) => !(y.kind === 'article' && String(y.tryitAt) === at));
       if (keep.length === all.length) return;
       save(keep);
@@ -332,7 +348,26 @@ var Landing = (() => {
     new MutationObserver(apply).observe(document.documentElement, { attributes: true, attributeFilter: ['data-annotated-installed'] });
   }
 
+  // The paper planes can be turned off, and back on, from the foot of the home page. The page reloads, since the
+  // planes are set up as it loads.
+  function planesSwitch() {
+    const foot = document.querySelector('.webFoot');
+    if (!foot || foot.querySelector('.planesSwitch')) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 760px), (hover: none)').matches) return;
+    let off = false; try { off = localStorage.getItem('annotated-planes-off') === '1'; } catch {}
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'link planesSwitch';
+    b.textContent = off ? 'Turn paper planes on' : 'Turn paper planes off';
+    b.addEventListener('click', () => {
+      try { if (off) localStorage.removeItem('annotated-planes-off'); else localStorage.setItem('annotated-planes-off', '1'); } catch {}
+      location.reload();
+    });
+    foot.appendChild(document.createTextNode(' '));
+    foot.appendChild(b);
+  }
+
   function mount(root, { signedIn = false, onSignIn = () => {} } = {}) {
+    planesSwitch();
     root.className = 'land';
     root.innerHTML = '';
     header(root, { signedIn, onSignIn });

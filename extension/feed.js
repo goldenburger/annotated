@@ -80,14 +80,15 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         const all = records.slice(), failed = [];
         let done = 0;
         deleting = true;
-        for (const r of all) {
-          if ((r.cloud || r.author) && me) {
-            try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+        try {
+          for (const r of all) {
+            if ((r.cloud || r.author) && me) {
+              try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+            }
+            await Store.del(r.id).catch(() => {});
+            progress(++done, all.length);
           }
-          await Store.del(r.id).catch(() => {});
-          progress(++done, all.length);
-        }
-        deleting = false;
+        } finally { deleting = false; }
         await load();
         return failed;
       } : null,

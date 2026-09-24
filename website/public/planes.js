@@ -14,7 +14,9 @@
 (() => {
   const q = new URLSearchParams(location.search);
   const forced = q.has('planes');
-  const off = q.has('noplanes') || (navigator.webdriver && !forced)
+  let planesOff = false;
+  try { planesOff = localStorage.getItem('annotated-planes-off') === '1'; } catch { /* no storage */ }
+  const off = q.has('noplanes') || planesOff || (navigator.webdriver && !forced)
     || matchMedia('(prefers-reduced-motion: reduce)').matches || matchMedia('(max-width: 760px), (hover: none)').matches;
   if (off || location.pathname !== '/') return;
   let seen = false;
@@ -212,12 +214,15 @@
       const grab = () => {
         const row = document.querySelector('.llRow');
         if (!row) return;
-        // Yours were made on an earlier visit and are simply there; only a take made now flies (onYours).
-        const cards = [...row.querySelectorAll(':scope > .cardItem:not(.yours) > .card')].filter((c) => !c.dataset.plQueued);
+        // Every card in the row flies in, yours from earlier visits included (asked for again on 2026-09-24).
+        const cards = [...row.querySelectorAll(':scope > .cardItem > .card')].filter((c) => !c.dataset.plQueued);
         cards.forEach((c) => { c.dataset.plQueued = '1'; c.classList.add('pl-hidden'); waiting.push(c); });
         if (cards.length) landLatest();
       };
-      new MutationObserver(grab).observe(document.body, { childList: true, subtree: true });
+      const watch = new MutationObserver(grab);
+      watch.observe(document.body, { childList: true, subtree: true });
+      // Only the cards there on arrival fly in. Redrawn later (a removal, an Undo) they used to fly in again.
+      document.addEventListener('annotated-plane-landed', () => setTimeout(() => watch.disconnect(), 300), { once: true });
       grab();
       setTimeout(() => briefIn(paper, true), 120);
     } else root.classList.remove('planes-waiting');

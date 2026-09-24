@@ -298,6 +298,7 @@ var Fold = (() => {
   const on = () => {
     try {
       if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+      try { if (localStorage.getItem('annotated-planes-off') === '1') return false; } catch { /* no storage */ }
       const pf = typeof Prefs !== 'undefined' && Prefs.get ? Prefs.get() : null;
       if (pf && pf.planes === false) return false;
       if (typeof navigator !== 'undefined' && navigator.webdriver) {

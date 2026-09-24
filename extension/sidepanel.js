@@ -894,7 +894,7 @@ async function drawBrowse() {
   }
   if (browsing !== kind) return;
   // Where Back goes, by name. Beside a bare tab Home has nowhere to go back to, and Your profile goes to Home.
-  const bare = bareTab(browseFrom && browseFrom.url);
+  const bare = bareTab(browseFrom && browseFrom.url) || /^https:\/\/annotated-app\.netlify\.app\//.test((browseFrom && browseFrom.url) || '');
   const backTo = bare ? (kind === 'home' ? '' : 'Back to Home') : `Back to ${cleanTitle(browseFrom && browseFrom.title) || 'this page'}`;
   const signIn = typeof Account !== 'undefined' ? () => Account.signIn() : null;
   let action = null;

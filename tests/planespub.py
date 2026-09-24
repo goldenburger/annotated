@@ -77,7 +77,7 @@ async def main():
     await pa.click('.gearBtn, [aria-label="Display settings"]'); await asyncio.sleep(.4)
     label = await pa.evaluate("(document.querySelector('.dmPlanes') || {}).closest?.('label')?.textContent?.trim() || null")
     print('3. the setting:', label)
-    if label != 'Paper planes when you publish': errs.append(f'no setting for the planes: {label!r}')
+    if label != 'Paper plane animations': errs.append(f'no setting for the planes: {label!r}')
     await pa.evaluate("document.querySelector('.dmPlanes').click()"); await asyncio.sleep(.3)
     await pa.keyboard.press('Escape'); await asyncio.sleep(.3)
     await pa.click('#articleMode .pubcard .new'); await asyncio.sleep(.6)

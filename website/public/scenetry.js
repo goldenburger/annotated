@@ -102,7 +102,7 @@ var SceneTry = (() => {
     const N = video ? 10 : 64;
     root.innerHTML = `<div class="stStage">
         <p class="stSrc">${icon(kindIcon)}<a href="${esc(media.credit.href)}" target="_blank" rel="noopener"></a><span class="stSite">${esc(media.credit.site)}</span></p>
-        ${video ? `<div class="stScreen"><video class="stMedia" preload="metadata" playsinline src="${esc(media.src)}"></video></div>` : `<audio class="stMedia" preload="none" src="${esc(media.src)}"></audio>`}
+        ${video ? `<div class="stScreen"><video class="stMedia" preload="none" playsinline src="${esc(media.src)}"></video></div>` : `<audio class="stMedia" preload="none" src="${esc(media.src)}"></audio>`}
         <div class="stTrack" aria-label="${video ? 'The video' : 'The episode'}, ${fmt(duration)} long">
           ${video ? `<div class="stFrames">${'<span></span>'.repeat(N)}</div>` : `<div class="stWave">${'<span style="--v:.08"></span>'.repeat(N)}</div>`}
           <div class="stSel"><span class="stHead" hidden></span></div>
@@ -219,6 +219,15 @@ var SceneTry = (() => {
       want = t;
     };
     if (video) el.addEventListener('loadedmetadata', () => { el.currentTime = a; }, { once: true });
+    // The video's first frame is fetched when its tab is first shown, not by every visitor to the front page
+    // (about 0.3 to 1 MB for those who never open it, audit of 2026-09-24).
+    if (video) {
+      const panel = root.closest('.tryPanel') || root;
+      const wake = () => { if (panel.hidden || el.preload !== 'none') return; el.preload = 'metadata'; el.load(); watch.disconnect(); };
+      const watch = new MutationObserver(wake);
+      watch.observe(panel, { attributes: true, attributeFilter: ['hidden'] });
+      wake();
+    }
 
     const setA = (v) => { a = clamp(v, Math.max(0, z - MAX), z - MIN); draw(); show(a); };
     const setZ = (v) => { z = clamp(v, a + MIN, Math.min(duration, a + MAX)); draw(); show(z); };

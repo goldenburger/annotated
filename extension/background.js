@@ -21,7 +21,8 @@ function showInstalled() {
   return chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).then((tabs) => {
     // Only a tab left behind: when you install, the extensions page is in front. A front page that is itself in
     // front is someone reading it, and must not be moved under them.
-    const t = tabs.filter((x) => !x.active).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    const front = (u) => { try { const p = new URL(u).pathname; return p === '/' || p === '/install'; } catch { return false; } };
+    const t = tabs.filter((x) => !x.active && front(x.url)).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
     if (!t) return;
     chrome.tabs.update(t.id, { url: 'https://annotated-app.netlify.app/?installed', active: true });
     chrome.windows.update(t.windowId, { focused: true }).catch(() => {});

@@ -110,7 +110,8 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   in the recording of 2026-09-22 came out at exactly one second, because dragging an end until it stops is
   silent. The handles still clamp there, and now the length turns amber and a line says it is as short as a
   clip goes. Typed times keep the clip's previous length instead, so they cannot reach the floor at all.
-- **Video capture** (`capture-engine.js`): plays the range and records a 240p canvas with MediaRecorder, capped at
+- **Video capture** (`capture-engine.js`): plays the range and records a 480p canvas (the source's own height when
+  smaller, 1.4 Mbps, about 16 MB for 90 seconds; it was 240p and read as blurry) with MediaRecorder, capped at
   90 seconds. Some browsers paint video frames blank on canvas, so it picks a method (canvas drawing or VideoFrame),
   rechecks every second, switches if frames go blank, and stops with a message if both are blank. The panel then
   runs checks (length, picture, audio) with time limits, and a failed check puts Capture again first.
@@ -428,6 +429,23 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   are cut to three lines. The logo on the extension's own pages opens the website (the panel has Home). The
   website's feed is headed Feed. Feed cards use a published annotation's full-size screenshot before the small
   copy kept here, and that copy is now 760 pixels wide, where 360 looked blurry.
+- **The recording of 2026-09-24 at 21:48** (`tests/walk2148.py`). Your earlier cards fly in again on each visit, as
+  David asked (reverting the change after 20:19). With the extension installed a card opens the tab it was made in
+  (`annotated-open-kind`), since its install link went nowhere. The foot of the home page has "Turn paper planes
+  off/on" (`annotated-planes-off` in localStorage, honoured by `planes.js` and `Fold.on()`), and the panel's
+  setting is called "Paper plane animations".
+- **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
+  away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
+  (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is
+  made or published meanwhile (`endUndo`). The planes queue only the cards there on arrival (the observer stops
+  after the first landing), so a redrawn row does not fly in again. Beside the website, the panel's Home has no
+  Back. Delete all on the profile page always lets it redraw again (`try/finally`). Installing only moves a tab on
+  the front page or /install. The try-it's tilt loop runs only while moving or while a card rises (it ran at 60
+  frames a second, a layout each, while a card was up). The clip tab's video loads when the tab is first shown.
+  Capture decides blank frames on a 40 by 24 copy, so the 480p canvas stays on the GPU.
+  Not fixed, for David's decision: a page can restyle the floating panel's open shadow root and a script's
+  `.click()` on the Annotate button counts as a press (security audit, both medium); caching headers; lazy
+  loading the emoji and compose code on the front page; one round trip for comment reactions; GIFs from any host.
 - **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
   make their own in the try-it. The row under the install steps holds up to four of yours from any tab
   (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides

@@ -383,7 +383,7 @@ const PanelKit = (() => {
         <label class="dmSwitch"><input type="checkbox" class="dmPageBtn" ${p.pageButton ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Show the Annotate button next to selected text</span></label>
         <label class="dmSwitch"><input type="checkbox" class="dmSuggest" ${p.suggest ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Suggest places to start on an empty panel</span></label>
         <h3 class="dmSub">How it looks</h3>
-        <label class="dmSwitch"><input type="checkbox" class="dmPlanes" ${p.planes !== false ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Paper planes when you publish</span></label>
+        <label class="dmSwitch"><input type="checkbox" class="dmPlanes" ${p.planes !== false ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Paper plane animations</span></label>
         <fieldset class="dmGroup"><legend>Colour</legend><div class="tintRow">${swatches(p.tint)}</div></fieldset>
         <fieldset class="dmGroup"><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
           `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>

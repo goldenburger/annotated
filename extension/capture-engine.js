@@ -1,8 +1,10 @@
-// Records a segment of a <video> at 240p, or of an <audio> player as sound only. Page side, no extension APIs.
+// Records a segment of a <video> at 480p (or the video's own height when it is smaller), or of an <audio> player as sound only. Page side, no extension APIs.
 // ClipEngine.create({ getVideo, adShowing, meta, send, audioOnly }) where send(msg) delivers
 // capture-progress, capture-done (with a Blob) and capture-error messages.
 var ClipEngine = (() => {
-  const MAX_CLIP = 90, TARGET_H = 240;
+  // 480p: at 240p a clip on a card or its page read as blurry. Ninety seconds at the rate below is about 16 MB,
+  // under the 25 MB the media bucket takes.
+  const MAX_CLIP = 90, TARGET_H = 480;
   const MIMES = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
   const AUDIO_MIMES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
 
@@ -37,9 +39,15 @@ var ClipEngine = (() => {
       } else ctx.drawImage(v, 0, 0, w, h);
     }
     // Blank means every sampled pixel is near black or fully transparent.
+    // Blank or not is decided on a 40 by 24 copy: reading back the whole 480p frame every second cost about
+    // 1.6 MB a second only to sample 400 pixels, and needed the recording canvas kept on the CPU.
+    const probe = document.createElement('canvas'); probe.width = 40; probe.height = 24;
+    const pctx = probe.getContext('2d', { willReadFrequently: true });
     function isBlank(ctx, w, h) {
       try {
-        const d = ctx.getImageData(0, 0, w, h).data;
+        pctx.clearRect(0, 0, 40, 24);
+        pctx.drawImage(ctx.canvas, 0, 0, w, h, 0, 0, 40, 24);
+        const d = pctx.getImageData(0, 0, 40, 24).data;
         const step = Math.max(4, Math.floor(d.length / 4 / 400)) * 4;
         for (let i = 0; i < d.length; i += step) if (d[i + 3] > 0 && d[i] + d[i + 1] + d[i + 2] > 36) return false;
         return true;
@@ -76,9 +84,9 @@ var ClipEngine = (() => {
       if (audioOnly) return captureAudio(v, start, end);
       if (!v.videoWidth) throw new Error('The video has not loaded a frame yet. Press play once, then capture again.');
 
-      const h = TARGET_H, w = Math.max(2, Math.round((h * v.videoWidth / v.videoHeight) / 2) * 2);
+      const h = Math.max(2, Math.min(TARGET_H, Math.round(v.videoHeight / 2) * 2)), w = Math.max(2, Math.round((h * v.videoWidth / v.videoHeight) / 2) * 2);
       const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
+      const ctx = canvas.getContext('2d', { alpha: false });
       try { ctx.drawImage(v, 0, 0, w, h); ctx.getImageData(0, 0, 1, 1); }
       catch (e) { throw new Error('This video blocks frame capture: ' + e.message); }
       // Some browsers hand back blank frames through one method while the video plays fine. Pick a method that
@@ -94,7 +102,7 @@ var ClipEngine = (() => {
       } catch { /* no audio available */ }
       const mimeType = MIMES.find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const stream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
-      const rec = new MediaRecorder(stream, { mimeType: mimeType || undefined, videoBitsPerSecond: 450000, audioBitsPerSecond: 64000 });
+      const rec = new MediaRecorder(stream, { mimeType: mimeType || undefined, videoBitsPerSecond: 1400000, audioBitsPerSecond: 64000 });
       const chunks = [];
       rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
 

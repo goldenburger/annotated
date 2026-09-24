@@ -232,7 +232,7 @@ const VideoPanel = (() => {
         q('.resLabel').hidden = !st;
         q('.resLabel').textContent = st ? 'This is your last capture. Capture again to use the new range.' : '';
         q('.csText').textContent = `Clip ${fmt(result.start, true)} to ${fmt(result.end, true)}`;
-        q('.ccMeta').textContent = checksFailed ? "Didn't pass its checks" : checking ? 'Checking the clip' : isAudio ? `${(result.end - result.start).toFixed(1)} seconds of audio` : `${(result.end - result.start).toFixed(1)} seconds, 240p`;
+        q('.ccMeta').textContent = checksFailed ? "Didn't pass its checks" : checking ? 'Checking the clip' : isAudio ? `${(result.end - result.start).toFixed(1)} seconds of audio` : `${(result.end - result.start).toFixed(1)} seconds, ${result.height || 480}p`;
       }
     }
 
@@ -496,7 +496,7 @@ const VideoPanel = (() => {
       if (isAudio) return onAudioDone(m);
       const url = blobUrl(m.blob);
       result = { kind: 'video', blob: m.blob, url, start: m.start, end: m.end, duration: info.duration, poster: m.poster, title: m.title || info.title,
-        videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '' };
+        videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '', height: m.height || 0 };
       // The visible preview stays at the start. The checks scrub a hidden copy instead.
       const pv = q('.vPreview');
       pv.style.visibility = 'hidden';
@@ -521,7 +521,8 @@ const VideoPanel = (() => {
         return;
       }
       const req = m.end - m.start, dur = await withTimeout(realDuration(v), 5000, NaN);
-      status.add(v.videoHeight === 240 ? 'pass' : 'fail', 'Output is 240p', `Decoded ${v.videoWidth}x${v.videoHeight}`);
+      const want = result.height || 480;
+      status.add(Math.abs(v.videoHeight - want) <= 2 ? 'pass' : 'fail', `Output is ${want}p`, `Decoded ${v.videoWidth}x${v.videoHeight}`);
       status.add(isFinite(dur) && Math.abs(dur - req) <= 0.75 ? 'pass' : 'fail', 'Length matches the selection', `Asked for ${req.toFixed(1)}s, got ${isFinite(dur) ? dur.toFixed(2) + 's' : 'unknown'}`);
       status.add(isFinite(dur) && dur <= MAX + 0.5 ? 'pass' : 'fail', 'Under the 90 second cap', '');
       const span = isFinite(dur) && dur > 0 ? dur : req;
@@ -538,7 +539,7 @@ const VideoPanel = (() => {
       status.add('info', 'File size', `${(m.size / 1048576).toFixed(2)} MB at ${(m.size * 8 / 1000 / req).toFixed(0)} kbps`);
       status.add('info', 'Capture time', `${(m.elapsedMs / 1000).toFixed(1)}s for ${req.toFixed(1)}s. Recorder ${m.recorderMime}`);
       if (m.frameMethod) status.add('info', 'Frame method', m.frameMethod === 'frame' ? `VideoFrame${m.methodSwitches ? `, switched ${m.methodSwitches} time${m.methodSwitches > 1 ? 's' : ''} after blank frames` : ''}` : `Canvas drawing${m.methodSwitches ? `, switched ${m.methodSwitches} time${m.methodSwitches > 1 ? 's' : ''}` : ''}`);
-      status.done(`Clip ready. ${(isFinite(dur) ? dur : req).toFixed(1)} seconds at 240p.`, { quiet: true });
+      status.done(`Clip ready. ${(isFinite(dur) ? dur : req).toFixed(1)} seconds at ${result.height || 480}p.`, { quiet: true });
       flagFailures();
       v.removeAttribute('src'); v.load();
       await pvReady;
