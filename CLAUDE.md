@@ -345,16 +345,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **Real media in the YouTube clip and Podcast tabs** (`website/public/media/`, `scenetry.js`, `tests/scenetry.py`),
   downloaded with David's go on 2026-09-24. Both are NASA works, which NASA's guidelines treat as generally not
   under copyright in the US, credited on the page and linked, with nothing implying NASA endorses annotated. The
-  video is "To the Moon and Back: The Journey of Artemis I" (Johnson Space Center, images.nasa.gov, the 14.3 MB
-  mobile rendition, 320 by 180, 5:47), and the clip starts on liftoff, 2:57 to 3:19. The audio is Houston We Have
+  video is "To the Moon and Back: The Journey of Artemis I" (Johnson Space Center, images.nasa.gov, 5:47). It is
+  NASA's 64 MB "small" rendition, 640 by 360, re-encoded with ffmpeg (x264 crf 26, 700 kbps cap, AAC 96 kbps,
+  faststart) to 19.4 MB, which replaced the blurry 320 by 180 mobile file on 2026-09-24. The clip starts on
+  liftoff, 2:57 to 3:19. The audio is Houston We Have
   a Podcast, "So You Want to be an Astronaut?" (11:04), re-encoded with ffmpeg to 64 kbps mono (5.3 MB from 27 MB),
   and the moment runs 1:16 to 1:38, from one pause to the next. The filmstrip is a sprite of the video's own
   frames, one every two seconds (`artemis-i-frames.jpg`, `fps=1/2,scale=96:54,tile=12x15`), cut to fill each tile,
   and the waveform is the episode's loudness per half second (`astronaut-peaks.json`). Play selection seeks to
   the start handle and plays with sound, and the card carries a player for exactly the clip (`#t=a,z`). A browser
   can only seek in media whose server answers byte ranges, which Netlify does, so `serve_website.py` and the
-  scenetry test's stand-in now answer them too; without that every clip started from 0:00. Want a sharper
-  picture: the 64 MB "small" rendition re-encoded would be the next step, and it needs asking first.
+  scenetry test's stand-in now answer them too; without that every clip started from 0:00.
 - **The front page, rebuilt 2026-09-23 afternoon** (`website/public/landing.js`, `tests/homepage.py`). It is drawn
   at once, before the database is asked anything: `site.js` reads the session from this browser and, for a
   visitor, mounts `Landing` and only then asks for the latest annotations. It used to wait on the profile and
