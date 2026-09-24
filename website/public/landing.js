@@ -132,12 +132,16 @@ var Landing = (() => {
   function yoursCard(y) {
     const li = document.createElement('li');
     li.className = 'cardItem yours';
-    li.innerHTML = `<a class="card mf nothumb" href="#get" aria-label="Your annotation. It is only on this computer; get the extension to publish it.">
-      <span class="cbody"><span class="cmeta">You <span class="dotsep"></span> <span class="localTag">Only on this computer</span></span>
+    const brief = y.kind === 'article';
+    const get = y.example ? 'Now make your own, above' : brief ? 'Get the extension to publish it' : 'Get the extension to do this on any page';
+    if (y.example) li.classList.add('example');
+    li.innerHTML = `<a class="card mf nothumb" href="${y.example ? '#try' : '#get'}" aria-label="${y.example ? 'An example annotation' : 'Your annotation, only on this computer'}. ${get}.">
+      <span class="cbody"><span class="cmeta">You <span class="dotsep"></span></span>
       <span class="ctake"></span><span class="yMedia"></span>
       <span class="csource"><span><span class="cst"></span><span class="csn"></span></span></span>
-      <span class="yGet">Get the extension to publish it</span></span></a>`;
+      <span class="yGet">${get}</span></span></a>`;
     li.querySelector('.dotsep').textContent = ago(y.at || Date.now());
+    if (y.example) { li.querySelector('.cmeta').innerHTML = '<span class="yEx">Example</span>'; }
     li.querySelector('.ctake').textContent = y.take || '';
     li.querySelector('.cst').textContent = y.source || '';
     li.querySelector('.csn').textContent = y.quote ? `“${y.quote}”` : (y.what || '');
@@ -160,45 +164,56 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Latest on annotated</h2><a class="link" href="/?feed">See everything</a></div><ul class="llRow"></ul>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote">Only on this computer</p></div><ul class="llRow"></ul>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
-    let shared = [], yours = null;
-    const draw = () => {
-      const lis = (yours ? [yours] : []).concat(shared).slice(0, 4);
-      [...row.children].forEach((li) => { if (!lis.includes(li)) li.remove(); });
-      lis.forEach((li, i) => { if (row.children[i] !== li) row.insertBefore(li, row.children[i] || null); });
-      row.style.setProperty('--n', row.children.length);
-      box.hidden = !yours && shared.length < 3;
+    const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
+    const save = (arr) => { try { localStorage.setItem(YOURS, JSON.stringify(arr.slice(0, 4))); } catch { /* private window */ } };
+    const tidy = () => {
+      while (row.children.length > 4) row.lastElementChild.remove();
+      row.style.setProperty('--n', Math.max(1, row.children.length));
+      box.hidden = !row.children.length;
     };
+    list().forEach((y) => row.appendChild(yoursCard(y)));
+    tidy();
     // origin: what it was made from, for anything that wants to show it travelling here.
-    const setYours = (y, fresh, origin) => {
-      if (!y) return;
-      yours = yoursCard(y);
-      draw();
-      document.dispatchEvent(new CustomEvent('annotated-yours-drawn', { detail: { card: yours.firstElementChild, li: yours, fresh, origin, kind: y.kind } }));
+    document.addEventListener('annotated-tryit-example', (e) => {
+      if (list().length || row.querySelector('.example')) return;
+      e.preventDefault();
+      const li = yoursCard({ example: true, kind: 'article', take: e.detail.take, quote: e.detail.quote, source: 'The annotated.com brief', at: Date.now() });
+      row.prepend(li); tidy();
+      document.dispatchEvent(new CustomEvent('annotated-yours-drawn', { detail: { card: li.firstElementChild, li, fresh: true, example: true, origin: document.querySelector('.tp-article .tiTilt > .tiPaper'), kind: 'article' } }));
+    });
+    const add = (y, origin) => {
+      row.querySelectorAll('.example').forEach((x) => x.remove());
+      y.at = Date.now();
+      save([y, ...list()]);
+      const li = yoursCard(y);
+      row.prepend(li); tidy();
+      document.dispatchEvent(new CustomEvent('annotated-yours-drawn', { detail: { card: li.firstElementChild, li, fresh: true, origin, kind: y.kind } }));
     };
-    setYours(readYours(), false, null);
-    const keep = (y, origin) => { y.at = Date.now(); try { localStorage.setItem(YOURS, JSON.stringify(y)); } catch { /* private window */ } setYours(y, true, origin); };
     document.addEventListener('annotated-tryit-made', () => {
       let t = null; try { t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch {}
-      if (t) keep({ kind: 'article', take: t.take, quote: t.quote, source: 'The annotated.com brief' }, document.querySelector('.tp-article .tiTilt > .tiPaper'));
+      if (t) add({ kind: 'article', take: t.take, quote: t.quote, source: 'The annotated.com brief', tryitAt: t.at }, document.querySelector('.tp-article .tiTilt > .tiPaper'));
     });
     document.addEventListener('annotated-scene-made', (e) => {
       const d = e.detail || {};
       const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'An example post on X', article: 'An example article' }[d.kind] || d.source;
-      keep({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave }, d.card);
+      add({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave }, d.card);
     });
-    return {
-      fill(records, onOpen) {
-        const list = (records || []).filter((r) => r.cloud || r.author).sort((a, b) => b.created - a.created).slice(0, 4);
-        if (typeof AnnotationPage === 'undefined') return;
-        const tmp = document.createElement('div');
-        if (list.length) AnnotationPage.renderFeed(tmp, { records: list, mode: 'home', social: null, siteNav: false, onOpen, onHome() {}, onAll() {}, onProfile() {}, onTag() {} });
-        shared = [...tmp.querySelectorAll('.cards > .cardItem')];
-        draw();
-      },
+    // Published from the extension's panel: the extension's page script says so (data-annotated-tryit-published),
+    // and the card that said it was only on this computer goes.
+    const gone = () => {
+      const at = document.documentElement.dataset.annotatedTryitPublished;
+      if (!at) return;
+      const all = list(), keep = all.filter((y) => !(y.kind === 'article' && String(y.tryitAt) === at));
+      if (keep.length === all.length) return;
+      save(keep);
+      row.innerHTML = ''; keep.forEach((y) => row.appendChild(yoursCard(y))); tidy();
     };
+    gone();
+    new MutationObserver(gone).observe(document.documentElement, { attributes: true, attributeFilter: ['data-annotated-tryit-published'] });
+    return { fill() {} };
   }
   // "See it", wherever it is offered: to Latest on annotated, where yours is.
   document.addEventListener('click', (e) => {
@@ -216,10 +231,19 @@ var Landing = (() => {
 
   // Someone who has the extension. Its page script marks our pages, and may do so a moment after they load.
   function watchInstalled(root) {
+    const fresh = new URLSearchParams(location.search).has('installed');
     const apply = () => {
       if (!installed()) return;
       root.querySelectorAll('.heroGetRow, .landGet').forEach((e) => { e.hidden = true; });
-      const have = root.querySelector('.heroHave'); if (have) have.hidden = false;
+      const have = root.querySelector('.heroHave'); if (!have) return;
+      have.hidden = false;
+      if (fresh && !have.dataset.fresh) {
+        // Opened by the extension right after it was installed.
+        have.dataset.fresh = '1';
+        let waiting = false;
+        try { const t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); waiting = !!(t && t.take && String(t.at) !== document.documentElement.dataset.annotatedTryitPublished); } catch {}
+        have.innerHTML = `<b>annotated is installed.</b> Pin it from the puzzle piece in the toolbar so the pen is always there, then open any article, video, podcast or post and press it.${waiting ? ' Your take on the brief is waiting on the panel’s Home, ready to publish.' : ''} <a class="link" href="/?feed">See what people are annotating</a>`;
+      }
     };
     apply();
     document.addEventListener('annotated-installed', apply);

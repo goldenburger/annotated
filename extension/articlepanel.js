@@ -253,6 +253,7 @@ const ArticlePanel = (() => {
       // beside the quote still says when it is part of a sentence, with the offer to grow it.
       q('.aFragAsk').hidden = true;
       compose.setBusy(true);
+      PanelKit.sendOff(q('.aCompose'), { take: take && take.text, quote: result.text, source: result.meta && result.meta.title });
       try {
         pubRef = await opts.onPublish({ ...result }, take);
         published = true;
@@ -269,8 +270,16 @@ const ArticlePanel = (() => {
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(result, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),
           onNew: () => { startFresh(); update(lastSel); },
+          onUndo: opts.onUndo ? async () => {
+            await opts.onUndo(pubRef);
+            pubRef = null; published = false;
+            q('.aPublished').hidden = true; q('.aCompose').hidden = false;
+            PanelKit.setStep(root, 2);
+            q('.aCompose').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          } : null,
         });
       } catch (e) {
+        PanelKit.grounded();
         q('.selErr').textContent = 'Publishing failed. ' + e.message; q('.selErr').dataset.from = ''; q('.selErr').hidden = false;
       } finally { compose.setBusy(false); }
     }

@@ -4,7 +4,7 @@
 #      and the real brief is showing and works: Mark a sentence for me inks it and a take makes the card.
 #   1b. Made, the take waits four seconds with a line saying it is going to Latest, and its card in Latest stays
 #      hidden meanwhile. Then the marked sheet folds back into a plane and flies down (Latest, holding only yours
-#      here, is out of sight), a fresh brief drops in, the try-it is clean and says "Yours is in Latest, below. See
+#      here, is out of sight), a fresh brief drops in, the try-it is clean and says "Yours is below. See
 #      it", and See it scrolls there, where the card lands.
 #   1c. From another tab: a post's take folds away the same way and the tab resets; and a click in the tab while a
 #      clip's take waits keeps it where it is, with its card shown in Latest at once.
@@ -66,7 +66,7 @@ async def main():
     waiting = await pg.evaluate("""() => ({ line: getComputedStyle(document.querySelector('.tiNext'), '::after').content,
       card: !!document.querySelector('.llRow .yours .card.pl-hidden') })""")
     print('1b. while it waits:', waiting)
-    if waiting != {'line': '"It' + "'" + 's going to Latest, below."', 'card': True}: errs.append(f'the take did not say it was going to Latest, or its card showed early: {waiting}')
+    if waiting != {'line': '"It' + "'" + 's going below, with the rest of yours."', 'card': True}: errs.append(f'the take did not say it was going to Latest, or its card showed early: {waiting}')
     await pg.wait_for_selector('.pl-carrier', state='attached', timeout=6000)
     await pg.wait_for_function("!document.querySelector('.pl-layer')", timeout=10000)
     await asyncio.sleep(.8)
@@ -74,7 +74,7 @@ async def main():
       lift: !document.querySelector('.tiLift').hidden, marks: document.querySelectorAll('.tiText mark').length,
       hint: document.querySelector('.tiHint').textContent, hidden: document.querySelectorAll('.pl-hidden').length })""")
     print('   after it folded away and a fresh brief came in:', after)
-    if after != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is in Latest, below. See it', 'hidden': 1}:
+    if after != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is below. See it', 'hidden': 1}:
       errs.append(f'the fold-away did not leave a clean try-it saying where yours is: {after}')
     await pg.click('.tiHint .seeYours'); await asyncio.sleep(3.2)
     landed = await pg.evaluate("(() => { const c = document.querySelector('.llRow .yours .card'); return c && { shown: !c.classList.contains('pl-hidden'), first: c.closest('li') === document.querySelector('.llRow').firstElementChild, take: c.querySelector('.ctake').textContent }; })()")

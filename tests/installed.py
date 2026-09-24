@@ -1,0 +1,67 @@
+# Where the front page and the extension meet.
+#   1. Installed with no front page open (as here, and as from GitHub), nothing opens.
+#   2. Installed from the front page: that tab, left behind while the extensions page is in front, moves to
+#      /?installed and comes forward (background.js showInstalled), and the page says annotated is installed and
+#      what to do next, with the steps put away. A front page that is itself in front is left alone.
+#   3. A take on the brief published from the panel is not handed over again, and its card on the front page
+#      goes (annotatedTryitPublished, data-annotated-tryit-published).
+#   4. The cards in Yours so far say what is true: only the brief's take can be published from the extension.
+import asyncio, pathlib, mimetypes, json
+from playwright.async_api import async_playwright
+from _env import *
+PUB = pathlib.Path(__file__).resolve().parent.parent / 'website' / 'public'
+def site(route):
+  from urllib.parse import urlparse
+  path = urlparse(route.request.url).path.lstrip('/') or 'index.html'
+  f = PUB / path
+  if not f.is_file(): f = PUB / 'index.html'
+  return route.fulfill(status=200, body=f.read_bytes(), headers={'Content-Type': mimetypes.guess_type(str(f))[0] or 'application/octet-stream'})
+URL = 'https://annotated-app.netlify.app/'
+
+async def main():
+  errs = []
+  async with async_playwright() as p:
+    ctx = await p.chromium.launch_persistent_context(prof('profInstalled'), headless=True, executable_path=CHROME,
+      args=[f'--disable-extensions-except={EXT}', f'--load-extension={EXT}', LOADEXT, '--headless=new'], no_viewport=True)
+    await ctx.route('https://annotated-app.netlify.app/**', site)
+    await ctx.route('https://efuotxdeifqzdfsavekb.supabase.co/**', lambda r: r.fulfill(status=200, content_type='application/json', body='[]'))
+    sw = ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
+    await asyncio.sleep(1.5)
+    # 1.
+    urls = await sw.evaluate("chrome.tabs.query({}).then((t) => t.map((x) => x.url || x.pendingUrl))")
+    print('1. tabs after installing with no front page open:', urls)
+    if any('netlify' in u for u in urls): errs.append('installing opened the website with no front page open')
+    # 2.
+    pg = await ctx.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    await pg.goto(URL); await asyncio.sleep(1)
+    # As when installing: the extensions page in front, the front page behind it.
+    front = await sw.evaluate("chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).then(async (t) => { await chrome.tabs.update(t[0].id, { active: true }); await chrome.tabs.create({ url: 'about:blank', active: true }); return (await chrome.tabs.get(t[0].id)).active; })")
+    await sw.evaluate("showInstalled()"); await asyncio.sleep(2.5)
+    now = await pg.evaluate("""() => ({ url: location.search, have: (document.querySelector('.heroHave:not([hidden])') || {}).textContent || null,
+      steps: !!document.querySelector('.landGet:not([hidden])') })""")
+    print('2. the front page tab after installing:', now)
+    if now['url'] != '?installed' or not now['have'] or not now['have'].startswith('annotated is installed. Pin it') or now['steps']:
+      errs.append(f'the front page tab did not move to its installed state: {now}')
+    # 3.
+    await pg.evaluate("""() => { localStorage.setItem('annotated-tryit', JSON.stringify({ quote: 'must link back', take: 'Published take.', at: 123 }));
+      localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Published take.', quote: 'must link back', source: 'The annotated.com brief', tryitAt: 123, at: Date.now() },
+        { kind: 'video', take: 'A clip take.', what: 'Clip 2:57 to 3:19 of 5:47', source: 'NASA', at: Date.now() }])); }""")
+    await sw.evaluate("chrome.storage.local.remove('annotatedTryit').then(() => chrome.storage.local.set({ annotatedTryitPublished: 123 }))")
+    await pg.goto(URL); await asyncio.sleep(2)
+    after = await pg.evaluate("""() => ({ mark: document.documentElement.dataset.annotatedTryitPublished || null,
+      cards: [...document.querySelectorAll('.llRow .yours .ctake')].map((x) => x.textContent), kept: JSON.parse(localStorage.getItem('annotated-yours')).length })""")
+    handed = await sw.evaluate("chrome.storage.local.get('annotatedTryit').then((o) => o.annotatedTryit || null)")
+    print('3. after the take was published from the panel:', after, '| handed over again:', handed)
+    if after != {'mark': '123', 'cards': ['A clip take.'], 'kept': 1}: errs.append(f'the published take is still on the front page: {after}')
+    if handed: errs.append('the published take was handed to the panel again')
+    # 4.
+    await pg.evaluate("""() => localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Brief take.', quote: 'x', source: 'The annotated.com brief', tryitAt: 9, at: Date.now() },
+      { kind: 'post', take: 'Post take.', quote: 'y', source: 'An example post on X', at: Date.now() }]))""")
+    await pg.reload(); await asyncio.sleep(1.5)
+    words = await pg.evaluate("[...document.querySelectorAll('.llRow .yours')].map((li) => [li.querySelector('.ctake').textContent, li.querySelector('.yGet').textContent])")
+    print('4. what the cards offer:', words)
+    if words != [['Brief take.', 'Get the extension to publish it'], ['Post take.', 'Get the extension to do this on any page']]: errs.append(f'the cards offer the wrong thing: {words}')
+    print('errors:', errs)
+    await ctx.close()
+
+asyncio.run(main())

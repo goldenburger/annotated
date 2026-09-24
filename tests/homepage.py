@@ -10,7 +10,7 @@
 #   8. The ending after a take is one line with Make another, and no second yellow button.
 #   9. Mark a sentence for me marks one, for the keyboard.
 #  10. The install steps in one row.
-#  11. Latest on annotated: up to four real cards, See everything, and nothing with fewer than three.
+#  11. Yours so far: the take just made, one card a quarter row wide, no published cards; nothing shown before a take.
 #  12. No Home pill on the front page.
 #  13. No text under 12.5 pixels in the hero and the steps.
 #  14. Dark mode: the headline word keeps dark ink, and the paper's text keeps its own dark ink.
@@ -66,9 +66,11 @@ async def main():
     async def slow(route):
       await asyncio.sleep(6); await db(route)
     for name, r in [('six seconds slow', slow), ('unreachable', lambda route: route.abort())]:
-      c = await ctx_with(r); pg = await c.new_page(); t0 = time.time()
+      c = await ctx_with(r); pg = await c.new_page()
+      # Timed by the page's own clock: the harness itself notices a new element up to two seconds late.
+      await pg.add_init_script("window.__tabsAt = null; const tick = () => { if (document.querySelector('.tryTabs')) window.__tabsAt = performance.now(); else requestAnimationFrame(tick); }; requestAnimationFrame(tick);")
       await pg.goto('https://annotated-app.netlify.app/', wait_until='domcontentloaded')
-      try: await pg.wait_for_selector('.tryTabs', timeout=4000); took = round(time.time() - t0, 2)
+      try: await pg.wait_for_selector('.tryTabs', timeout=4000); took = round((await pg.evaluate('window.__tabsAt')) / 1000, 2)
       except Exception: took = None
       print(f'1. with the database {name}, the hero appears after', took, 's')
       if took is None or took > 2: errs.append(f'with the database {name} the hero took {took}')
@@ -82,8 +84,12 @@ async def main():
     if not all(tags.get(k) for k in ['og:title', 'og:description', 'og:image', 'twitter:card']): errs.append(f'preview tags missing: {tags}')
     if not (PUB / 'og.png').is_file(): errs.append('og.png, the preview image, is not in the site')
     # 4. The example runs first, and the headline holds still until it has.
-    await pg.mouse.move(700, 890); await asyncio.sleep(5.2)
-    during = await pg.evaluate("({ example: !document.querySelector('.tiLift').hidden, word: document.querySelector('.heroMark').textContent })")
+    await pg.mouse.move(700, 890)
+    during = {'example': False, 'word': None}
+    for _ in range(40):
+      during = await pg.evaluate("({ example: !document.querySelector('.tiLift').hidden, word: document.querySelector('.heroMark').textContent })")
+      if during['example']: break
+      await asyncio.sleep(.25)
     await asyncio.sleep(6.5)
     after = await pg.evaluate("document.querySelector('.heroMark').textContent")
     print('4. while the example runs the headline says', repr(during['word']), '| after it', repr(after))
@@ -147,25 +153,18 @@ async def main():
     # The page is short enough now that the steps may not reach the top, so on screen is what counts.
     if not (-5 <= at <= 600) or look != '/?feed': errs.append(f'the hero buttons led elsewhere: {at}, {look}')
     if len(steps) != 3 or len(set(steps)) != 1: errs.append(f'the steps are not one row: {steps}')
-    # 11.
-    cards = await pg.evaluate("({ n: document.querySelectorAll('.landLatest .llRow .cardItem').length, shown: !document.querySelector('.landLatest').hidden, all: document.querySelector('.llHead a').getAttribute('href') })")
-    print('11. latest:', cards)
+    # 11. Yours so far: the take just made is there, one card a quarter of the row wide; no published cards.
+    cards = await pg.evaluate("({ takes: [...document.querySelectorAll('.landLatest .llRow .yours .ctake')].map((x) => x.textContent), published: document.querySelectorAll('.landLatest .llRow .cardItem:not(.yours)').length, shown: !document.querySelector('.landLatest').hidden, head: document.querySelector('.landLatest h2').textContent })")
+    print('11. yours so far:', cards)
     cols = await pg.evaluate("getComputedStyle(document.querySelector('.llRow')).gridTemplateColumns.split(' ').length")
-    if cols != 4: errs.append(f'four cards took {cols} columns')
-    if cards != {'n': 4, 'shown': True, 'all': '/?feed'}: errs.append(f'the latest row read {cards}')
+    if cols != 4: errs.append(f'the row is not four columns: {cols}')
+    if cards != {'takes': ['Clip is the verb that matters.'], 'published': 0, 'shown': True, 'head': 'Yours so far'}: errs.append(f'yours so far read {cards}')
     # 13.
     small = await pg.evaluate("""[...document.querySelectorAll('.landHero *, .landGet *')].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim()) && e.offsetParent && parseFloat(getComputedStyle(e).fontSize) < 12.5).map((e) => e.className + ' ' + getComputedStyle(e).fontSize)""")
     print('13. text under 12.5px:', small)
     if small: errs.append(f'small text left: {small}')
     await c.close()
 
-    # Three published take three columns, not three of four.
-    rows['list'] = ALL[:3]
-    c = await ctx_with(db); pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(2)
-    cols3 = await pg.evaluate("getComputedStyle(document.querySelector('.llRow')).gridTemplateColumns.split(' ').length")
-    print('   three annotations take', cols3, 'columns')
-    if cols3 != 3: errs.append(f'three cards took {cols3} columns')
-    await c.close()
     # The install page: the same header and the same three steps.
     c = await ctx_with(db); pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('INSTALL ' + str(e)))
     await pg.goto('https://annotated-app.netlify.app/install'); await asyncio.sleep(1)
@@ -173,11 +172,10 @@ async def main():
     print('   the install page:', ins)
     if ins != {'header': True, 'steps': 3, 'copy': True, 'old': False}: errs.append(f'the install page read {ins}')
     await c.close()
-    # 11, fewer than three published: no row.
-    rows['list'] = ALL[:2]
+    # 11, nothing made yet: no row, whatever is published.
     c = await ctx_with(db); pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(2)
-    if await pg.evaluate("!document.querySelector('.landLatest').hidden"): errs.append('the latest row showed with two annotations')
-    await c.close(); rows['list'] = ALL
+    if await pg.evaluate("!document.querySelector('.landLatest').hidden"): errs.append('the row showed with nothing made')
+    await c.close()
 
     # 14. Dark.
     c = await ctx_with(db, color_scheme='dark'); pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await pg.wait_for_selector('.tryTabs'); await asyncio.sleep(1)

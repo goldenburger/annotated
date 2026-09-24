@@ -14,8 +14,22 @@ chrome.storage.onChanged.addListener(async (ch, area) => {
     if (tab && !restricted(tab.url)) showFloat(tab, 'float-open');
   }
 });
-chrome.runtime.onInstalled.addListener(() => {
+// Installed from the front page: that tab is still open, still showing the install steps, and a page loaded
+// before the extension existed cannot know it is here now. It moves to its installed state and comes to the
+// front, so the next step is on screen. Installed any other way, nothing opens. tests/installed.py calls it.
+function showInstalled() {
+  return chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).then((tabs) => {
+    // Only a tab left behind: when you install, the extensions page is in front. A front page that is itself in
+    // front is someone reading it, and must not be moved under them.
+    const t = tabs.filter((x) => !x.active).sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+    if (!t) return;
+    chrome.tabs.update(t.id, { url: 'https://annotated-app.netlify.app/?installed', active: true });
+    chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+  }).catch(() => {});
+}
+chrome.runtime.onInstalled.addListener((details) => {
   sync();
+  if (details && details.reason === 'install') showInstalled();
   chrome.contextMenus.create({ id: 'annotate', title: 'Annotate this passage', contexts: ['selection'] }, () => void chrome.runtime.lastError);
 });
 chrome.runtime.onStartup.addListener(sync);

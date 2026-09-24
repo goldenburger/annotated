@@ -45,12 +45,48 @@ const PanelKit = (() => {
   // Set by the panel: signs in when needed and publishes an annotation saved on this computer, answering
   // with its link. The preview has no accounts and never sets it.
   let publishLater = null;
-  function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null, offline = false }) {
+  // Publishing, with the paper planes on (fold.js, Display settings): what you are publishing folds into a
+  // plane and flies off, out of the panel, and the card below appears once it has gone (and once publishing
+  // has finished, whichever is later). sendOff is called by each panel as Publish is pressed, with what the
+  // annotation says; grounded puts it back if publishing fails. The source keeps its place meanwhile.
+  let inFlight = null;
+  function sendOff(source, summary = null) {
+    grounded();
+    if (typeof Fold === 'undefined' || !Fold.on() || !source || !source.offsetWidth) return;
+    let el = source, card = null;
+    if (summary) {
+      // A plain card of what is being published, laid over the take box, since a copy of a form would carry
+      // empty boxes (a copied text box keeps none of what was typed in it).
+      const b = Fold.pageBox(source);
+      card = document.createElement('div');
+      card.className = 'flyCard';
+      card.innerHTML = '<p class="fcTake"></p><p class="fcQuote"></p><p class="fcSrc"></p>';
+      card.querySelector('.fcTake').textContent = summary.take || 'Your annotation';
+      card.querySelector('.fcQuote').textContent = summary.quote || '';
+      card.querySelector('.fcSrc').textContent = summary.source || '';
+      card.style.cssText = `position:absolute;left:${b.x}px;top:${b.y}px;width:${b.w}px;`;
+      document.body.appendChild(card);
+      el = card;
+    }
+    source.style.visibility = 'hidden';
+    const gone = Fold.away(el);
+    if (card) card.remove();
+    inFlight = { gone, source };
+  }
+  function grounded() {
+    if (!inFlight) return;
+    inFlight.gone.cancel(); inFlight.source.style.visibility = ''; inFlight = null;
+  }
+  // onUndo: offered for UNDO_MS right after publishing, and gone once anything else on the card is pressed. It
+  // deletes what was just made and puts the take back where it was, so a slip can be fixed and published again.
+  const UNDO_MS = 10000;
+  function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null, offline = false, onUndo = null }) {
     const later = local && id && publishLater;
     const out = typeof document !== 'undefined' && document.body.classList.contains('signedOut');
     container.innerHTML = `
       <div class="pubcard fresh" role="status">
-        <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div></div>
+        <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div>${onUndo ? '<button type="button" class="link pubUndo">Undo</button>' : ''}</div>
+        ${onUndo ? '<p class="error pubUndoErr" role="alert" hidden></p>' : ''}
         ${permalink && !local ? `<div class="publink"><span class="num">${esc(permalink.replace('https://', ''))}</span></div>` : ''}
         ${later ? `<button type="button" class="primary pubLater">${out ? 'Sign in and publish' : 'Publish it now'}</button><p class="error pubLaterErr" role="alert" hidden></p>` : ''}
         <button type="button" class="${later ? 'ghost sm' : 'primary'} view">View page ${Brand.icon('external')}</button>
@@ -60,6 +96,24 @@ const PanelKit = (() => {
         </div>`}
         <button type="button" class="link new">Start a new annotation</button>
       </div>`;
+    const undo = container.querySelector('.pubUndo');
+    if (undo) {
+      let timer = 0;
+      const drop = () => { clearTimeout(timer); if (undo.isConnected) undo.remove(); };
+      timer = setTimeout(drop, UNDO_MS);
+      container.querySelectorAll('.pubcard button:not(.pubUndo), .pubcard a').forEach((b) => b.addEventListener('click', drop));
+      undo.addEventListener('click', async () => {
+        clearTimeout(timer);
+        const err = container.querySelector('.pubUndoErr');
+        undo.disabled = true; undo.textContent = 'Undoing'; err.hidden = true;
+        try { await onUndo(); }
+        catch (e) {
+          undo.disabled = false; undo.textContent = 'Undo';
+          err.textContent = (e && e.message) || 'It could not be undone just now.'; err.hidden = false;
+          timer = setTimeout(drop, UNDO_MS);
+        }
+      });
+    }
     container.querySelector('.view').addEventListener('click', onView);
     container.querySelector('.new').addEventListener('click', onNew);
     const pl = container.querySelector('.pubLater');
@@ -74,10 +128,12 @@ const PanelKit = (() => {
     if (pl) pl.addEventListener('click', async () => {
       const err = container.querySelector('.pubLaterErr');
       pl.disabled = true; pl.textContent = 'Publishing'; err.hidden = true;
+      sendOff(container.querySelector('.pubcard'));
       try {
         const link = await publishLater(id);
         published(container, { permalink: link, xHref: null, onView, onNew, id });
       } catch (e) {
+        grounded();
         pl.disabled = false; pl.textContent = document.body.classList.contains('signedOut') ? 'Sign in and publish' : 'Publish it now';
         err.textContent = (e && e.message) || 'It could not be published just now.'; err.hidden = false;
       }
@@ -90,6 +146,14 @@ const PanelKit = (() => {
     });
     container.hidden = false;
     container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (inFlight) {
+      // Shown once the plane has gone, with its check, as it would have been had there been no plane.
+      const { gone, source } = inFlight; inFlight = null;
+      source.style.visibility = '';
+      const card = container.querySelector('.pubcard');
+      card.classList.remove('fresh'); card.classList.add('pl-hidden');
+      gone.then(() => { if (!card.isConnected) return; card.classList.remove('pl-hidden'); void card.offsetWidth; card.classList.add('fresh'); });
+    }
   }
 
   // Sticky header for a panel mode: what kind of source, its title, and where you are in the three steps.
@@ -234,6 +298,7 @@ const PanelKit = (() => {
           <label><input type="radio" name="w-display" value="float" ${Prefs.get().display === 'float' ? 'checked' : ''}><span>Floating</span></label></div>
           <p class="note">You can change this any time under the gear.</p></fieldset>` : ''}
         <button type="button" class="primary wGo">${seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page'}</button>
+        <p class="wSite"><a class="link" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">See annotated's website</a>, where anyone can try it first.</p>
         <p class="wKey">${shortcut ? `Open this panel any time with <kbd>${shortcut.split('+').join('</kbd> + <kbd>')}</kbd>.` : 'Set a keyboard shortcut to open this panel at chrome://extensions/shortcuts.'}</p>`;
       brand.insertAdjacentElement('afterend', w);
       w.querySelector('.wGo').addEventListener('click', () => {
@@ -318,6 +383,7 @@ const PanelKit = (() => {
         <label class="dmSwitch"><input type="checkbox" class="dmPageBtn" ${p.pageButton ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Show the Annotate button next to selected text</span></label>
         <label class="dmSwitch"><input type="checkbox" class="dmSuggest" ${p.suggest ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Suggest places to start on an empty panel</span></label>
         <h3 class="dmSub">How it looks</h3>
+        <label class="dmSwitch"><input type="checkbox" class="dmPlanes" ${p.planes !== false ? 'checked' : ''}><span class="sw" aria-hidden="true"></span><span>Paper planes when you publish</span></label>
         <fieldset class="dmGroup"><legend>Colour</legend><div class="tintRow">${swatches(p.tint)}</div></fieldset>
         <fieldset class="dmGroup"><legend>Highlighter</legend><div class="penRow">${PENS.map(([v, l]) =>
           `<button type="button" class="penBtn" data-pen="${v}" aria-pressed="${p.pen === v}"><span class="penInk ${v}" aria-hidden="true"></span>${l}</button>`).join('')}</div></fieldset>
@@ -356,6 +422,7 @@ const PanelKit = (() => {
       }));
       pop.querySelector('.dmPageBtn').addEventListener('change', (e) => Prefs.set('pageButton', e.target.checked));
       pop.querySelector('.dmSuggest').addEventListener('change', (e) => Prefs.set('suggest', e.target.checked));
+      pop.querySelector('.dmPlanes').addEventListener('change', (e) => Prefs.set('planes', e.target.checked));
       pop.querySelector('.dmDone').addEventListener('click', () => { close(); g.focus(); });
       pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); g.focus(); } });
       (pop.querySelector('input:checked') || pop.querySelector('input')).focus();
@@ -451,5 +518,5 @@ const PanelKit = (() => {
     return '';
   }
 
-  return { fragmentFrom, clamp, esc, fmt, status, published, setPublishLater: (fn) => { publishLater = fn; }, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
+  return { fragmentFrom, clamp, esc, fmt, status, published, sendOff, grounded, setPublishLater: (fn) => { publishLater = fn; }, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

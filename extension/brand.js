@@ -34,6 +34,11 @@ const Brand = (() => {
   const icon = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${P[name] || ''}</svg>`;
   // A hand-drawn highlighter swipe, stretched behind the name.
   const SWIPE = '<svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M3 9.5C22 4.5 58 3.2 97.5 5.8c1.6 5.4 1.2 12.4-1 18.6C62 28.2 27 29.3 2.6 26.2.9 20.6 1.2 14.2 3 9.5z"/></svg>';
-  const wordmark = (cls = '') => `<span class="wordmark ${cls}" aria-label="annotated">${SWIPE}<span aria-hidden="true">annotated</span></span>`;
-  return { icon, wordmark };
+  // The mark: a paper dart flying up and to the right, one wing paper and one the highlighter, the fold between
+  // them in ink. It is the extension's icon (icons/, drawn on the dark square there) and sits beside the name.
+  const PLANE = '<svg class="wmPlaneSvg" viewBox="14 14 100 96" aria-hidden="true" focusable="false">'
+    + '<path class="wpW" d="M108 20 L20 56 L55 68 Z"/><path class="wpK" d="M108 20 L55 68 L66 104 Z"/><path class="wpF" d="M108 20 L55 68"/></svg>';
+  const mark = () => PLANE;
+  const wordmark = (cls = '') => `<span class="wordmark ${cls}" aria-label="annotated"><span class="wmPlane" aria-hidden="true">${PLANE}</span><span class="wmWord">${SWIPE}<span aria-hidden="true">annotated</span></span></span>`;
+  return { icon, wordmark, mark };
 })();

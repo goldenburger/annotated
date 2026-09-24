@@ -21,9 +21,9 @@ X or Google; "examples matter" in the demo.
 
 - `extension/` is the Chrome extension (Manifest V3), loaded unpacked. It is the product.
 - `website/` is the Netlify site at https://annotated-app.netlify.app (`public/` is served as-is). The front
-  page is `hero.js`, a headline with the pen drawn through it and a short loop of the panel taking a passage,
-  publishing it and landing on a page. The feed sits below it behind "Look around first". `_headers` carries
-  the site's CSP and framing rules, so pages there have no inline scripts (`wordmark.js`, `hero.js`).
+  page is `landing.js` (the headline, a four-tab try-it, the install steps and Yours so far) with `tryit.js`,
+  `scenetry.js` and `planes.js`. The feed is at `/?feed`, behind "Look around first". `_headers` carries the
+  site's CSP and framing rules, so pages there have no inline scripts (`wordmark.js`).
 - `preview/` builds `preview/dist/annotated-preview.html`, a single-file browser-in-a-page demo of the extension
   used for quick reviews. It has no backend (no sign-in, no sharing).
 - `supabase/migrations/` holds every database change, in order. They are already applied to the live project.
@@ -374,28 +374,47 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   anything." with no "on the web", so every word fits two lines and no empty third line is held; the Latest
   row takes as many columns as it has cards (`--n`); and `/install` (`installpage.js`) is the same header and
   the same three steps as the front page, where it was an older list of four with no header.
-- **EXPERIMENT: paper planes on the front page** (`website/public/experiments/planes.js` and `planes.css`,
-  `tests/planes.py`). One engine (`buildPlane`, `flight`) folds any element into a real dart made of copies of it:
-  ten pieces, each printed with a clone of the element and a blank back (mirrored clip, `rotateY(180deg)`), nested in
-  the order a dart is folded (half, wing, leading fold, corner). The second fold crosses the folded corner, so the
-  corner is two pieces and the far one turns back as the leading fold turns, which keeps it still. A plain cover
-  hides the print in the air and the words come up as it opens. Planes fly in a layer of their own on `body` at
-  page coordinates, and the paper's own perspective and tilt are copied onto it, so a landing lines up with the
-  page exactly. Clones sit in `display: contents` stand-ins for their ancestors so their styles still match, and
-  carry `pl-copy` so the rules that hide the real page do not hide them. Paths are sampled into keyframes: heading
-  from the path, a bank from the rate of turn, pitch from the climb, height as `translateZ`, and a shadow below.
-  Three flights use it. The brief flies in over the headline and opens on load. When Latest scrolls into view,
-  a plane flies to each card (wide ones nose first from the left, tall ones from above). After a take, the marked
-  sheet folds back up and flies to Latest, where it opens as your card, or off the page when Latest is out of
-  view, and a fresh brief flies in once the try-it's reset has cleared the marks. A click or key finishes every
-  flight, a scroll finishes the first, the arrivals play once a visit, and reduced motion, phones and
-  `?noplanes` get none. Test browsers get none unless the address has `?planes`. The Latest landing is checked
-  only by eye against live data, because the test's stand-in database has no annotations. To remove it, delete
-  the folder, the one marked line in `index.html`, `tests/planes.py` and its name in `scripts/run_tests.py`.
-- **The recording of 2026-09-24 at 17:09** (the front page, `tests/planes.py`, `tests/scenetry.py`). Your latest
-  annotation from any of the four tabs is kept in `annotated-yours` in localStorage and drawn first in Latest by
-  `landing.js` (`yoursCard`), again on every visit, with a frame of the clip (from the sprite) or the moment's
-  waveform, "Only on this computer", and a link to the install steps. Latest now shows with only yours in it.
+- **The paper planes** (`extension/fold.js` and `fold.css`, shared with the website by `sync_website.py`; the
+  front page's choreography is `website/public/planes.js`; `tests/planes.py`, `tests/planespub.py`). One engine
+  (`buildPlane`, `flight`) folds any element into a real dart made of copies of it: ten pieces, each printed with a
+  clone and a blank back (mirrored clip, `rotateY(180deg)`), nested in the order a dart is folded (half, wing,
+  leading fold, corner). The second fold crosses the folded corner, so the corner is two pieces and the far one
+  turns back as the leading fold turns. A plain cover hides the print in the air. Planes fly in a layer of their
+  own on `body` at page coordinates; the brief's perspective and tilt are copied onto it. Clones sit in
+  `display: contents` stand-ins for their ancestors so their styles still match, and carry `pl-copy`. Paths are
+  sampled into keyframes with heading, bank from the rate of turn, pitch from the climb, height as `translateZ`,
+  and a shadow. `Fold.arrive(el)` drops a plane in and opens it as `el`; `Fold.carry(el)` folds `el` and circles
+  until `.land(target)`. `Fold.on()` is false with reduced motion, with "Paper planes when you publish" off in
+  Display settings (`planes` in prefs.js, `Prefs.get()` returns the whole object), and in a browser driven by
+  tests unless it asks (`?planes`, or localStorage `annotated-planes` = on).
+  In the extension: Publish folds a plain card of the take and quote (`.flyCard`, since a copied text box keeps
+  none of what was typed) into a plane that flies off, up and out of the panel (`Fold.away`, `PanelKit.sendOff`,
+  `grounded` on failure), and the published or saved card appears once it has gone. It used to circle for the
+  length of the upload and land back as the card, which read as bouncing about (recording of 2026-09-24 at
+  19:06). Publish it now on a saved card does the same; an annotation's page opened from Publish drops in (`opts.showBanner === true` in
+  `annotation-page.js`, saved ones included, which have no banner).
+  On the front page: the brief flies in over the headline and opens; after two seconds the example marks a
+  phrase, lifts its card, and, while Yours so far is empty, folds away and lands there as a card labelled
+  Example (`annotated-tryit-example`, `annotated-example-settled`, `data-planes-on`); your takes from any tab fold
+  away after four seconds and land there; the brief comes back with a short drop. A click or key finishes every
+  flight, and ?noplanes shows the page without them.
+- **Undo, right after publishing** (`PanelKit.published` `onUndo`, `unpublish` in `sidepanel.js`, `tests/undo.py`).
+  The card offers Undo for ten seconds, and not once anything else on it is pressed. It deletes what was just
+  made, online and here, and puts the take box back with the words in it. The help screen links to the website
+  ("See annotated's website"); the logo on the extension's own pages stays Home, being their only way there.
+- **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
+  make their own in the try-it. The row under the install steps holds up to four of yours from any tab
+  (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides
+  while empty. A take on the brief says "Get the extension to publish it", since the extension is handed it; the
+  others say "Get the extension to do this on any page", being about demo sources. Published from the panel, the
+  brief's take is not handed over again and leaves the row (`annotatedTryitPublished`, then
+  `data-annotated-tryit-published` from `article.js`). Installed from the front page, the extension moves that
+  still-open tab to `/?installed` and brings it forward (`showInstalled` in `background.js`), where the hero says
+  it is installed and what to do next; installed any other way, nothing opens.
+- **The logo** is the paper dart: `extension/icons` (on the dark square, with its dashed trail at 48 and 128),
+  `website/public/favicon.png` and `icon.png`, and `Brand.mark()` beside the name in `Brand.wordmark` (`.wmPlane`,
+  the swipe now behind `.wmWord` only).
+- **The recording of 2026-09-24 at 17:09** (the front page, `tests/planes.py`, `tests/scenetry.py`).
   Scenes announce a take with `annotated-scene-made`, and the brief's try-it with `annotated-tryit-made`, and
   landing announces the drawn card with `annotated-yours-drawn`, which is all the planes listen to. With the
   planes: the take waits four seconds under "That's an annotation. It's going to Latest, below." (a click in
@@ -738,8 +757,6 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - The website's headers have only been tried locally, against a server that sends the same file. Deploy and
   check the policy on the live site. None of this round's website work is live yet, so the deploy is the next
   thing to do: `cd website && npx netlify-cli deploy --prod --site 7b1045ff-71db-4a13-a177-6c4a6b8fa152`.
-- The front page's feed still shows the annotations called "test 1" through "test 5". Three real ones are
-  needed before anyone sees it, and they have to be written by a person, not invented here.
 
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
   is now possible because sign-in is published. This is the last part of the product with no evidence behind it.

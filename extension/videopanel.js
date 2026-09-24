@@ -619,6 +619,7 @@ const VideoPanel = (() => {
       }
       q('.vDup').hidden = true;
       compose.setBusy(true);
+      PanelKit.sendOff(q('.vCompose') || q('.compose'), { take: take && take.text, quote: `${result.kind === 'audio' ? 'Audio clip' : 'Clip'} ${PanelKit.fmt(result.start)} to ${PanelKit.fmt(result.end)}`, source: result.title || '' });
       try {
         pubRef = await opts.onPublish({ ...result }, take);
         isPublished = true;
@@ -629,8 +630,16 @@ const VideoPanel = (() => {
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(result, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),
           onNew: () => { clearResult(); render(); },
+          onUndo: opts.onUndo ? async () => {
+            await opts.onUndo(pubRef);
+            pubRef = null; isPublished = false;
+            q('.vPublished').hidden = true; q('.vCompose').hidden = false;
+            PanelKit.setStep(root, 2);
+            q('.vCompose').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          } : null,
         });
       } catch (e) {
+        PanelKit.grounded();
         showError('Publishing failed. ' + e.message);
       } finally { compose.setBusy(false); }
     }

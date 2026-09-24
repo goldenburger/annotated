@@ -219,6 +219,7 @@ const PostPanel = (() => {
       // part of a sentence, with the offer to grow it.
       q('.pFragAsk').hidden = true;
       compose.setBusy(true);
+      PanelKit.sendOff(q('.pCompose') || q('.compose'), { take: take && take.text, quote: result.quote || result.text, source: result.author ? `${result.author} on X` : 'A post on X' });
       try {
         pubRef = await opts.onPublish(item, take);
         published = true;
@@ -235,8 +236,17 @@ const PostPanel = (() => {
           xHref: pubRef && pubRef.permalink ? AnnotationPage.xUrl(item, take, pubRef.permalink) : null,
           onView: () => opts.onView && opts.onView(pubRef),
           onNew: () => startFresh(),
+          onUndo: opts.onUndo ? async () => {
+            await opts.onUndo(pubRef);
+            pubRef = null; published = false;
+            q('.pPublished').hidden = true; q('.pCompose').hidden = false;
+            q('.showAs').hidden = false; q('.showAsWas').hidden = true;
+            PanelKit.setStep(root, 2);
+            q('.pCompose').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          } : null,
         });
       } catch (e) {
+        PanelKit.grounded();
         q('.pErr').textContent = 'Publishing failed. ' + e.message; q('.pErr').hidden = false;
       } finally { compose.setBusy(false); }
     }

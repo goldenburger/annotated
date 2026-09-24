@@ -14,13 +14,11 @@
   if (frontPage && typeof Landing !== 'undefined') {
     let session = null;
     try { session = (await Backend.client.auth.getSession()).data.session; } catch { /* no storage */ }
-    if (!session || query.has('try')) {
+    if (!session || query.has('try') || query.has('installed')) {
       const signInNow = () => Backend.signIn().catch(() => {});
       const land = Landing.mount(page, { signedIn: !!session, onSignIn: signInNow });
       document.title = 'annotated: say what you think about anything on the web';
-      Cloud.list({ limit: 24 }).then((all) => land.fillLatest(all, (id) => {
-        const r = all.find((x) => x.id === id); location.href = `/@${(r && r.author && r.author.handle) || 'annotated'}/${encodeURIComponent(id)}`;
-      })).catch(() => { /* no row, then */ });
+      void land;
       return;
     }
   }

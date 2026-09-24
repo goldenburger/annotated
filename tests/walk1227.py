@@ -55,6 +55,9 @@ async def main():
     pg.on('dialog', lambda d: (dialogs.append(d.message), asyncio.ensure_future(d.dismiss())))
     await pg.goto('https://annotated-app.netlify.app/'); await pg.wait_for_selector('.tiText'); await asyncio.sleep(2.5)
     await pg.mouse.click(1300, 860)
+    # The example may already be running (the harness sees the page late), so it is put away as touching the
+    # try-it would, rather than trusting the clock.
+    await pg.evaluate("document.dispatchEvent(new CustomEvent('annotated-tryit-touched'))"); await asyncio.sleep(.8)
     SEL = """((a, b) => { const ps = document.querySelectorAll('.tiText p'); const n1 = ps[a[0]].firstChild, n2 = ps[b[0]].firstChild;
       const r = document.createRange(); r.setStart(n1, n1.nodeValue.indexOf(a[1])); r.setEnd(n2, n2.nodeValue.indexOf(b[1]) + b[1].length);
       getSelection().removeAllRanges(); getSelection().addRange(r); })"""

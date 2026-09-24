@@ -236,6 +236,21 @@ async function deleteAnnotation(id) {
   log('Deleted ' + id);
   refresh();
 }
+// Undo right after publishing: deleted online (it is the signed-in person's own, just made) and on this computer.
+async function unpublish(ref) {
+  if (!ref || !ref.id) throw new Error('There is nothing to undo.');
+  const rec = await Store.get(ref.id).catch(() => null);
+  if (rec && rec.cloud) {
+    const me = await Backend.profile().catch(() => null);
+    if (!me) throw new Error('Sign in again to undo it, since it is published.');
+    await Cloud.remove(ref.id, me.id);
+  }
+  await Store.del(ref.id);
+  const url = chrome.runtime.getURL('annotation.html') + '#' + ref.id;
+  for (const t of await chrome.tabs.query({})) if (t.url === url) chrome.tabs.remove(t.id).catch(() => {});
+  annKey = null;
+  log('Undone ' + ref.id);
+}
 const onMicBlocked = () => openExtPage('mic.html');
 
 function makeVideo(tid) {
@@ -248,7 +263,7 @@ function makeVideo(tid) {
     frames: async () => { const sb = await sendTo(tid, { type: 'storyboard' }).catch(() => null); return sb ? Filmstrip.fromStoryboard(sb) : null; },
     capture: (start, end) => sendTo(tid, { type: 'capture', start, end }),
     abort: () => sendTo(tid, { type: 'abort' }).catch(() => {}),
-  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked });
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
   return { kind: 'video', el, api };
 }
 
@@ -390,7 +405,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       } catch (e) { return { ok: false, error: e.message }; }
     },
     peaks: async () => (probe ? FeedPod.waveform(probe, 10) : null),
-  }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, { ...i, feedUrl: ep && ep.feedUrl, audioUrl: ep && ep.audioUrl }, t), onView: viewPublished, findDuplicate, onMicBlocked });
+  }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, { ...i, feedUrl: ep && ep.feedUrl, audioUrl: ep && ep.audioUrl }, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
   p.api = { update: () => probe && api.update(info()), engine: (m) => api.engine(m) };
   const tick = setInterval(() => { if (!el.isConnected) return clearInterval(tick); if (probe && !q('.fpClip').hidden) api.update(info()); }, 400);
 
@@ -536,7 +551,7 @@ function makePodcast(tid, url, src) {
       if (!res.ok) return null;
       return Waveform.fromArrayBuffer(await res.arrayBuffer(), 10);
     },
-  }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked,
+  }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked,
     switchTo: { label: 'Highlight text on this page instead', onClick: () => switchMode(tid, url, 'article') } });
   p.api = api;
   return p;
@@ -566,7 +581,7 @@ function makeArticle(tid, url, hasAudio = false) {
       try { await tabShot(tid, r); } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
       return r;
     },
-  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked,
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked,
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
     // Only a page with audio of its own offers it. On every news page it was clutter, and Home has it.
     onFindPodcast: hasAudio ? () => { feedAsked.add(tid); drop(tid); refresh(); } : null,
@@ -611,7 +626,7 @@ function makePost(tid, url) {
       try { await tabShot(tid, r); } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
       return r;
     },
-  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, findDuplicate, onMicBlocked, draftKey: 'p:' + url, keep: keepFor('p:' + url) });
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked, draftKey: 'p:' + url, keep: keepFor('p:' + url) });
   return { kind: 'post', url, el, api };
 }
 
@@ -936,6 +951,8 @@ async function drawTryit() {
       const ref = await publish(null, item, { text: d.take, tag: null, voice: null, poll: null, gif: null, upload: null });
       if (ref.local) await publishSaved(ref.id);
       await chrome.storage.local.remove('annotatedTryit');
+      // Remembered, so the front page stops handing it over and stops showing it as only on this computer.
+      await chrome.storage.local.set({ annotatedTryitPublished: Number(d.at) || 0 });
       box.innerHTML = '<p class="tcLabel">Published</p><p class="note">It has a page of its own now.</p><p class="tcRow"><button type="button" class="primary sm tcView">View page</button></p>';
       box.querySelector('.tcView').addEventListener('click', () => viewPublished({ id: ref.id }, { justPublished: false }));
     } catch (e) {

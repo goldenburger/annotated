@@ -1,5 +1,5 @@
-/* EXPERIMENT: paper airplanes. Removed with experiments/planes.js. */
-.planes-waiting .tp-article .tiTilt > .tiPaper:not(.pl-copy), .pl-hidden:not(.pl-copy) { opacity: 0 !important; }
+/* The paper planes (fold.js), shared by the extension and the website. */
+.pl-hidden:not(.pl-copy) { opacity: 0 !important; }
 
 /* Every plane flies in a layer of its own laid over the page, so nothing clips it and it passes over everything. */
 .pl-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 60; pointer-events: none; }
@@ -18,7 +18,10 @@
 /* The creases the page keeps a moment after it opens. */
 .pl-creases { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .pl-creases line { stroke: rgba(120, 100, 60, .3); stroke-width: 1; vector-effect: non-scaling-stroke; }
-/* While your take waits to fly, the line under it says where it is going. */
-.tiNext.pl-going .tiWhere { display: none; }
-.tiNext.pl-going .seeYours, .tiNext.pl-going .tiRedo { display: none; }
-.tiNext.pl-going::after { content: "It's going to Latest, below."; }
+/* What you are publishing, as a card, for the moment it folds into a plane in the panel. */
+.flyCard { box-sizing: border-box; padding: 14px 16px; border: 1px solid var(--rule, #E1DCCB); border-radius: 12px; background: var(--sheet, #fff); color: var(--ink, #1C2433); font-family: var(--sans, system-ui); z-index: 50; }
+.flyCard p { margin: 0; }
+.flyCard .fcTake { font: 600 15px/1.35 var(--serif, Georgia, serif); }
+.flyCard .fcQuote { margin-top: 8px; padding-left: 10px; border-left: 3px solid #F2C600; font: italic 13px/1.45 var(--serif, Georgia, serif); color: var(--ink-2, #3A3F4A); display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.flyCard .fcSrc { margin-top: 8px; font: 500 12px/1.3 var(--sans, system-ui); color: var(--ink-3, #5B616E); }
+.flyCard .fcSrc:empty, .flyCard .fcQuote:empty { display: none; }

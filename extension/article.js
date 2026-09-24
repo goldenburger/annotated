@@ -42,14 +42,28 @@
   // site is read, because this is offered in the panel to publish, and a page anyone else writes must never
   // be able to put words in front of someone with a Publish button under them.
   const TRY_ORIGIN = 'https://annotated-app.netlify.app';
-  const handTryit = () => {
+  // A take already published from the panel is not handed over again (it used to come back as a fresh offer to
+  // publish on every visit), and the page is told, so its card for it goes.
+  let publishedAt = 0;
+  const markPublished = () => { if (location.origin === TRY_ORIGIN && publishedAt) document.documentElement.dataset.annotatedTryitPublished = String(publishedAt); };
+  const handTryit = async () => {
     if (location.origin !== TRY_ORIGIN || !alive()) return;
     let d = null;
     try { d = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch { return; }
     if (!d || typeof d.quote !== 'string' || typeof d.take !== 'string' || !d.quote.trim() || !d.take.trim()) return;
     const draft = { quote: d.quote.slice(0, 600), take: d.take.slice(0, 280), at: Number(d.at) || Date.now() };
+    try { publishedAt = Number((await chrome.storage.local.get('annotatedTryitPublished')).annotatedTryitPublished) || 0; } catch { return; }
+    markPublished();
+    if (publishedAt && publishedAt === draft.at) return;
     try { chrome.storage.local.set({ annotatedTryit: draft }); } catch { /* the extension went away */ }
   };
+  if (location.origin === TRY_ORIGIN) {
+    try {
+      chrome.storage.onChanged.addListener((ch, area) => {
+        if (area === 'local' && ch.annotatedTryitPublished) { publishedAt = Number(ch.annotatedTryitPublished.newValue) || 0; markPublished(); }
+      });
+    } catch { /* the extension went away */ }
+  }
   handTryit();
   if (location.origin === TRY_ORIGIN) {
     document.documentElement.dataset.annotatedInstalled = '1';

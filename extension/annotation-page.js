@@ -594,7 +594,10 @@ const AnnotationPage = (() => {
     }
     // The signature moment: on the first visit after publishing, the highlighter sweeps across the annotation.
     // It plays once. Removing the class afterwards stops it replaying when the page is shown again.
-    if (showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
+    // Arriving from Publish, it lands: as a paper plane (fold.js) when they are on, or with the rise-in. It lands
+    // whether it was published or saved on this computer, which has no banner.
+    if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) });
+    else if (showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
 
     if (hooks.onBack) q('.back').addEventListener('click', hooks.onBack);
     container.querySelectorAll('.profileLink').forEach((b) => b.addEventListener('click', () => hooks.onProfile && hooks.onProfile()));

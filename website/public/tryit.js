@@ -62,7 +62,7 @@ var TryIt = (() => {
         <div class="tiRow"><button class="primary tiMake" disabled>Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
       </form>
       <div class="tiAfter" hidden>
-        <p class="tiNext"><b>That's an annotation.</b> <span class="tiWhere">It's in Latest on annotated, below, and only on this computer.</span> <button type="button" class="link seeYours">See it</button> <button type="button" class="link tiRedo">Make another</button></p>
+        <p class="tiNext"><b>That's an annotation.</b> <span class="tiWhere">It's below, with the rest of yours, and only on this computer.</span> <button type="button" class="link seeYours">See it</button> <button type="button" class="link tiRedo">Make another</button></p>
       </div>`;
     host.appendChild(el);
     wire(el);
@@ -292,10 +292,21 @@ var TryIt = (() => {
       pen.hidden = true; pen.classList.remove('go');
       showLift(DEMO.take, { example: true });
       await wait(3200); if (!live) return;
+      // To get someone started, the example goes where theirs will: into the row below, when it is empty. With
+      // the planes (planes.js, data-planes-on) the paper folds and carries it there, and resets itself.
+      const hand = new CustomEvent('annotated-tryit-example', { cancelable: true, detail: { take: DEMO.take, quote } });
+      document.dispatchEvent(hand);
+      if (hand.defaultPrevented && document.documentElement.dataset.planesOn === '1') {
+        await new Promise((res) => { const t = setTimeout(res, 9000); document.addEventListener('annotated-example-settled', () => { clearTimeout(t); res(); }, { once: true }); });
+        if (!live) return;
+        demoing = false;
+        document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
+        return;
+      }
       await sinkLift(); if (!live) return;
       clear();
       demoing = false;
-      hint.textContent = 'Now you try. Select any words.';
+      hint.textContent = hand.defaultPrevented ? 'Now you try. Select any words. The example is below, where yours will go.' : 'Now you try. Select any words.';
       document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
     }
     const io = new IntersectionObserver((rows) => {

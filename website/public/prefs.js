@@ -1,7 +1,7 @@
 // Display preferences. Shared by the extension (chrome.storage) and the preview (localStorage).
 // Prefs.init(backend) -> Promise<prefs>. Prefs.set(key, value). Prefs.onChange(fn).
 const Prefs = (() => {
-  const DEFAULTS = { display: 'side', afterPublish: 'stay', density: 'comfortable', theme: 'system', pageButton: true, snap: 'exact', pen: 'chisel', tint: 'highlighter', suggest: true };
+  const DEFAULTS = { display: 'side', afterPublish: 'stay', density: 'comfortable', theme: 'system', pageButton: true, snap: 'exact', pen: 'chisel', tint: 'highlighter', suggest: true, planes: true };
   // The colour the whole thing is drawn in. Light or dark is one question and the hue is another, so they
   // are chosen separately and every colour here works in both. The ink is written out as numbers because
   // the stroke on the page you are reading is injected into a page with no stylesheet of ours, so it cannot
