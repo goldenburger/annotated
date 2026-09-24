@@ -78,8 +78,8 @@ Prefs.onChange((v) => {
 Prefs.init(Prefs.chromeBackend()).then(async () => {
   if (!(await OURS)) return;
   PanelKit.topLinks(document.body, {
-    onHome: () => openBrowse('home'),
-    onProfile: () => openBrowse('profile'),
+    onHome: () => homeOrPage('home'),
+    onProfile: () => homeOrPage('profile'),
   });
   displayApi = PanelKit.displayMenu(document.body, { onDisplay, sideHint: EMBED ? '' : "Drag the side panel's edge to resize it. Chrome can also show it on the left, in Settings under Appearance." });
   Account.mount(document.body);
@@ -808,6 +808,16 @@ function wirePaste(root, beside = false) {
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
 let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null;
+// Beside annotated's own page, Home and Your profile move that page, which is already the full version of
+// them. Drawing the list in the panel first showed it for a second before the panel put back its line about
+// the page beside it, and offered "Back to annotated" from annotated (recording of 2026-09-24 at 19:34).
+async function homeOrPage(kind) {
+  const t = await activeTabNow().catch(() => null);
+  if (t && t.url && t.url.startsWith(chrome.runtime.getURL('')) && OWN_PAGE.test(t.url)) {
+    return openExtPage(kind === 'profile' ? 'feed.html#profile' : 'feed.html');
+  }
+  return openBrowse(kind);
+}
 async function openBrowse(kind, { byHand = true } = {}) {
   browsing = kind;
   // Pressing Home or Your profile while the welcome is up means you are done with it. Home used to open
@@ -1205,7 +1215,10 @@ async function refresh() {
         } : null,
       });
       const ms = $('#annMode .mirrorStart');
-      if (ms) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
+      // With a way back to what you were reading, the line and that button are enough: the page beside already
+      // shows the feed. With nowhere to go back to, the start page stays, so the panel is never a dead end.
+      if (ms && !back) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
+      else if (ms) ms.remove();
       const mirror = $('#annMode .annside.mirror');
       if (mirror) {
         mirror.dataset.sig = sig;

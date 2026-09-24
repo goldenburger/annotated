@@ -298,7 +298,7 @@ const PanelKit = (() => {
           <label><input type="radio" name="w-display" value="float" ${Prefs.get().display === 'float' ? 'checked' : ''}><span>Floating</span></label></div>
           <p class="note">You can change this any time under the gear.</p></fieldset>` : ''}
         <button type="button" class="primary wGo">${seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page'}</button>
-        <p class="wSite"><a class="link" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">See annotated's website</a>, where anyone can try it first.</p>
+        <a class="ghost wSite" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">Open annotated's home page ${Brand.icon('external')}</a>
         <p class="wKey">${shortcut ? `Open this panel any time with <kbd>${shortcut.split('+').join('</kbd> + <kbd>')}</kbd>.` : 'Set a keyboard shortcut to open this panel at chrome://extensions/shortcuts.'}</p>`;
       brand.insertAdjacentElement('afterend', w);
       w.querySelector('.wGo').addEventListener('click', () => {

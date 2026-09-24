@@ -1,8 +1,9 @@
 # The recording of 2026-09-23 at 02:48. "I can't seem to get back to the start up page."
 #   1. Home in the panel carries the start page (talked about, places to start, paste a link, a podcast by
 #      name) above For you, Following and Everyone, whatever the tab is showing.
-#   2. Beside the feed and your profile the panel shows the way back, named, and the start page under it,
-#      where it used to be one sentence and one button. The way back brings that tab to the front.
+#   2. Beside the feed and your profile the panel shows the way back, named, which brings that tab to the front.
+#      The start page is under it only when there is nowhere to go back to (changed after the recording of
+#      2026-09-24 at 19:34, where it repeated what the page beside already showed).
 #   3. Home opens on the same tab in the panel and on the page, and an empty For you gives way to Everyone
 #      unless For you was pressed. An empty For you says one thing, not two.
 #   4. Your own page is called Your profile in the panel and in its tab.
@@ -99,7 +100,14 @@ async def main():
       list: !!document.querySelector('#annMode .sideList') })""")
     print('2. beside your profile:', m, '| its tab is called', repr(ftitle))
     if 'Harbor story' not in m['back'] or 'YouTube' in m['back']: errs.append(f"the way back does not name where it goes: {m['back']!r}")
-    if not (m['paste'] and m['podcast']): errs.append('beside your profile there is no start page')
+    # Since the recording of 2026-09-24 at 19:34: with a way back to what you were reading, the start page is not
+    # repeated beside the page that already shows the feed; with none it stays (below).
+    if m['paste'] or m['podcast']: errs.append('beside your profile, with a way back, the start page is repeated')
+    await side.evaluate("lastSourceTab = null; annKey = null;"); await asyncio.sleep(1.5)
+    alone = await side.evaluate("({ paste: !!document.querySelector('.mirrorStart .pasteForm'), back: !!document.querySelector('.sideBack') })")
+    print('   with nowhere to go back to:', alone)
+    if alone != {'paste': True, 'back': False}: errs.append(f'with nowhere to go back to, the panel beside the feed is a dead end: {alone}')
+    await side.evaluate(f"lastSourceTab = {tid}; annKey = null;"); await asyncio.sleep(1.5)
     if 'profile' not in m['what'].lower(): errs.append(f"it did not say what is open: {m['what']!r}")
     if m['list']: errs.append('the panel repeats the list the page is showing')
     if ftitle != 'Your profile | annotated': errs.append(f'the profile tab is called {ftitle!r}')

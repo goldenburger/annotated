@@ -402,6 +402,13 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   The card offers Undo for ten seconds, and not once anything else on it is pressed. It deletes what was just
   made, online and here, and puts the take box back with the words in it. The help screen links to the website
   ("See annotated's website"); the logo on the extension's own pages stays Home, being their only way there.
+- **The recording of 2026-09-24 at 19:34** (`tests/walk1934.py`). Beside annotated's own page, Home and Your
+  profile in the panel move that page (`homeOrPage`), where the panel used to draw its own list for a second
+  and offer "Back to annotated". Beside the feed with a way back to what you were reading, the start page is not
+  repeated; with none it stays. The help screen has "Open annotated's home page" as a button, and the account
+  menu has About annotated. The website was deployed on 2026-09-24 through the Netlify connector, since the
+  CLI is not signed in (`npx -y @netlify/mcp@latest --site-id ... --proxy-path ...` from `website/`, the path
+  given by the connector's deploy-site). Netlify adds its own toolbar script, which the CSP blocks; harmless.
 - **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
   make their own in the try-it. The row under the install steps holds up to four of yours from any tab
   (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides
@@ -754,9 +761,6 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   each pass also sends a ping and an info message. Driving it from `chrome.tabs.onUpdated`, `onActivated` and
   `chrome.storage.onChanged` with a slow poll behind it would save nearly all of that. Left alone before the
   deadline because every extension test leans on the current timing.
-- The website's headers have only been tried locally, against a server that sends the same file. Deploy and
-  check the policy on the live site. None of this round's website work is live yet, so the deploy is the next
-  thing to do: `cd website && npx netlify-cli deploy --prod --site 7b1045ff-71db-4a13-a177-6c4a6b8fa152`.
 
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
   is now possible because sign-in is published. This is the last part of the product with no evidence behind it.

@@ -34,6 +34,7 @@ const Account = (() => {
       ? `<div class="who"><span class="avatar ${me.avatar ? 'hasImg' : ''}" aria-hidden="true">${me.avatar ? `<img src="${esc(me.avatar)}" alt="" referrerpolicy="no-referrer">` : esc(me.name.slice(0, 1))}</span>
            <div><b>${esc(me.name)}</b><span class="acctAt">${me.handle ? '@' + esc(me.handle) : ''}</span></div></div>
          ${actions.onProfile ? '<button type="button" class="ghost sm acctProfile">Your profile</button>' : ''}
+         <a class="link acctAbout" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">About annotated</a>
          <form class="acctHandle" novalidate><label for="acctH">Handle</label>
            <div class="row"><span class="at">@</span><input id="acctH" value="${esc(me.handle || '')}" maxlength="30" autocomplete="off" spellcheck="false" pattern="[a-z0-9_]{2,30}" aria-describedby="acctHRule acctHLink">
            <button class="strong sm acctHSave" disabled>Save</button></div>

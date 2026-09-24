@@ -1553,4 +1553,6 @@ body.embedded > .brand .wmPlane { display: none; }
 .pubcard .pubhead { position: relative; }
 .pubcard .pubUndo { margin-left: auto; align-self: flex-start; font: 600 var(--t-s)/1.2 var(--sans); color: var(--ink); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 .pubcard .pubUndoErr { margin: 6px 0 0; }
-.welcome .wSite, .wSite { margin: 10px 0 0; text-align: center; font: 400 var(--t-s)/1.4 var(--sans); color: var(--ink-2); }
+.welcome .wSite { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; margin: 10px 0 0; box-sizing: border-box; text-decoration: none; }
+.welcome .wSite .ic { width: 14px; height: 14px; }
+.acctAbout { display: block; margin: 8px 0 2px; text-align: center; font: 500 var(--t-s)/1.3 var(--sans); }
