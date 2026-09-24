@@ -1,37 +1,27 @@
 /* EXPERIMENT: paper airplanes. Removed with experiments/planes.js. */
-.planes-waiting .tp-article .tiTilt > .tiPaper { opacity: 0; }
-.pl-fly { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; transform-style: preserve-3d; perspective: 900px; will-change: transform; }
-.pl-plane { position: absolute; left: calc(var(--s) / -2); top: calc(var(--s) / -2); width: var(--s); height: var(--s); transform-style: preserve-3d; }
-.pl-face { position: absolute; inset: 0; background: #FFFDF7; backface-visibility: visible; transform-origin: 50% 50%;
-  transition: clip-path .55s cubic-bezier(.2, .7, .2, 1), transform .55s cubic-bezier(.2, .7, .2, 1), opacity .4s ease; }
-/* Folded: each face is one triangle of the dart, the same four corners in every state so the unfold can move them. */
-.pl-wl { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 4%); transform: rotateX(32deg); background: linear-gradient(100deg, #E2D9C0, #FFFDF7 55%, #F4EEDC); }
-.pl-wr { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 96%); transform: rotateX(-32deg); background: linear-gradient(80deg, #CFC4A6, #EFE8D3 55%, #E4DCC4); }
-.pl-kl { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 70%); transform: rotateX(84deg); background: linear-gradient(90deg, #BDB08E, #D8CEB2); }
-.pl-kr { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 70%); transform: rotateX(96deg); background: linear-gradient(90deg, #B0A27E, #CFC4A6); }
-/* Opened: the wings become the two halves of the sheet and the keel folds away into them. */
-.pl-open .pl-wl { clip-path: polygon(100% 0, 100% 50%, 0 50%, 0 0); transform: none; background: #FFFDF7; }
-.pl-open .pl-wr { clip-path: polygon(100% 100%, 100% 50%, 0 50%, 0 100%); transform: none; background: #FFFDF7; }
-.pl-open .pl-kl, .pl-open .pl-kr { transform: none; opacity: 0; }
-.pl-shadow { position: absolute; left: -46px; top: -10px; width: 92px; height: 22px; border-radius: 50%; background: radial-gradient(closest-side, rgba(30, 26, 12, .35), transparent); filter: blur(3px); opacity: 0; }
-.pl-small .pl-shadow { display: none; }
-/* The sheet that opens out of the dart, inside the paper's tilt. */
-.pl-sheet, .pl-sheetShadow { position: absolute; pointer-events: none; transform-origin: 50% 50%; }
-.pl-sheet { transform-style: preserve-3d; z-index: 2; }
-.pl-sheetShadow { border-radius: 4px; background: rgba(30, 26, 12, .16); filter: blur(14px); opacity: 0; }
-.pl-group { position: absolute; inset: 0; transform-style: preserve-3d; }
-.pl-leaf { position: absolute; inset: 0; overflow: hidden; }
-.pl-leaf > .tiPaper { position: absolute; inset: 0; box-shadow: none; }
-.pl-leaf > .tiPaper .tiCurl, .pl-leaf > .tiPaper .tiShadow { display: none; }
-.pl-blank { background: #F4EDDA; }
-.pl-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(90, 76, 40, .55), rgba(90, 76, 40, .25)); opacity: 0; }
+.planes-waiting .tp-article .tiTilt > .tiPaper:not(.pl-copy), .pl-hidden:not(.pl-copy) { opacity: 0 !important; }
+
+/* Every plane flies in a layer of its own laid over the page, so nothing clips it and it passes over everything. */
+.pl-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 60; pointer-events: none; }
+.pl-carrier, .pl-sheet, .pl-frame, .pl-group { position: absolute; transform-style: preserve-3d; transform-origin: 50% 50%; }
+.pl-sheet, .pl-group { inset: 0; }
+.pl-leaf { position: absolute; inset: 0; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+/* The back of the paper: blank, a shade darker, and turned over so its face points the other way. */
+.pl-blank { background: #F3ECD8; transform: rotateY(180deg); }
+.pl-cover { position: absolute; inset: 0; background: #FFFDF7; }
+.pl-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(90, 76, 40, .55), rgba(90, 76, 40, .25)); }
+.pl-leaf .tiCurl, .pl-leaf .tiShadow, .pl-leaf .pl-media { display: none; }
+/* The plane's shadow on the page below it, and the sheet's own once it lies down. */
+.pl-fshadow { position: absolute; transform-origin: 50% 50%; opacity: 0; }
+.pl-sil { position: absolute; background: rgba(30, 26, 12, .6); transform-origin: 50% 50%; }
+.pl-sheetShadow { position: absolute; border-radius: 6px; background: rgba(30, 26, 12, .14); filter: blur(14px); translate: 0 14px; opacity: 0; transform-origin: 50% 50%; }
 /* The creases the page keeps a moment after it opens. */
 .pl-creases { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .pl-creases line { stroke: rgba(120, 100, 60, .3); stroke-width: 1; vector-effect: non-scaling-stroke; }
 /* Your take, landed in the latest row. */
-.pl-yours .card { border-color: #F2C600; animation: plLand .45s cubic-bezier(.2, .8, .2, 1) both; }
-@keyframes plLand { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
-
-/* A fine edge on every face, so a folded sheet reads as folds rather than one pale shape. */
-.pl-plane { filter: drop-shadow(0 0 .6px rgba(60, 50, 25, .55)) drop-shadow(0 6px 8px rgba(30, 26, 12, .18)); }
-.pl-open { filter: none; }
+.pl-yours .card { border-color: #F2C600; }
+/* The small dart that carries a tab. */
+.pl-dart { position: fixed; left: -23px; top: -12px; width: 46px; height: 24px; z-index: 60; pointer-events: none; filter: drop-shadow(0 3px 4px rgba(30, 26, 12, .25)); }
+.pl-dw { position: absolute; inset: 0; background: #FFFDF7; }
+.pl-dwl { clip-path: polygon(100% 50%, 0 0, 22% 50%); background: #F1EAD6; }
+.pl-dwr { clip-path: polygon(100% 50%, 22% 50%, 0 100%); }

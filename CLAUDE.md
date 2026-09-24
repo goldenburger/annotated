@@ -361,15 +361,23 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   row takes as many columns as it has cards (`--n`); and `/install` (`installpage.js`) is the same header and
   the same three steps as the front page, where it was an older list of four with no header.
 - **EXPERIMENT: paper planes on the front page** (`website/public/experiments/planes.js` and `planes.css`,
-  `tests/planes.py`). The brief glides in as a paper dart and lands where the paper sits. It then opens as a real sheet
-  (`unfold`), built inside `.tiTilt` at the paper's size with a copy of the brief on each piece: the two halves open
-  about the centre crease, then the two nose corners flip out about their diagonals, and the real paper takes over
-  with the creases drawn on it for a moment. The directions of turn were measured with `DOMMatrix`, not guessed. A take
-  made in the try-it flies down to Latest and lands there as a card marked "Yours, on this computer"; a tab
-  chosen sends a small plane. A click, key or scroll finishes the landing at once, it plays once a visit, and
-  reduced motion, phones and `?noplanes` get none. Test browsers get none unless the address has `?planes`, so
-  no other test sees them. To remove it, delete the folder, the one marked line in `index.html`, `tests/planes.py`
-  and its name in `scripts/run_tests.py`.
+  `tests/planes.py`). One engine (`buildPlane`, `flight`) folds any element into a real dart made of copies of it:
+  ten pieces, each printed with a clone of the element and a blank back (mirrored clip, `rotateY(180deg)`), nested in
+  the order a dart is folded (half, wing, leading fold, corner). The second fold crosses the folded corner, so the
+  corner is two pieces and the far one turns back as the leading fold turns, which keeps it still. A plain cover
+  hides the print in the air and the words come up as it opens. Planes fly in a layer of their own on `body` at
+  page coordinates, and the paper's own perspective and tilt are copied onto it, so a landing lines up with the
+  page exactly. Clones sit in `display: contents` stand-ins for their ancestors so their styles still match, and
+  carry `pl-copy` so the rules that hide the real page do not hide them. Paths are sampled into keyframes: heading
+  from the path, a bank from the rate of turn, pitch from the climb, height as `translateZ`, and a shadow below.
+  Three flights use it. The brief flies in over the headline and opens on load. When Latest scrolls into view,
+  a plane flies to each card (wide ones nose first from the left, tall ones from above). After a take, the marked
+  sheet folds back up and flies to Latest, where it opens as your card, or off the page when Latest is out of
+  view, and a fresh brief flies in once the try-it's reset has cleared the marks. A click or key finishes every
+  flight, a scroll finishes the first, the arrivals play once a visit, and reduced motion, phones and
+  `?noplanes` get none. Test browsers get none unless the address has `?planes`. The Latest landing is checked
+  only by eye against live data, because the test's stand-in database has no annotations. To remove it, delete
+  the folder, the one marked line in `index.html`, `tests/planes.py` and its name in `scripts/run_tests.py`.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.
