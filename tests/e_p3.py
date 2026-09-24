@@ -25,7 +25,7 @@ async def main():
     await pg.click('.moreBtn'); await pg.click('.delBtn'); await asyncio.sleep(.2)
     print('delete confirm:', await pg.inner_text('.delWrap'))
     print('rail:', (await pg.inner_text('.rail')).replace('\n',' | '))
-    await pg.click('.navHome'); await pg.wait_for_selector('.feedHead'); await asyncio.sleep(.4)
+    await pg.goto(pg.url.split('annotation.html')[0] + 'feed.html'); await pg.wait_for_selector('.feedHead'); await asyncio.sleep(.4)
     print('home head:', (await pg.inner_text('.feedHead')).replace('\n',' | '))
     await pg.screenshot(path='e3_home.png')
     await pg.click('.feedFilter label >> nth=2'); await asyncio.sleep(.2); print('passages only:', await pg.locator('.card').count())

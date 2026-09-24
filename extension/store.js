@@ -16,7 +16,8 @@ const Store = (() => {
     };
   }
   // A small JPEG of a screenshot, for feed cards.
-  async function thumbOf(dataUrl, w = 360) {
+  // The list copy of a screenshot: wide enough for a feed card on a sharp screen, where 360 read as blurry.
+  async function thumbOf(dataUrl, w = 760) {
     try {
       const bmp = await createImageBitmap(await (await fetch(dataUrl)).blob());
       const h = Math.round((bmp.height / bmp.width) * w);

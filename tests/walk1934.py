@@ -45,6 +45,10 @@ async def main():
     print('   Home moved it to', url.split('/')[-1])
     if not url.endswith('feed.html'): errs.append(f'Home did not move the page: {url}')
 
+    # The logo on the extension's own page opens annotated's home page (recording of 2026-09-24 at 21:03).
+    logo = await feed.evaluate("(() => { const a = document.querySelector('.sitebar .wmBtn'); return a && { tag: a.tagName, href: a.getAttribute('href') }; })()")
+    print("   the page's logo:", logo)
+    if logo != {'tag': 'A', 'href': 'https://annotated-app.netlify.app/'}: errs.append(f"the logo does not open annotated's home page: {logo}")
     # 2.
     await side.click('.helpBtn'); await asyncio.sleep(.6)
     h = await side.evaluate("(() => { const a = document.querySelector('.wSite'); return a && { text: a.textContent.trim(), href: a.getAttribute('href'), tag: a.tagName }; })()")

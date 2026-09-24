@@ -420,6 +420,14 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`landChecking`). A take in the clip, podcast or post tab says "You, just now", not Example. A fold keeps the
   words until it is halfway. The clip card uses the brightest frame in the clip (`artemis-i-frames.json`, from the
   sprite), and the cards in Yours so far share one height. The panel keeps the start page beside an empty page.
+- **The recording of 2026-09-24 at 21:03** (`tests/yours2103.py`). Yours so far has a × on each card and Clear all,
+  each with Undo for six seconds; removing the brief's take clears `annotated-tryit` and tells the extension
+  (`annotated-tryit-removed`, and `-restored` on Undo), so the panel stops offering it. A clip's card plays its clip
+  muted and on repeat while in sight (`loopClip`; the address carries only the start, since with the end the
+  browser pauses there). A card waiting for its plane holds a dashed slot (`:has(> .card.pl-hidden)`), and quotes
+  are cut to three lines. The logo on the extension's own pages opens the website (the panel has Home). The
+  website's feed is headed Feed. Feed cards use a published annotation's full-size screenshot before the small
+  copy kept here, and that copy is now 760 pixels wide, where 360 looked blurry.
 - **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
   make their own in the try-it. The row under the install steps holds up to four of yours from any tab
   (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides

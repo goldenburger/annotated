@@ -130,6 +130,23 @@ var Landing = (() => {
   const YOURS = 'annotated-yours';
   const readYours = () => { try { return JSON.parse(localStorage.getItem(YOURS) || 'null'); } catch { return null; } };
   const ago = (at) => { const m = Math.floor((Date.now() - at) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : 'earlier'; };
+  // A clip on a card: muted, inline, playing from its start to its end and round again while the card is in sight.
+  function loopClip(frame, src, a, z) {
+    const v = document.createElement('video');
+    v.className = 'yClip'; v.muted = true; v.playsInline = true; v.preload = 'none';
+    v.setAttribute('muted', ''); v.setAttribute('aria-hidden', 'true');
+    // Only the start in the address: with the end in it too, the browser pauses there instead of going round.
+    v.src = `${src}#t=${a}`;
+    frame.appendChild(v);
+    const round = () => { if (v.currentTime >= z - .05 || v.currentTime < a - .5) v.currentTime = a; };
+    v.addEventListener('timeupdate', round);
+    v.addEventListener('ended', () => { v.currentTime = a; v.play().catch(() => {}); });
+    v.addEventListener('playing', () => frame.classList.add('playing'));
+    if (still()) return;
+    const go = () => { if (v.readyState < 1) { v.addEventListener('loadedmetadata', () => { v.currentTime = a; v.play().catch(() => {}); }, { once: true }); v.load(); } else v.play().catch(() => {}); };
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((x) => (x.isIntersecting ? go() : v.pause())), { threshold: .4 }).observe(frame);
+    else go();
+  }
   function yoursCard(y) {
     const li = document.createElement('li');
     li.className = 'cardItem yours';
@@ -140,7 +157,9 @@ var Landing = (() => {
       <span class="cbody"><span class="cmeta">You <span class="dotsep"></span></span>
       <span class="ctake"></span><span class="yMedia"></span>
       <span class="csource"><span><span class="cst"></span><span class="csn"></span></span></span>
-      <span class="yGet">${get}</span></span></a>`;
+      <span class="yGet">${get}</span></span></a>
+      <button type="button" class="yDel" aria-label="Remove this one" title="Remove">×</button>`;
+    li.dataset.at = String(y.at || '');
     li.querySelector('.dotsep').textContent = ago(y.at || Date.now());
     if (y.example) { li.querySelector('.cmeta').innerHTML = '<span class="yEx">Example</span>'; }
     li.querySelector('.ctake').textContent = y.take || '';
@@ -155,6 +174,15 @@ var Landing = (() => {
       e.style.backgroundSize = `${t.cols * 100}% ${t.rows * 100}%`;
       e.style.backgroundPosition = `${t.cols > 1 ? (col / (t.cols - 1)) * 100 : 0}% ${t.rows > 1 ? (row / (t.rows - 1)) * 100 : 0}%`;
       m.appendChild(e);
+      // The clip itself, silent and on repeat, over its frame, as a clip plays on a card in the feed. Cards kept
+      // from before this carry the range only in their words ("Clip 2:57 to 3:19 of 5:47").
+      let a = Number(y.a), z = Number(y.z);
+      if (!(z > a)) {
+        const sec = (s) => s.split(':').reduce((n, x) => n * 60 + Number(x), 0);
+        const hit = /(\d+:\d{2}) to (\d+:\d{2})/.exec(y.what || '');
+        if (hit) { a = sec(hit[1]); z = sec(hit[2]); }
+      }
+      if (z > a) loopClip(e, '/media/artemis-i.mp4', a, z);
     } else if (Array.isArray(y.wave)) {
       const e = document.createElement('span'); e.className = 'yWave';
       y.wave.slice(0, 40).forEach((v) => { const i = document.createElement('i'); i.style.height = Math.round(Math.max(.1, Math.min(1, +v || 0)) * 100) + '%'; e.appendChild(i); });
@@ -165,7 +193,7 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote">Only on this computer</p></div><ul class="llRow"></ul>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote">Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><p class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></p><ul class="llRow"></ul>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
@@ -177,6 +205,50 @@ var Landing = (() => {
     };
     list().forEach((y) => row.appendChild(yoursCard(y)));
     tidy();
+    // Removing: one card by its ×, or all of them. Undo puts them back for six seconds. A take on the brief also
+    // leaves the extension's hands (article.js hears annotated-tryit-removed), so the panel stops offering it.
+    const undoBar = box.querySelector('.llUndo');
+    let undoTimer = 0, lastGone = null;
+    const redraw = () => { row.innerHTML = ''; list().forEach((y) => row.appendChild(yoursCard(y))); tidy(); };
+    const dropTryit = (items) => {
+      let t = null; try { t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch {}
+      if (t && items.some((y) => y.kind === 'article' && String(y.tryitAt) === String(t.at))) {
+        try { localStorage.removeItem('annotated-tryit'); } catch {}
+        document.dispatchEvent(new CustomEvent('annotated-tryit-removed', { detail: { at: t.at } }));
+        return t;
+      }
+      return null;
+    };
+    const remove = (pick, said) => {
+      const all = list(), gone = all.filter(pick), kept = all.filter((y) => !pick(y));
+      if (!gone.length) { row.querySelectorAll('.example').forEach((x) => x.remove()); tidy(); return; }
+      save(kept);
+      lastGone = { all, tryit: dropTryit(gone) };
+      redraw();
+      undoBar.querySelector('span').textContent = said;
+      undoBar.hidden = false; box.hidden = false;
+      clearTimeout(undoTimer);
+      undoTimer = setTimeout(() => { undoBar.hidden = true; lastGone = null; tidy(); }, 6000);
+    };
+    box.querySelector('.llUndoBtn').addEventListener('click', () => {
+      if (!lastGone) return;
+      save(lastGone.all);
+      if (lastGone.tryit) {
+        try { localStorage.setItem('annotated-tryit', JSON.stringify(lastGone.tryit)); } catch {}
+        document.dispatchEvent(new CustomEvent('annotated-tryit-restored'));
+      }
+      lastGone = null; clearTimeout(undoTimer); undoBar.hidden = true; redraw();
+    });
+    row.addEventListener('click', (e) => {
+      const x = e.target.closest && e.target.closest('.yDel');
+      if (!x) return;
+      e.preventDefault();
+      const li = x.closest('li');
+      if (li.classList.contains('example')) { li.remove(); tidy(); return; }
+      const at = li.dataset.at;
+      remove((y) => String(y.at) === at, 'Removed.');
+    });
+    box.querySelector('.llClear').addEventListener('click', () => remove(() => true, 'All of yours removed.'));
     // origin: what it was made from, for anything that wants to show it travelling here.
     document.addEventListener('annotated-tryit-example', (e) => {
       if (list().length || row.querySelector('.example')) return;
@@ -200,7 +272,7 @@ var Landing = (() => {
     document.addEventListener('annotated-scene-made', (e) => {
       const d = e.detail || {};
       const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'An example post on X', article: 'An example article' }[d.kind] || d.source;
-      add({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave }, d.card);
+      add({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave, a: d.a, z: d.z }, d.card);
     });
     // Published from the extension's panel: the extension's page script says so (data-annotated-tryit-published),
     // and the card that said it was only on this computer goes.

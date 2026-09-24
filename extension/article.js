@@ -70,6 +70,15 @@
     document.dispatchEvent(new CustomEvent('annotated-installed'));
   }
   document.addEventListener('annotated-tryit-made', handTryit);
+  document.addEventListener('annotated-tryit-restored', handTryit);
+  // Removed from Yours so far on the front page: the panel stops offering to publish it.
+  document.addEventListener('annotated-tryit-removed', async (e) => {
+    if (location.origin !== TRY_ORIGIN || !alive()) return;
+    try {
+      const { annotatedTryit: d } = await chrome.storage.local.get('annotatedTryit');
+      if (d && (!e.detail || !e.detail.at || Number(d.at) === Number(e.detail.at))) await chrome.storage.local.remove('annotatedTryit');
+    } catch { /* the extension went away */ }
+  });
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
   chrome.storage.local.get('annotatedPrefs').then((o) => { if (o.annotatedPrefs) pageButton = o.annotatedPrefs.pageButton !== false; }).catch(() => {});

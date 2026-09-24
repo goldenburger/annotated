@@ -119,7 +119,10 @@ const AnnotationPage = (() => {
     container.classList.add('site');
     container.innerHTML = `
       <header class="sitebar">
-        <button type="button" class="wmBtn navHome" aria-label="annotated home">${Brand.wordmark()}</button>
+        ${siteNav ? `<button type="button" class="wmBtn navHome" aria-label="annotated home">${Brand.wordmark()}</button>`
+          // Inside the extension the panel beside the page has Home, and the logo opens annotated's home page, which
+          // is what four clicks on it expected in the recording of 2026-09-24 at 21:03.
+          : `<a class="wmBtn" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener" aria-label="annotated's home page" title="annotated's home page">${Brand.wordmark()}</a>`}
         ${siteNav ? `<nav class="sitenav" aria-label="Site">
           <button type="button" class="navBtn navHome" ${active === 'home' ? 'aria-current="page"' : ''}>${Brand.icon('home')} Home</button>
           <button type="button" class="navBtn navProfile" ${active === 'profile' ? 'aria-current="page"' : ''}>${av('xs')} You</button>
@@ -996,7 +999,7 @@ const AnnotationPage = (() => {
                  : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
                ${onDeleteAll && !person && records.length ? delAllBox(records) : ''}`
-            : `<h1>Home</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
+            : `<h1>${typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? 'Home' : 'Feed'}</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         <div class="feedBar">
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
@@ -1020,10 +1023,13 @@ const AnnotationPage = (() => {
           // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
           // A post is shown by its screenshot, the same as an article is. Posts were the one kind with no
           // picture at all, and a column of cards all from X had nothing for the eye to catch.
+          // A published screenshot is the full-size picture online; the copy kept here for lists is small (it
+          // was 360 pixels wide, stretched to twice that on a card, and read as blurry). Online comes first.
+          const shotBest = /^https?:/.test(it.shot || '') ? it.shot : (it.shotThumb || it.shot);
           const thumb = safeImg(it.kind === 'video' ? it.poster
             : it.kind === 'audio' ? (it.artwork || it.poster)
-            : it.kind === 'post' ? (it.shotThumb || it.shot)
-            : ((it.meta && it.meta.image) || it.shotThumb || it.shot));
+            : it.kind === 'post' ? shotBest
+            : ((it.meta && it.meta.image) || shotBest));
           // A screenshot is read from its top left corner. A preview image made for sharing is composed to
           // be seen whole, so that one stays centred.
           const fromShot = it.kind !== 'video' && it.kind !== 'audio' && !(it.meta && it.meta.image);
