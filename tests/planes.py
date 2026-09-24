@@ -1,6 +1,7 @@
 # EXPERIMENT: the paper planes on the front page (website/public/experiments/planes.js). Remove this test with them.
-#   1. With ?planes a plane flies in while the brief is held back, and within two and a half seconds it is gone and
-#      the brief is showing and works: Mark a sentence for me inks it and a take makes the card.
+#   1. With ?planes a plane flies in while the brief is held back, lands and opens out as a sheet carrying the
+#      brief (.pl-sheet), and within about three seconds the sheet is gone and the real brief is showing and works:
+#      Mark a sentence for me inks it and a take makes the card.
 #   2. A click while it flies finishes it at once, and the brief is there.
 #   3. It plays once a visit, ?planes or not: loading the page again in the same tab shows no plane. (The aborted
 #      request that reload causes is the page's own list being cut off, and is not counted.)
@@ -18,7 +19,7 @@ def site(route):
   return route.fulfill(status=200, body=f.read_bytes(), headers={'Content-Type': mimetypes.guess_type(str(f))[0] or 'application/octet-stream'})
 URL = 'https://annotated-app.netlify.app/'
 STATE = """() => ({ plane: !!document.querySelector('.pl-fly'), waiting: document.documentElement.classList.contains('planes-waiting'),
-  shown: getComputedStyle(document.querySelector('.tp-article .tiStage')).opacity })"""
+  shown: getComputedStyle(document.querySelector('.tp-article .tiTilt > .tiPaper')).opacity })"""
 
 async def main():
   errs = []
@@ -31,7 +32,7 @@ async def main():
       pg = await ctx.new_page(); pg.on('pageerror', lambda e: 'aborted a request' in str(e) or errs.append('PAGE ' + str(e)))
       return pg
     async def arrive(pg, q):
-      await pg.goto(URL + q); await pg.wait_for_selector('.tp-article .tiStage'); await asyncio.sleep(.35)
+      await pg.goto(URL + q); await pg.wait_for_selector('.tp-article .tiPaper'); await asyncio.sleep(.35)
       return await pg.evaluate(STATE)
 
     # 1.
@@ -40,10 +41,16 @@ async def main():
     print('1. while it flies:', s)
     if not s['plane']: errs.append('no plane flew in with ?planes')
     if s['shown'] != '0': errs.append('the brief showed before the plane landed')
-    await asyncio.sleep(2.5)
+    await pg.wait_for_selector('.pl-sheet', timeout=3000)
+    sheet = await pg.evaluate("(() => { const s = document.querySelector('.pl-sheet'); return { leaves: s.querySelectorAll('.pl-leaf').length, printed: s.querySelectorAll('.pl-leaf .tiText').length, ids: s.querySelectorAll('[id], [data-annotated-self]').length }; })()")
+    print('   the sheet opening:', sheet)
+    if sheet['leaves'] != 6 or sheet['printed'] != 4: errs.append(f'the sheet is not two halves and two flaps with the brief on them: {sheet}')
+    if sheet['ids']: errs.append('the sheet copied ids or the try-it mark, which the real brief owns')
+    await asyncio.sleep(2)
     s = await pg.evaluate(STATE)
+    s['sheet'] = await pg.evaluate("!!document.querySelector('.pl-sheet, .pl-sheetShadow')")
     print('   after:', s)
-    if s['plane'] or s['waiting'] or s['shown'] != '1': errs.append(f'the landing did not finish: {s}')
+    if s['plane'] or s['sheet'] or s['waiting'] or s['shown'] != '1': errs.append(f'the landing did not finish: {s}')
     await pg.click('.tiForMe'); await asyncio.sleep(1.5)
     marks = await pg.evaluate("document.querySelectorAll('.tiText mark.annotated-hl').length")
     await pg.fill('#tiInput', 'A take after the landing.'); await pg.keyboard.press('Enter'); await asyncio.sleep(2.5)

@@ -22,7 +22,7 @@
   const root = document.documentElement;
   // The rule that holds the paper back goes in at once, since planes.css arrives a moment after the paper does.
   const hold = document.createElement('style');
-  hold.textContent = '.planes-waiting .tp-article .tiStage { opacity: 0; }';
+  hold.textContent = '.planes-waiting .tp-article .tiTilt > .tiPaper { opacity: 0; }';
   document.head.appendChild(hold);
   if (!seen) root.classList.add('planes-waiting');
   // Whatever happens, the paper is never kept out of sight for long.
@@ -53,9 +53,8 @@
       clearTimeout(safety);
       fly.getAnimations({ subtree: true }).forEach((a) => a.cancel());
       fly.remove();
+      if (sheetEl) sheetEl.forEach((e) => e.remove());
       root.classList.remove('planes-waiting');
-      paper.classList.add('pl-creased');
-      setTimeout(() => paper.classList.remove('pl-creased'), 1400);
       try { sessionStorage.setItem('annotated-plane-seen', '1'); } catch { /* no storage */ }
       ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((e) => removeEventListener(e, finish, true));
       document.dispatchEvent(new CustomEvent('annotated-plane-landed'));
@@ -78,19 +77,108 @@
       { duration: 1150, easing: 'ease-in', fill: 'forwards' });
     path.finished.then(() => {
       if (done) return;
-      // Unfold: the wings and the keel open flat, the sheet grows to the paper's size, and becomes it.
-      const k = to.w / 150;
-      fly.animate([{ transform: `translate3d(${to.x}px, ${to.y}px, 0) rotateZ(180deg) scale(1)` },
-        { transform: `translate3d(${to.x}px, ${to.y}px, 0) rotateZ(182deg) scale(${k.toFixed(2)}, ${(to.h / 150).toFixed(2)})` }],
-        { duration: 650, easing: 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
-      plane.classList.add('pl-open');
-      plane.animate([{ transform: 'rotateX(58deg)' }, { transform: 'rotateX(0deg)' }], { duration: 650, easing: 'cubic-bezier(.2, .7, .2, 1)', fill: 'forwards' });
-      shadow.animate([{ opacity: .45 }, { opacity: 0 }], { duration: 400, fill: 'forwards' });
-      setTimeout(() => {
-        root.classList.remove('planes-waiting');
-        fly.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, fill: 'forwards' }).finished.then(finish);
-      }, 520);
+      shadow.animate([{ opacity: .45 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
+      fly.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: 'forwards' });
+      const sheet = unfold(paper);
+      sheetEl = sheet.el;
+      sheet.done.then(() => { if (!done) finish(); });
     });
+  }
+
+  // The unfold. A dart is a sheet with its two nose corners folded to the centre crease and then folded in half,
+  // so it opens in that order backwards: the halves open about the crease, then each corner flips back out.
+  // It is built inside the paper's own tilt at the paper's own size, carrying a copy of the brief, so the sheet
+  // that opens is the page, and the real one takes over without a jump.
+  let sheetEl = null;
+  function unfold(paper) {
+    const tilt = paper.parentElement;
+    const W = paper.offsetWidth, H = paper.offsetHeight, a = Math.min(H / 2, W / 2);
+    const make = (cls, css = '') => { const e = document.createElement('div'); e.className = cls; e.style.cssText = css; return e; };
+    const P = (pts) => 'polygon(' + pts.map(([x, y]) => `${x}px ${y}px`).join(', ') + ')';
+    const copy = () => {
+      const c = paper.cloneNode(true);
+      c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
+      c.querySelectorAll('[data-annotated-self]').forEach((x) => x.removeAttribute('data-annotated-self'));
+      c.setAttribute('aria-hidden', 'true'); c.inert = true;
+      return c;
+    };
+    // A leaf is one flat piece of the sheet: printed (the brief) or the blank back of a flap.
+    const leaf = (pts, printed, css = '') => {
+      const f = make('pl-leaf' + (printed ? '' : ' pl-blank'), css);
+      f.style.clipPath = P(pts);
+      if (printed) f.appendChild(copy());
+      f.appendChild(make('pl-shade'));
+      return f;
+    };
+    const box = `left:${paper.offsetLeft}px;top:${paper.offsetTop}px;width:${W}px;height:${H}px`;
+    const under = make('pl-sheetShadow', box);
+    const sheet = make('pl-sheet', box);
+    // The top half turns about the crease at H / 2, and its corner flap about the line from (a, 0) to (0, a).
+    const top = make('pl-group', `transform-origin: 0 ${H / 2}px`);
+    top.appendChild(leaf([[a, 0], [W, 0], [W, H / 2], [0, H / 2], [0, a]], true));
+    const topFlap = make('pl-group', `transform-origin: ${a / 2}px ${a / 2}px`);
+    topFlap.appendChild(leaf([[0, 0], [a, 0], [0, a]], true, 'backface-visibility: hidden'));
+    // Its back: the same triangle turned over about its own line of symmetry, so it sits in the same place.
+    topFlap.appendChild(leaf([[0, 0], [a, 0], [0, a]], false, 'backface-visibility: hidden; transform-origin: 0 0; transform: rotate3d(1, 1, 0, 180deg)'));
+    top.appendChild(topFlap);
+    const bot = make('pl-group', `transform-origin: 0 ${H / 2}px`);
+    bot.appendChild(leaf([[0, H / 2], [W, H / 2], [W, H], [a, H], [0, H - a]], true));
+    const botFlap = make('pl-group', `transform-origin: ${a / 2}px ${H - a / 2}px`);
+    botFlap.appendChild(leaf([[0, H - a], [0, H], [a, H]], true, 'backface-visibility: hidden'));
+    botFlap.appendChild(leaf([[0, H - a], [0, H], [a, H]], false, `backface-visibility: hidden; transform-origin: 0 ${H}px; transform: rotate3d(1, -1, 0, 180deg)`));
+    bot.appendChild(botFlap);
+    sheet.append(top, bot);
+    tilt.insertBefore(under, paper); tilt.append(sheet);
+    const wrap = { el: [under, sheet] };
+
+    const ease = 'cubic-bezier(.25, .8, .25, 1)';
+    const T = 1250;
+    const k = (o, t) => Object.assign({ offset: o }, t);
+    // Held small and folded where the dart landed, then it comes up to the paper's size as it opens.
+    const s0 = Math.min(.5, 170 / W);
+    sheet.animate([k(0, { transform: `scale(${s0})` }), k(.42, { transform: 'scale(1)' }), k(1, { transform: 'scale(1)' })], { duration: T, easing: 'ease-out', fill: 'forwards' });
+    under.animate([k(0, { opacity: 0, transform: `translateY(14px) scale(${s0})` }), k(.42, { opacity: .6, transform: 'translateY(14px) scale(1)' }), k(1, { opacity: 1, transform: 'translateY(14px) scale(1)' })], { duration: T, fill: 'forwards' });
+    // The halves open like a book laid flat: nearly upright, a hair past flat, and back.
+    const halves = (sign) => [k(0, { transform: `rotateX(${sign * 74}deg)` }), k(.18, { transform: `rotateX(${sign * 62}deg)` }),
+      k(.46, { transform: `rotateX(${sign * -3}deg)` }), k(.56, { transform: 'rotateX(0deg)' }), k(1, { transform: 'rotateX(0deg)' })];
+    top.animate(halves(-1), { duration: T, easing: ease, fill: 'forwards' });
+    bot.animate(halves(1), { duration: T, easing: ease, fill: 'forwards' });
+    // Then the corners: the top one first, the bottom one a beat behind, each lifting off and landing flat.
+    // Negative turns the top flap toward you and positive the bottom one, as DOMMatrix measured.
+    const flap = (sign, from) => {
+      const r = (deg) => ({ transform: `rotate3d(1, ${-sign}, 0, ${deg}deg)` });
+      return [k(0, r(sign * -176)), k(from, r(sign * -176)), k(from + .24, r(sign * 4)), k(from + .32, r(0)), k(1, r(0))];
+    };
+    topFlap.animate(flap(1, .4), { duration: T, easing: 'ease-in-out', fill: 'forwards' });
+    botFlap.animate(flap(-1, .5), { duration: T, easing: 'ease-in-out', fill: 'forwards' });
+    // Light: a face tipped away from the page is darker, and flat it is the paper's own colour.
+    const shadeOf = (g) => g.querySelectorAll(':scope > .pl-leaf > .pl-shade');
+    shadeOf(top).forEach((x) => x.animate([k(0, { opacity: .55 }), k(.46, { opacity: 0 }), k(1, { opacity: 0 })], { duration: T, fill: 'forwards' }));
+    shadeOf(bot).forEach((x) => x.animate([k(0, { opacity: .3 }), k(.46, { opacity: 0 }), k(1, { opacity: 0 })], { duration: T, fill: 'forwards' }));
+    [[topFlap, .4], [botFlap, .5]].forEach(([g, f]) => shadeOf(g).forEach((x) => x.animate([k(0, { opacity: .25 }), k(f, { opacity: .25 }),
+      k(f + .12, { opacity: .6 }), k(f + .3, { opacity: 0 }), k(1, { opacity: 0 })], { duration: T, fill: 'forwards' })));
+    wrap.done = new Promise((res) => setTimeout(() => {
+      // The real page takes over, and the sheet's creases stay on it a moment.
+      root.classList.remove('planes-waiting');
+      crease(paper, W, H, a);
+      under.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' });
+      sheet.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, fill: 'forwards' }).finished.then(res);
+    }, T - 80));
+    return wrap;
+  }
+
+  function crease(paper, W, H, a) {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'pl-creases'); svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('preserveAspectRatio', 'none');
+    [[0, H / 2, W, H / 2], [a, 0, 0, a], [0, H - a, a, H]].forEach(([x1, y1, x2, y2]) => {
+      const l = document.createElementNS(ns, 'line');
+      Object.entries({ x1, y1, x2, y2 }).forEach(([n, v]) => l.setAttribute(n, v));
+      svg.appendChild(l);
+    });
+    paper.appendChild(svg);
+    svg.animate([{ opacity: 1 }, { opacity: .7, offset: .5 }, { opacity: 0 }], { duration: 1800, easing: 'ease-out', fill: 'forwards' }).finished.then(() => svg.remove());
   }
 
   // ---- a take folds into a plane and flies down to the latest annotations, landing there as a card.

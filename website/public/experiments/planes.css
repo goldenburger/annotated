@@ -1,6 +1,5 @@
 /* EXPERIMENT: paper airplanes. Removed with experiments/planes.js. */
-.planes-waiting .tp-article .tiStage { opacity: 0; }
-.tp-article .tiStage { transition: opacity .25s ease; }
+.planes-waiting .tp-article .tiTilt > .tiPaper { opacity: 0; }
 .pl-fly { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; transform-style: preserve-3d; perspective: 900px; will-change: transform; }
 .pl-plane { position: absolute; left: calc(var(--s) / -2); top: calc(var(--s) / -2); width: var(--s); height: var(--s); transform-style: preserve-3d; }
 .pl-face { position: absolute; inset: 0; background: #FFFDF7; backface-visibility: visible; transform-origin: 50% 50%;
@@ -16,12 +15,19 @@
 .pl-open .pl-kl, .pl-open .pl-kr { transform: none; opacity: 0; }
 .pl-shadow { position: absolute; left: -46px; top: -10px; width: 92px; height: 22px; border-radius: 50%; background: radial-gradient(closest-side, rgba(30, 26, 12, .35), transparent); filter: blur(3px); opacity: 0; }
 .pl-small .pl-shadow { display: none; }
-/* The creases the sheet keeps for a moment after it lands. */
-.tp-article .tiPaper.pl-creased::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 1; animation: plCrease 1.3s ease-out forwards;
-  background: linear-gradient(to bottom, transparent calc(50% - .5px), rgba(120, 100, 60, .22) 50%, transparent calc(50% + .5px)),
-    linear-gradient(28deg, transparent calc(50% - .5px), rgba(120, 100, 60, .16) 50%, transparent calc(50% + .5px)),
-    linear-gradient(-28deg, transparent calc(50% - .5px), rgba(120, 100, 60, .16) 50%, transparent calc(50% + .5px)); }
-@keyframes plCrease { 0% { opacity: 1; } 60% { opacity: .8; } 100% { opacity: 0; } }
+/* The sheet that opens out of the dart, inside the paper's tilt. */
+.pl-sheet, .pl-sheetShadow { position: absolute; pointer-events: none; transform-origin: 50% 50%; }
+.pl-sheet { transform-style: preserve-3d; z-index: 2; }
+.pl-sheetShadow { border-radius: 4px; background: rgba(30, 26, 12, .16); filter: blur(14px); opacity: 0; }
+.pl-group { position: absolute; inset: 0; transform-style: preserve-3d; }
+.pl-leaf { position: absolute; inset: 0; overflow: hidden; }
+.pl-leaf > .tiPaper { position: absolute; inset: 0; box-shadow: none; }
+.pl-leaf > .tiPaper .tiCurl, .pl-leaf > .tiPaper .tiShadow { display: none; }
+.pl-blank { background: #F4EDDA; }
+.pl-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(90, 76, 40, .55), rgba(90, 76, 40, .25)); opacity: 0; }
+/* The creases the page keeps a moment after it opens. */
+.pl-creases { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.pl-creases line { stroke: rgba(120, 100, 60, .3); stroke-width: 1; vector-effect: non-scaling-stroke; }
 /* Your take, landed in the latest row. */
 .pl-yours .card { border-color: #F2C600; animation: plLand .45s cubic-bezier(.2, .8, .2, 1) both; }
 @keyframes plLand { from { opacity: 0; transform: translateY(-14px) scale(.96); } }

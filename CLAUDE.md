@@ -361,7 +361,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   row takes as many columns as it has cards (`--n`); and `/install` (`installpage.js`) is the same header and
   the same three steps as the front page, where it was an older list of four with no header.
 - **EXPERIMENT: paper planes on the front page** (`website/public/experiments/planes.js` and `planes.css`,
-  `tests/planes.py`). The brief glides in as a paper dart, lands where the paper sits and unfolds into it; a take
+  `tests/planes.py`). The brief glides in as a paper dart and lands where the paper sits. It then opens as a real sheet
+  (`unfold`), built inside `.tiTilt` at the paper's size with a copy of the brief on each piece: the two halves open
+  about the centre crease, then the two nose corners flip out about their diagonals, and the real paper takes over
+  with the creases drawn on it for a moment. The directions of turn were measured with `DOMMatrix`, not guessed. A take
   made in the try-it flies down to Latest and lands there as a card marked "Yours, on this computer"; a tab
   chosen sends a small plane. A click, key or scroll finishes the landing at once, it plays once a visit, and
   reduced motion, phones and `?noplanes` get none. Test browsers get none unless the address has `?planes`, so
