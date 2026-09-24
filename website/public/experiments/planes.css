@@ -18,10 +18,7 @@
 /* The creases the page keeps a moment after it opens. */
 .pl-creases { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .pl-creases line { stroke: rgba(120, 100, 60, .3); stroke-width: 1; vector-effect: non-scaling-stroke; }
-/* Your take, landed in the latest row. */
-.pl-yours .card { border-color: #F2C600; }
-/* The small dart that carries a tab. */
-.pl-dart { position: fixed; left: -23px; top: -12px; width: 46px; height: 24px; z-index: 60; pointer-events: none; filter: drop-shadow(0 3px 4px rgba(30, 26, 12, .25)); }
-.pl-dw { position: absolute; inset: 0; background: #FFFDF7; }
-.pl-dwl { clip-path: polygon(100% 50%, 0 0, 22% 50%); background: #F1EAD6; }
-.pl-dwr { clip-path: polygon(100% 50%, 22% 50%, 0 100%); }
+/* While your take waits to fly, the line under it says where it is going. */
+.tiNext.pl-going .tiWhere { display: none; }
+.tiNext.pl-going .seeYours, .tiNext.pl-going .tiRedo { display: none; }
+.tiNext.pl-going::after { content: "It's going to Latest, below."; }

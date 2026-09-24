@@ -122,26 +122,91 @@ var Landing = (() => {
     return box;
   }
 
-  // The four newest published annotations, drawn with the feed's own cards. Hidden until they arrive, and
-  // for good with fewer than three, so a quiet week or no database is simply no row.
+  // The four newest published annotations, drawn with the feed's own cards, and ahead of them your own latest
+  // annotation from the try-it, whichever tab it came from. Yours is kept in this browser (annotated-yours) and
+  // drawn again whenever the page is, since it is only ever here. The published ones are hidden with fewer than
+  // three, so a quiet week or no database is no row, unless there is one of yours to show.
+  const YOURS = 'annotated-yours';
+  const readYours = () => { try { return JSON.parse(localStorage.getItem(YOURS) || 'null'); } catch { return null; } };
+  const ago = (at) => { const m = Math.floor((Date.now() - at) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : 'earlier'; };
+  function yoursCard(y) {
+    const li = document.createElement('li');
+    li.className = 'cardItem yours';
+    li.innerHTML = `<a class="card mf nothumb" href="#get" aria-label="Your annotation. It is only on this computer; get the extension to publish it.">
+      <span class="cbody"><span class="cmeta">You <span class="dotsep"></span> <span class="localTag">Only on this computer</span></span>
+      <span class="ctake"></span><span class="yMedia"></span>
+      <span class="csource"><span><span class="cst"></span><span class="csn"></span></span></span>
+      <span class="yGet">Get the extension to publish it</span></span></a>`;
+    li.querySelector('.dotsep').textContent = ago(y.at || Date.now());
+    li.querySelector('.ctake').textContent = y.take || '';
+    li.querySelector('.cst').textContent = y.source || '';
+    li.querySelector('.csn').textContent = y.quote ? `“${y.quote}”` : (y.what || '');
+    const m = li.querySelector('.yMedia');
+    if (y.thumb && /^\/media\//.test(y.thumb.src)) {
+      // A frame of the clip, cut from the video's own sprite of frames.
+      const t = y.thumb, col = t.idx % t.cols, row = Math.floor(t.idx / t.cols);
+      const e = document.createElement('span'); e.className = 'yThumb';
+      e.style.backgroundImage = `url("${t.src}")`;
+      e.style.backgroundSize = `${t.cols * 100}% ${t.rows * 100}%`;
+      e.style.backgroundPosition = `${t.cols > 1 ? (col / (t.cols - 1)) * 100 : 0}% ${t.rows > 1 ? (row / (t.rows - 1)) * 100 : 0}%`;
+      m.appendChild(e);
+    } else if (Array.isArray(y.wave)) {
+      const e = document.createElement('span'); e.className = 'yWave';
+      y.wave.slice(0, 40).forEach((v) => { const i = document.createElement('i'); i.style.height = Math.round(Math.max(.1, Math.min(1, +v || 0)) * 100) + '%'; e.appendChild(i); });
+      m.appendChild(e);
+    }
+    return li;
+  }
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
     box.innerHTML = '<div class="llHead"><h2>Latest on annotated</h2><a class="link" href="/?feed">See everything</a></div><ul class="llRow"></ul>';
     root.appendChild(box);
+    const row = box.querySelector('.llRow');
+    let shared = [], yours = null;
+    const draw = () => {
+      const lis = (yours ? [yours] : []).concat(shared).slice(0, 4);
+      [...row.children].forEach((li) => { if (!lis.includes(li)) li.remove(); });
+      lis.forEach((li, i) => { if (row.children[i] !== li) row.insertBefore(li, row.children[i] || null); });
+      row.style.setProperty('--n', row.children.length);
+      box.hidden = !yours && shared.length < 3;
+    };
+    // origin: what it was made from, for anything that wants to show it travelling here.
+    const setYours = (y, fresh, origin) => {
+      if (!y) return;
+      yours = yoursCard(y);
+      draw();
+      document.dispatchEvent(new CustomEvent('annotated-yours-drawn', { detail: { card: yours.firstElementChild, li: yours, fresh, origin, kind: y.kind } }));
+    };
+    setYours(readYours(), false, null);
+    const keep = (y, origin) => { y.at = Date.now(); try { localStorage.setItem(YOURS, JSON.stringify(y)); } catch { /* private window */ } setYours(y, true, origin); };
+    document.addEventListener('annotated-tryit-made', () => {
+      let t = null; try { t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch {}
+      if (t) keep({ kind: 'article', take: t.take, quote: t.quote, source: 'The annotated.com brief' }, document.querySelector('.tp-article .tiTilt > .tiPaper'));
+    });
+    document.addEventListener('annotated-scene-made', (e) => {
+      const d = e.detail || {};
+      const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'An example post on X', article: 'An example article' }[d.kind] || d.source;
+      keep({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave }, d.card);
+    });
     return {
       fill(records, onOpen) {
-        const shared = (records || []).filter((r) => r.cloud || r.author).sort((a, b) => b.created - a.created).slice(0, 4);
-        if (shared.length < 3 || typeof AnnotationPage === 'undefined') return;
+        const list = (records || []).filter((r) => r.cloud || r.author).sort((a, b) => b.created - a.created).slice(0, 4);
+        if (typeof AnnotationPage === 'undefined') return;
         const tmp = document.createElement('div');
-        AnnotationPage.renderFeed(tmp, { records: shared, mode: 'home', social: null, siteNav: false, onOpen, onHome() {}, onAll() {}, onProfile() {}, onTag() {} });
-        const row = box.querySelector('.llRow');
-        tmp.querySelectorAll('.cards > .cardItem').forEach((li) => row.appendChild(li));
-        row.style.setProperty('--n', row.children.length);
-        box.hidden = !row.children.length;
+        if (list.length) AnnotationPage.renderFeed(tmp, { records: list, mode: 'home', social: null, siteNav: false, onOpen, onHome() {}, onAll() {}, onProfile() {}, onTag() {} });
+        shared = [...tmp.querySelectorAll('.cards > .cardItem')];
+        draw();
       },
     };
   }
+  // "See it", wherever it is offered: to Latest on annotated, where yours is.
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.seeYours');
+    if (!b) return;
+    const row = document.querySelector('.landLatest .llRow');
+    if (row) row.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'center' });
+  });
 
   function footer(root) {
     const f = document.createElement('footer');

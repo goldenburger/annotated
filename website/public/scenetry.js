@@ -13,6 +13,7 @@ var SceneTry = (() => {
   const still = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const fmt = (s) => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? `${h}:${String(m).padStart(2, '0')}` : `${m}`) + ':' + String(x).padStart(2, '0'); };
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const PAUSE = '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>';
 
   function pen() {
     if (typeof ArticleCore === 'undefined' || document.querySelector('style[data-tryit-pen]')) return;
@@ -21,7 +22,7 @@ var SceneTry = (() => {
   }
 
   // The last part of every scene: the take box, then the card.
-  function takeStep(root, { what, source, kindIcon, onAgain, player = null }) {
+  function takeStep(root, { kind, what, source, kindIcon, onAgain, player = null, yours = () => ({}) }) {
     const t = root.querySelector('.stTake');
     t.hidden = false;
     t.innerHTML = `<label class="stLabel">Your take<textarea rows="2" maxlength="200" placeholder="What should people notice?"></textarea></label>
@@ -44,6 +45,8 @@ var SceneTry = (() => {
       if (player) t.querySelector('.stCardPlay').appendChild(player());
       t.querySelector('.stAgain').addEventListener('click', onAgain);
       root.classList.add('made');
+      // The front page keeps your latest annotation in Latest on annotated, whichever tab it came from.
+      document.dispatchEvent(new CustomEvent('annotated-scene-made', { detail: Object.assign({ kind, take, source, what: what(), card: t.querySelector('.stCard'), root }, yours()) }));
     });
   }
 
@@ -82,7 +85,7 @@ var SceneTry = (() => {
       marks = ArticleCore.highlightRange(r);
       const ms = still() ? 0 : ArticleCore.sweep(marks);
       hint.textContent = kind === 'post' ? 'Those words become the quote, and the post is kept as it was.' : 'The same pen the extension uses on any page.';
-      setTimeout(() => takeStep(root, { what: () => `“${quote}”`, source, kindIcon, onAgain: reset }), ms + 120);
+      setTimeout(() => takeStep(root, { kind, what: () => `“${quote}”`, source, kindIcon, onAgain: reset, yours: () => ({ quote }) }), ms + 120);
     };
     go.addEventListener('mousedown', (e) => e.preventDefault());
     go.addEventListener('click', () => { const s = getSelection(); if (s && s.rangeCount && !s.isCollapsed) mark(s.getRangeAt(0)); });
@@ -97,6 +100,7 @@ var SceneTry = (() => {
     const video = kind === 'video';
     const N = video ? 10 : 64;
     root.innerHTML = `<div class="stStage">
+        <p class="stSrc">${icon(kindIcon)}<a href="${esc(media.credit.href)}" target="_blank" rel="noopener"></a><span class="stSite">${esc(media.credit.site)}</span></p>
         ${video ? `<div class="stScreen"><video class="stMedia" preload="metadata" playsinline src="${esc(media.src)}"></video></div>` : `<audio class="stMedia" preload="none" src="${esc(media.src)}"></audio>`}
         <div class="stTrack" aria-label="${video ? 'The video' : 'The episode'}, ${fmt(duration)} long">
           ${video ? `<div class="stFrames">${'<span></span>'.repeat(N)}</div>` : `<div class="stWave">${'<span style="--v:.08"></span>'.repeat(N)}</div>`}
@@ -107,13 +111,12 @@ var SceneTry = (() => {
         <p class="stTimes"><span class="stRange"></span><span class="stLen"></span></p>
         <div class="stAll" aria-hidden="true"><span class="stWin"></span><span class="stDot"></span></div>
         <p class="stAllLbl"><span>0:00</span><span>${video ? 'Whole video' : 'Whole episode'}, ${fmt(duration)}</span></p>
-        <p class="stCredit"><a href="${esc(media.credit.href)}" target="_blank" rel="noopener"></a></p>
       </div>
-      <div class="stBar"><p class="stHint" role="status">Drag either end, or the middle to move it.</p>
+      <div class="stBar"><p class="stHint" role="status">Drag the ends, or the middle.</p>
         <button type="button" class="ghost sm stPlay">${icon('play')} <span>Play selection</span></button>
         <button type="button" class="stGo"><i aria-hidden="true"></i>${video ? 'Capture clip' : 'Clip it'}</button></div>
       <div class="stTake" hidden></div>`;
-    root.querySelector('.stCredit a').textContent = media.credit.text;
+    root.querySelector('.stSrc a').textContent = media.credit.text;
     const track = root.querySelector('.stTrack'), sel = root.querySelector('.stSel'), ha = root.querySelector('.stHandle.a'), hz = root.querySelector('.stHandle.z');
     const el = root.querySelector('.stMedia'), head = root.querySelector('.stHead'), play = root.querySelector('.stPlay');
     let a = start, z = end;
@@ -202,8 +205,9 @@ var SceneTry = (() => {
       else { el.addEventListener('loadedmetadata', go, { once: true }); el.preload = 'metadata'; el.load(); }
     });
     // Anything else on the page taking over puts it away: another tab, or the scene scrolled out of sight.
-    document.addEventListener('annotated-tryit-touched', stop);
-    if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((e) => { if (!e.isIntersecting) stop(); })).observe(root);
+    const hush = () => { stop(); root.querySelectorAll('.stCardPlay video, .stCardPlay audio').forEach((m) => m.pause()); };
+    document.addEventListener('annotated-tryit-touched', hush);
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((e) => { if (!e.isIntersecting) hush(); })).observe(root);
 
     // The picture follows the handle being moved, and settles back on the start of the clip.
     let want = null;
@@ -241,23 +245,53 @@ var SceneTry = (() => {
     const reset = () => {
       root.classList.remove('taken', 'made'); root.querySelector('.stTake').hidden = true; root.querySelector('.stTake').innerHTML = '';
       root.querySelector('.stGo').hidden = false; play.hidden = false;
-      root.querySelector('.stHint').textContent = 'Drag either end, or the middle to move it.';
+      root.querySelector('.stHint').textContent = 'Drag the ends, or the middle.';
     };
-    // The card plays exactly the clip: the same file, from the start handle to the end one.
+    // The card plays exactly the clip. Its bar and its times run from the clip's start to its end, not over the
+    // whole video, and at the end it goes back to the first frame, ready to play again.
     const player = () => {
-      const p = document.createElement(video ? 'video' : 'audio');
-      p.controls = true; p.preload = 'metadata';
-      if (video) p.playsInline = true;
-      p.src = `${media.src}#t=${Math.round(a)},${Math.round(z)}`;
-      p.className = 'stCardMedia';
-      return p;
+      const c0 = a, c1 = z, len = c1 - c0;
+      const box = document.createElement('div');
+      box.className = 'stClip' + (video ? ' isVideo' : '');
+      box.innerHTML = `${video ? '<video preload="metadata" playsinline></video>' : '<audio preload="metadata"></audio>'}
+        <div class="stClipBar"><button type="button" class="stClipGo" aria-label="Play the clip">${icon('play')}</button>
+          <span class="stClipTrack"><i></i></span><span class="stClipTime">0:00 / ${fmt(len)}</span></div>`;
+      const m = box.querySelector(video ? 'video' : 'audio'), go = box.querySelector('.stClipGo'), fill = box.querySelector('.stClipTrack i'), time = box.querySelector('.stClipTime'), bar = box.querySelector('.stClipTrack');
+      m.src = media.src;
+      let raf2 = 0;
+      const at0 = () => { m.currentTime = c0; };
+      m.addEventListener('loadedmetadata', at0, { once: true });
+      const paint = () => {
+        const p = clamp((m.currentTime - c0) / len, 0, 1);
+        fill.style.width = p * 100 + '%'; time.textContent = `${fmt(p * len)} / ${fmt(len)}`;
+      };
+      const loop = () => {
+        paint();
+        if (m.currentTime >= c1) { m.pause(); at0(); paint(); return; }
+        if (!m.paused) raf2 = requestAnimationFrame(loop);
+      };
+      m.addEventListener('play', () => { go.innerHTML = PAUSE; go.setAttribute('aria-label', 'Pause the clip'); raf2 = requestAnimationFrame(loop); });
+      m.addEventListener('pause', () => { go.innerHTML = icon('play'); go.setAttribute('aria-label', 'Play the clip'); cancelAnimationFrame(raf2); paint(); });
+      go.addEventListener('click', () => {
+        if (!m.paused) { m.pause(); return; }
+        if (m.currentTime < c0 || m.currentTime >= c1 - .05) m.currentTime = c0;
+        const p = m.play(); if (p && p.catch) p.catch(() => {});
+      });
+      if (video) m.addEventListener('click', () => go.click());
+      bar.addEventListener('click', (e) => { const r = bar.getBoundingClientRect(); m.currentTime = c0 + clamp((e.clientX - r.left) / r.width, 0, 1) * len; paint(); });
+      return box;
     };
     root.querySelector('.stGo').addEventListener('click', () => {
       stop();
       root.classList.add('taken');
       root.querySelector('.stGo').hidden = true; play.hidden = true;
       root.querySelector('.stHint').textContent = video ? `${Math.round(z - a)} seconds captured, playing inside the annotation.` : `${Math.round(z - a)} seconds cut from the show's own audio.`;
-      takeStep(root, { what: () => `${video ? 'Clip' : 'Audio clip'} ${fmt(a)} to ${fmt(z)} of ${fmt(duration)}`, source, kindIcon, onAgain: reset, player });
+      takeStep(root, { kind, what: () => `${video ? 'Clip' : 'Audio clip'} ${fmt(a)} to ${fmt(z)} of ${fmt(duration)}`, source, kindIcon, onAgain: reset, player, yours: () => {
+        const out = { a, z, duration };
+        if (video) { const sp = media.sprite; out.thumb = { src: sp.src, cols: sp.cols, rows: Math.ceil(sp.count / sp.cols), idx: Math.min(sp.count - 1, Math.floor(((a + z) / 2) / sp.every)) }; }
+        else if (peaks) { const from = Math.floor(a / peaks.every), to = Math.max(from + 1, Math.ceil(z / peaks.every)), n = 28; out.wave = [...Array(n)].map((_, i) => Math.max(.1, Math.max(0, ...peaks.peaks.slice(from + Math.floor(i * (to - from) / n), from + Math.floor((i + 1) * (to - from) / n) + 1)))).map((v) => +v.toFixed(2)); }
+        return out;
+      } });
     });
     draw();
   }
@@ -270,12 +304,12 @@ var SceneTry = (() => {
     video: (root) => trimmer(root, { kind: 'video', duration: 347, start: 177, end: 199, kindIcon: 'clip',
       source: 'NASA, To the Moon and Back: The Journey of Artemis I (5:47)',
       media: { src: '/media/artemis-i.mp4', sprite: { src: '/media/artemis-i-frames.jpg', every: 2, cols: 12, w: 96, h: 54, count: 174 },
-        credit: { text: 'NASA video, public domain: To the Moon and Back: The Journey of Artemis I', href: 'https://images.nasa.gov/details/jsc2022m000294_TheJourneyofArtemisI' } } }),
+        credit: { text: 'To the Moon and Back: The Journey of Artemis I', site: 'NASA, public domain', href: 'https://images.nasa.gov/details/jsc2022m000294_TheJourneyofArtemisI' } } }),
     // From one pause to the next, so the moment starts and ends on whole words.
     audio: (root) => trimmer(root, { kind: 'audio', duration: 664, start: 76, end: 98, kindIcon: 'podcast',
       source: 'NASA, Houston We Have a Podcast: So You Want to be an Astronaut? (11:04)',
       media: { src: '/media/astronaut.mp3', peaks: '/media/astronaut-peaks.json',
-        credit: { text: 'NASA podcast, public domain: Houston We Have a Podcast, So You Want to be an Astronaut?', href: 'https://www.nasa.gov/podcasts/houston-we-have-a-podcast/so-you-want-to-be-an-astronaut/' } } }),
+        credit: { text: 'Houston We Have a Podcast: So You Want to be an Astronaut?', site: 'NASA, public domain', href: 'https://www.nasa.gov/podcasts/houston-we-have-a-podcast/so-you-want-to-be-an-astronaut/' } } }),
     post: (root) => words(root, { kind: 'post', source: 'An example post on X', kindIcon: 'post', whole: 'Use the whole post', forMe: 'Sign-ups are up 40 percent, and support tickets doubled over the weekend.',
       html: `<div class="stPost"><p class="stPostWho"><span class="stAv" aria-hidden="true"></span><b>Example post</b> <span>@example</span></p>
         <div data-annotated-self><p class="stPostText">We shipped the redesign on Friday. Sign-ups are up 40 percent, and support tickets doubled over the weekend.</p></div></div>` }),

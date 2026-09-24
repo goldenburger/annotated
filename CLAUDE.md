@@ -392,6 +392,24 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   `?noplanes` get none. Test browsers get none unless the address has `?planes`. The Latest landing is checked
   only by eye against live data, because the test's stand-in database has no annotations. To remove it, delete
   the folder, the one marked line in `index.html`, `tests/planes.py` and its name in `scripts/run_tests.py`.
+- **The recording of 2026-09-24 at 17:09** (the front page, `tests/planes.py`, `tests/scenetry.py`). Your latest
+  annotation from any of the four tabs is kept in `annotated-yours` in localStorage and drawn first in Latest by
+  `landing.js` (`yoursCard`), again on every visit, with a frame of the clip (from the sprite) or the moment's
+  waveform, "Only on this computer", and a link to the install steps. Latest now shows with only yours in it.
+  Scenes announce a take with `annotated-scene-made`, and the brief's try-it with `annotated-tryit-made`, and
+  landing announces the drawn card with `annotated-yours-drawn`, which is all the planes listen to. With the
+  planes: the take waits four seconds under "That's an annotation. It's going to Latest, below." (a click in
+  the tab or another tab keeps it there and shows the card at once), then folds and flies to its card if Latest
+  is in view, or down and off the window if not, and the line becomes "Yours is in Latest, below. See it"
+  (`.seeYours`, handled in `landing.js`, scrolls there). The brief returns with a short drop from above, not
+  the opening flight, and the tab holds its height until then. The tabs share one grid cell (`.heroTry`), a
+  hidden one keeping its place, so switching tabs never moves the page; `[hidden]` in `ui.css` is `!important`,
+  so that rule needs it too. A capture folds the trimmer to its line of times, the card's player (`.stClip`)
+  covers only the clip and returns to its first frame at the end, and leaving a tab pauses its card's player.
+  The clip and podcast tabs carry a source line at the top, and the post tab drops its marking links once words
+  are marked. An annotation or profile page draws its outline (`.skel`) at once. The Latest planes wait for half
+  the row, start just above it, and are smaller. The example waits two seconds after the first landing
+  (`data-plane-landed`). The small plane that carried a tab is gone.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.

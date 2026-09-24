@@ -2,8 +2,12 @@
 #   1. With ?planes a plane flies in while the brief is held back: a dart folded from a copy of the brief, ten pieces
 #      of paper each with a blank back (.pl-sheet), carrying no ids and no try-it mark. It lands, opens, and goes,
 #      and the real brief is showing and works: Mark a sentence for me inks it and a take makes the card.
-#   1b. A moment later the marked sheet folds back into a plane and flies off (Latest is hidden here, having no
-#      annotations, so it leaves the page), a fresh brief flies in, and the try-it is clean and says where yours is.
+#   1b. Made, the take waits four seconds with a line saying it is going to Latest, and its card in Latest stays
+#      hidden meanwhile. Then the marked sheet folds back into a plane and flies down (Latest, holding only yours
+#      here, is out of sight), a fresh brief drops in, the try-it is clean and says "Yours is in Latest, below. See
+#      it", and See it scrolls there, where the card lands.
+#   1c. From another tab: a post's take folds away the same way and the tab resets; and a click in the tab while a
+#      clip's take waits keeps it where it is, with its card shown in Latest at once.
 #   2. A click while it flies finishes it at once, and the brief is there.
 #   3. It plays once a visit, ?planes or not: loading the page again in the same tab shows no plane. (The aborted
 #      request that reload causes is the page's own list being cut off, and is not counted.)
@@ -59,15 +63,41 @@ async def main():
     if not marks: errs.append('Mark a sentence for me inked nothing after the landing')
     if take != 'A take after the landing.': errs.append(f'the take made no card after the landing: {take!r}')
     # 1b.
-    await pg.wait_for_selector('.pl-carrier', state='attached', timeout=4000)
+    waiting = await pg.evaluate("""() => ({ line: getComputedStyle(document.querySelector('.tiNext'), '::after').content,
+      card: !!document.querySelector('.llRow .yours .card.pl-hidden') })""")
+    print('1b. while it waits:', waiting)
+    if waiting != {'line': '"It' + "'" + 's going to Latest, below."', 'card': True}: errs.append(f'the take did not say it was going to Latest, or its card showed early: {waiting}')
+    await pg.wait_for_selector('.pl-carrier', state='attached', timeout=6000)
     await pg.wait_for_function("!document.querySelector('.pl-layer')", timeout=10000)
     await asyncio.sleep(.8)
     after = await pg.evaluate("""() => ({ paper: getComputedStyle(document.querySelector('.tp-article .tiTilt > .tiPaper')).opacity,
       lift: !document.querySelector('.tiLift').hidden, marks: document.querySelectorAll('.tiText mark').length,
       hint: document.querySelector('.tiHint').textContent, hidden: document.querySelectorAll('.pl-hidden').length })""")
-    print('1b. after it folded away and a fresh brief came in:', after)
-    if after != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is kept in this browser. Mark another sentence.', 'hidden': 0}:
+    print('   after it folded away and a fresh brief came in:', after)
+    if after != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is in Latest, below. See it', 'hidden': 1}:
       errs.append(f'the fold-away did not leave a clean try-it saying where yours is: {after}')
+    await pg.click('.tiHint .seeYours'); await asyncio.sleep(3.2)
+    landed = await pg.evaluate("(() => { const c = document.querySelector('.llRow .yours .card'); return c && { shown: !c.classList.contains('pl-hidden'), first: c.closest('li') === document.querySelector('.llRow').firstElementChild, take: c.querySelector('.ctake').textContent }; })()")
+    print('   See it, and in Latest:', landed)
+    if landed != {'shown': True, 'first': True, 'take': 'A take after the landing.'}: errs.append(f'yours did not land first in Latest: {landed}')
+    # 1c.
+    await pg.evaluate("scrollTo(0, 0)"); await asyncio.sleep(.4)
+    await pg.click('#tab-post'); await asyncio.sleep(.4)
+    await pg.click('.st-post .stWhole'); await asyncio.sleep(1.6)
+    await pg.fill('.st-post textarea', 'A post take.'); await pg.click('.st-post .stMake')
+    await pg.mouse.move(5, 5)
+    await pg.wait_for_selector('.pl-carrier', state='attached', timeout=6000)
+    await pg.wait_for_function("!document.querySelector('.pl-layer')", timeout=10000)
+    post = await pg.evaluate("({ reset: !document.querySelector('.st-post').classList.contains('taken'), card: (document.querySelector('.llRow .yours .ctake') || {}).textContent })")
+    print('1c. a post take:', post)
+    if post != {'reset': True, 'card': 'A post take.'}: errs.append(f'the post take did not fold away to Latest: {post}')
+    await pg.click('#tab-video'); await asyncio.sleep(.6)
+    await pg.click('.st-video .stGo'); await asyncio.sleep(.3)
+    await pg.fill('.st-video textarea', 'A clip take.'); await pg.click('.st-video .stMake'); await asyncio.sleep(.6)
+    await pg.click('.st-video .stCardTake'); await asyncio.sleep(4.5)
+    kept = await pg.evaluate("({ planes: !!document.querySelector('.pl-layer'), card: !!document.querySelector('.st-video .stCard'), shown: !document.querySelector('.llRow .yours .card').classList.contains('pl-hidden'), take: document.querySelector('.llRow .yours .ctake').textContent })")
+    print('   a clip take, clicked while it waits:', kept)
+    if kept != {'planes': False, 'card': True, 'shown': True, 'take': 'A clip take.'}: errs.append(f'a click in the tab did not keep the take where it was: {kept}')
     # 3. Same tab, same visit.
     s = await arrive(pg, '?planes')
     print('3. again in the same visit:', s)

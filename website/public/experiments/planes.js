@@ -5,8 +5,9 @@
 //   down where the paper sits, and opens out into it: the wings and the halves spread, then the nose corners.
 //   Latest on annotated arrives the same way: when the row comes into view, a plane flies down to each card and
 //   opens into it.
-//   A take, once made, folds the marked sheet back into a plane, which flies down to Latest and opens there as
-//   your card, and a fresh brief flies back in for another go.
+//   A take, once made in any of the four tabs, folds back into a plane after four seconds and flies to Latest,
+//   where it opens as your card (landing.js keeps it there). The brief is followed by a fresh one dropping in;
+//   a clip, a moment or a post resets its tab.
 // Rules: the page works from the first moment and the planes never take a click; a click or a key finishes every
 // flight at once, and a scroll finishes the first landing; the arrivals play once a visit; reduced motion and
 // phones get none. Browsers driven by tests get none unless the address carries ?planes, so the rest of the
@@ -329,7 +330,8 @@
     plane.under.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, fill: 'forwards' }).finished.then(t.finish);
   };
 
-  // 1. The brief flies in and opens. `first` is the arrival on load, which a scroll also finishes.
+  // 1. The brief flies in and opens. `first` is the arrival on load, in over the headline, which a scroll also
+  //    finishes. After a take the fresh brief only drops in from above the paper: the grand entrance once is enough.
   function briefIn(paper, first) {
     return new Promise((resolve) => {
       if (!first) paper.classList.add('pl-hidden');
@@ -340,16 +342,18 @@
         if (first) {
           try { sessionStorage.setItem('annotated-plane-seen', '1'); } catch { /* no storage */ }
           ['wheel', 'touchstart'].forEach((e) => removeEventListener(e, t.finish, true));
+          // The try-it's example waits two seconds after this (tryit.js reads it).
+          root.dataset.planeLanded = String(Date.now());
           document.dispatchEvent(new CustomEvent('annotated-plane-landed'));
         }
         resolve();
       });
       if (first) ['wheel', 'touchstart'].forEach((e) => addEventListener(e, t.finish, true));
-      const from = { x: scrollX - 160, y: scrollY + 50 };
-      flight(plane, landPath(plane, from, -.18), { z: descend(300, .86), T: first ? 1700 : 1400 }).then(async () => {
+      const from = first ? { x: scrollX - 160, y: scrollY + 50 } : { x: plane.centre.x - 70, y: plane.centre.y - 340 };
+      flight(plane, landPath(plane, from, first ? -.18 : .06), { z: first ? descend(300, .86) : descend(170, .8), T: first ? 1700 : 900 }).then(async () => {
         if (!flying.has(t)) return;
         plane.fshadow.animate([{ opacity: .3 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
-        await plane.open(1300);
+        await plane.open(first ? 1300 : 1100);
         if (!flying.has(t)) return;
         root.classList.remove('planes-waiting');
         paper.classList.remove('pl-hidden');
@@ -359,17 +363,18 @@
     });
   }
 
-  // 2. A card in Latest: a plane flies down to it and opens into it. With `from`, a plane already sits on the
-  //    card's spot (the one a take became), and `len` is its length, so this one takes over at the same size.
+  // 2. A card in Latest: a plane drops in from just above it and opens into it. With `from`, a plane already sits
+  //    on the card's spot (the one a take became), and `len` is its length, so this one takes over at that size.
   function cardIn(card, { delay = 0, from = null, len = 0 } = {}) {
     return new Promise((resolve) => {
       card.classList.add('pl-hidden');
       const go = () => {
-        const plane = buildPlane(card, len ? { s0: len / Math.max(card.offsetWidth, card.offsetHeight) } : {});
+        const L = Math.max(card.offsetWidth, card.offsetHeight);
+        const plane = buildPlane(card, { s0: len ? len / L : clamp(150 / L, .2, .5) });
         const t = track(plane, card, resolve);
         const h = dir(plane.phi);
-        const start = { x: plane.centre.x - h.x * 520 - h.y * 180, y: plane.centre.y - h.y * 520 + h.x * 120 };
-        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, .2), { z: descend(260, .84), T: 1150 });
+        const start = { x: plane.centre.x - h.x * 300 - h.y * 90, y: plane.centre.y - h.y * 300 + h.x * 70 };
+        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, .15), { z: descend(150, .84), T: 1000 });
         if (from) plane.fshadow.style.opacity = '0';
         air.then(async () => {
           if (!flying.has(t)) return;
@@ -384,68 +389,63 @@
     });
   }
   const latestRow = () => document.querySelector('.landLatest:not([hidden]) .llRow');
-  // Cards wait, hidden, for the row to come into view, and then come in one after another.
+  // Cards wait, hidden, until half the row is in view, and then come in one after another.
   const waiting = [];
   function landLatest() {
     const row = latestRow();
-    if (!row || !waiting.length || !inView(row) || root.classList.contains('planes-waiting')) return;
+    if (!row || !waiting.length || !inView(row, .5) || root.classList.contains('planes-waiting')) return;
     waiting.splice(0).forEach((card, i) => { if (card.isConnected) cardIn(card, { delay: i * 240 }); });
   }
 
-  // 3. After a take: the marked sheet folds back into a plane and flies down to Latest, where it opens as your
-  //    card, and a fresh brief flies in behind it.
-  function foldAway(paper) {
-    const lift = document.querySelector('.tiLift:not([hidden])');
-    if (!lift) return;
-    const take = (lift.querySelector('.tiTakeOut') || {}).textContent || '';
-    const quote = (lift.querySelector('.tiInk') || {}).textContent || '';
+  // 3. After a take, from any tab: what was made folds into a plane and flies to Latest, where it opens as your
+  //    card. The brief's paper is followed by a fresh brief; a clip, a moment or a post resets its tab.
+  const SEE = 'Yours is in Latest, below. <button type="button" class="link seeYours">See it</button>';
+  function send(origin, card, { paper = null, scene = null }) {
     const row = latestRow();
-    let card = null;
-    if (row) {
-      row.querySelectorAll('.pl-yours').forEach((x) => x.remove());
-      const li = make('li', 'cardItem pl-yours');
-      li.innerHTML = '<div class="card mf nothumb"><span class="cbody"><span class="cmeta">You <span class="dotsep">just now</span> <span class="localTag">Yours, on this computer</span></span><span class="ctake"></span><span class="csource"><span><span class="cst">The annotated.com brief</span><span class="csn"></span></span></span></span></div>';
-      li.querySelector('.ctake').textContent = take;
-      li.querySelector('.csn').textContent = quote;
-      card = li.firstElementChild;
-      card.dataset.plQueued = '1';
-      card.classList.add('pl-hidden');
-      row.prepend(li);
-      if (row.children.length > 4) row.lastElementChild.remove();
-      row.style.setProperty('--n', Math.min(4, row.children.length));
-    }
-    // The card on top goes down into the paper, and the paper folds up with it.
-    lift.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(40px) scale(.9)' }], { duration: 300, easing: 'ease-in', fill: 'forwards' });
-    // And the hairline that joined the card to its words goes with it.
-    const wire = document.querySelector('.tp-article .tiWire');
+    const lift = paper && document.querySelector('.tiLift:not([hidden])');
+    const wire = paper && document.querySelector('.tp-article .tiWire');
+    // The card on top goes down into the paper, and the hairline that joined it to its words goes with it.
+    if (lift) lift.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(40px) scale(.9)' }], { duration: 300, easing: 'ease-in', fill: 'forwards' });
     if (wire) wire.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, fill: 'forwards' });
-    const plane = buildPlane(paper, Object.assign(paperOpts(paper), { startOpen: true }));
+    if (scene) scene.querySelectorAll('video, audio').forEach((m) => m.pause());
+    const plane = buildPlane(origin, paper ? Object.assign(paperOpts(paper), { startOpen: true }) : { startOpen: true, s0: clamp(150 / Math.max(origin.offsetWidth, origin.offsetHeight), .2, .5) });
     plane.fshadow.style.opacity = '0';
-    paper.classList.add('pl-hidden');
+    origin.classList.add('pl-hidden');
+    // The try-it keeps its height until the fresh brief is down, so nothing below it jumps when it resets.
+    const panel = origin.closest('.tryPanel');
+    if (panel) { panel.style.transition = ''; panel.style.minHeight = panel.offsetHeight + 'px'; }
+    const release = () => {
+      if (!panel) return;
+      panel.style.transition = 'min-height .45s ease';
+      requestAnimationFrame(() => { panel.style.minHeight = '0px'; });
+      setTimeout(() => { panel.style.transition = ''; panel.style.minHeight = ''; }, 500);
+    };
     let back = null;
-    // Resolves once the try-it's own reset has cleared the marks, so the fresh brief is folded from a clean page.
+    // Resolves once the tab's own reset has run, so a fresh brief is folded from a clean page.
     const bringBack = () => {
       if (back) return back;
       back = new Promise((res) => setTimeout(res, 480));
-      const redo = document.querySelector('.tiRedo');
+      const redo = paper ? document.querySelector('.tiRedo') : scene && scene.querySelector('.stTake .stAgain');
       if (redo) redo.click();
-      lift.getAnimations().forEach((x) => x.cancel());
+      const going = document.querySelector('.tiNext.pl-going'); if (going) setTimeout(() => going.classList.remove('pl-going'), 480);
+      if (lift) lift.getAnimations().forEach((x) => x.cancel());
       if (wire) setTimeout(() => wire.getAnimations().forEach((x) => x.cancel()), 480);
-      // After the try-it's own reset has put its usual line back.
+      if (!paper) origin.classList.remove('pl-hidden');
+      // After the tab's own reset has put its usual line back.
       setTimeout(() => {
-        const hint = document.querySelector('.tp-article .tiHint');
-        if (hint && !paper.querySelector('.tiText mark')) hint.textContent = card ? 'Yours went down to Latest on annotated. Mark another sentence.' : 'Yours is kept in this browser. Mark another sentence.';
-      }, 600);
+        const hint = paper ? document.querySelector('.tp-article .tiHint') : scene && scene.querySelector('.stHint');
+        if (hint && !(paper && paper.querySelector('.tiText mark')) && !(scene && scene.classList.contains('taken'))) hint.innerHTML = SEE;
+      }, 560);
       return back;
     };
-    const t = track(plane, null, () => { bringBack(); if (!paper.closest('.pl-layer')) paper.classList.remove('pl-hidden'); if (card) card.classList.remove('pl-hidden'); });
+    const t = track(plane, null, () => { bringBack().then(release); origin.classList.remove('pl-hidden'); card.classList.remove('pl-hidden'); });
     (async () => {
-      await plane.open(900, true);
+      await plane.open(paper ? 900 : 800, true);
       if (!flying.has(t)) return;
       const len = plane.Lw * plane.s0;
       const start = plane.centre, h = dir(plane.phi);
       let target = null;
-      if (card && inView(row, .2)) { const b = pageBox(card); target = { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
+      if (row && card.isConnected && inView(row, .2)) { const b = pageBox(card); target = { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }
       const run = { x: start.x + h.x * 140, y: start.y + h.y * 140 };
       let pts;
       if (target) {
@@ -454,37 +454,63 @@
         const p3 = { x: target.x - th.x * 90, y: target.y - th.y * 90 };
         pts = line(start, run).concat(bezier(run, { x: run.x + h.x * 260, y: run.y + h.y * 260 - 120 }, { x: p3.x - th.x * 260, y: p3.y - th.y * 260 }, p3).slice(1), line(p3, target).slice(1));
       } else {
-        const out = { x: scrollX + innerWidth + 260, y: start.y + 420 };
-        pts = line(start, run).concat(bezier(run, { x: run.x + 300, y: run.y - 60 }, { x: out.x - 200, y: out.y - 200 }, out).slice(1));
+        // Latest is below, out of sight: down toward it and off the bottom of the window.
+        const out = { x: start.x + 40, y: scrollY + innerHeight + 260 };
+        pts = line(start, run).concat(bezier(run, { x: run.x + h.x * 220, y: run.y + h.y * 220 }, { x: out.x + 80, y: out.y - 320 }, out).slice(1));
       }
       plane.fshadow.style.opacity = '';
-      const T = target ? 1600 : 1200;
-      const z = target ? (u) => (u < .12 ? 0 : u < .86 ? 240 * Math.sin(Math.PI * (u - .12) / .74) ** .8 : 0) : (u) => (u < .12 ? 0 : 420 * ((u - .12) / .88) ** 1.3);
+      const T = target ? 1600 : 1100;
+      const z = target ? (u) => (u < .12 ? 0 : u < .86 ? 240 * Math.sin(Math.PI * (u - .12) / .74) ** .8 : 0) : (u) => (u < .12 ? 0 : 200 * Math.sin(Math.PI * Math.min(1, (u - .12) / .88) * .5));
       const air = flight(plane, pts, { acc: .16, dec: target ? .14 : 0, z, T });
-      // The fresh brief follows once the old one is clear of the paper.
-      setTimeout(() => { if (!flying.has(t)) return; bringBack().then(() => briefIn(paper, false)); }, T * .4);
+      // The tab comes back once the plane is clear of it.
+      setTimeout(() => {
+        if (!flying.has(t)) return;
+        bringBack().then(() => (paper ? briefIn(paper, false) : null)).then(release);
+      }, T * .4);
       await air;
       if (!flying.has(t)) return;
       flying.delete(t); plane.layer.remove();
       if (target) cardIn(card, { from: target, len });
-      else if (card) { waiting.push(card); landLatest(); }
+      else { waiting.push(card); landLatest(); }
     })();
   }
 
-  // ---- a tab chosen: a small dart carries it in, in half a second.
-  function carryTab(tab) {
-    const panel = document.getElementById(tab.getAttribute('aria-controls'));
-    if (!panel) return;
-    const r1 = tab.getBoundingClientRect(), r2 = panel.getBoundingClientRect();
-    const from = { x: r1.left + r1.width / 2, y: r1.top + r1.height / 2 }, to = { x: r2.left + r2.width / 2, y: r2.top + r2.height / 2 };
-    const w = make('div', 'pl-dart');
-    w.innerHTML = '<i class="pl-dw pl-dwl"></i><i class="pl-dw pl-dwr"></i>';
-    document.body.appendChild(w);
-    w.animate([
-      { transform: `translate(${from.x}px, ${from.y}px) rotate(100deg) scale(.6)`, opacity: 0 },
-      { transform: `translate(${(from.x + to.x) / 2 + 40}px, ${from.y + 30}px) rotate(120deg) scale(1)`, opacity: 1, offset: .4 },
-      { transform: `translate(${to.x}px, ${to.y}px) rotate(95deg) scale(.8)`, opacity: 0 },
-    ], { duration: 500, easing: 'ease-out', fill: 'forwards' }).finished.then(() => w.remove());
+  // Your latest annotation is drawn in Latest the moment it is made (landing.js). It stays hidden while what it
+  // was made from is shown for four seconds, with a line saying where it is going, and then flies there.
+  // Anything done in that tab meanwhile, or another tab chosen, keeps it where it is and shows the card at once.
+  function onYours(e) {
+    const { card, fresh, origin, kind } = e.detail || {};
+    if (!card) return;
+    card.dataset.plQueued = '1';
+    if (!fresh || !origin) return;
+    card.classList.add('pl-hidden');
+    const paper = kind === 'article' ? origin : null;
+    const scene = paper ? null : origin.closest('.sceneTry');
+    const panel = origin.closest('.tryPanel');
+    const next = paper && document.querySelector('.tp-article .tiNext');
+    const hint = scene && scene.querySelector('.stHint');
+    const said = hint && hint.textContent;
+    if (next) next.classList.add('pl-going');
+    if (hint) hint.textContent = "That's an annotation. It's going to Latest, below.";
+    let cancelled = false, timer = 0;
+    const undo = () => {
+      if (cancelled) return; cancelled = true; clearTimeout(timer);
+      document.removeEventListener('pointerdown', stop, true);
+      document.removeEventListener('annotated-tryit-touched', undo);
+      card.classList.remove('pl-hidden');
+      if (next) next.classList.remove('pl-going');
+      if (hint && said) hint.textContent = said;
+    };
+    const stop = (ev) => { if (panel && ev.target.closest && panel.contains(ev.target)) undo(); };
+    document.addEventListener('pointerdown', stop, true);
+    document.addEventListener('annotated-tryit-touched', undo);
+    timer = setTimeout(() => {
+      if (cancelled) return;
+      document.removeEventListener('pointerdown', stop, true);
+      document.removeEventListener('annotated-tryit-touched', undo);
+      if (!origin.isConnected || (panel && panel.hidden) || !inView(origin, .5)) { cancelled = true; card.classList.remove('pl-hidden'); if (next) next.classList.remove('pl-going'); if (hint && said) hint.textContent = said; return; }
+      send(origin, card, { paper, scene });
+    }, 4000);
   }
 
   const start = () => {
@@ -492,6 +518,7 @@
     if (!paper) return false;
     addEventListener('scroll', () => requestAnimationFrame(landLatest), { passive: true });
     document.addEventListener('annotated-plane-landed', landLatest);
+    document.addEventListener('annotated-yours-drawn', onYours);
     // Cards that arrive before this visit's first landing wait for their own planes.
     if (!seen) {
       const grab = () => {
@@ -505,17 +532,6 @@
       grab();
       setTimeout(() => briefIn(paper, true), 120);
     } else root.classList.remove('planes-waiting');
-    document.addEventListener('annotated-tryit-made', () => {
-      let cancelled = false;
-      const stop = (e) => { if (e.target.closest && e.target.closest('.tryit')) cancelled = true; };
-      document.addEventListener('pointerdown', stop, true);
-      // Long enough to read the card; anything done in the try-it meanwhile keeps it where it is.
-      setTimeout(() => {
-        document.removeEventListener('pointerdown', stop, true);
-        if (!cancelled && !document.querySelector('.tp-article[hidden]') && inView(paper, .5)) foldAway(paper);
-      }, 2600);
-    });
-    document.addEventListener('click', (e) => { const t = e.target.closest && e.target.closest('.tryTab'); if (t && t.getAttribute('aria-selected') === 'true') carryTab(t); });
     return true;
   };
   // The front page is drawn by site.js a moment after this runs.

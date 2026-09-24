@@ -24,6 +24,14 @@
       return;
     }
   }
+  // An annotation or a profile takes a moment to arrive, so its outline is drawn at once rather than a blank
+  // page with only the footer, which is what opening one from the front page used to show for a second or more.
+  if (parts.length) {
+    page.innerHTML = `<div class="skel" aria-busy="true" aria-label="Loading">
+      <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a></header>
+      <div class="skelBody"><div class="skelCol"><i class="sk1"></i><i class="sk2"></i><i class="sk3"></i><i class="sk4"></i><i class="sk5"></i></div>
+      <div class="skelRail"><i></i><i></i></div></div></div>`;
+  }
   let me = null;
   try { me = await Backend.profile(); AnnotationPage.setMe(me); } catch {}
   const handleOf = new Map();

@@ -62,7 +62,7 @@ var TryIt = (() => {
         <div class="tiRow"><button class="primary tiMake" disabled>Make the annotation</button><button type="button" class="link tiAgain">Pick other words</button><span class="tiCount" aria-live="polite"></span></div>
       </form>
       <div class="tiAfter" hidden>
-        <p class="tiNext"><b>That's an annotation.</b> Yours stays in this browser until the extension is installed. <button type="button" class="link tiRedo">Make another</button></p>
+        <p class="tiNext"><b>That's an annotation.</b> <span class="tiWhere">It's in Latest on annotated, below, and only on this computer.</span> <button type="button" class="link seeYours">See it</button> <button type="button" class="link tiRedo">Make another</button></p>
       </div>`;
     host.appendChild(el);
     wire(el);
@@ -259,6 +259,15 @@ var TryIt = (() => {
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function demo() {
+      // Not on the heels of an arrival: while the page's opening motion is still playing, and for two seconds
+      // after it, the example waits (planes-waiting and data-plane-landed are set by the experiment in
+      // experiments/planes.js, and without it neither is ever set).
+      const landed = +document.documentElement.dataset.planeLanded || 0;
+      if (document.documentElement.classList.contains('planes-waiting')) {
+        document.addEventListener('annotated-plane-landed', () => { clearTimeout(demoTimer); if (!touched) demoTimer = setTimeout(demo, 2000); }, { once: true });
+        return;
+      }
+      if (landed && Date.now() - landed < 2000) { demoTimer = setTimeout(demo, 2000 - (Date.now() - landed)); return; }
       const skip = () => document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
       if (touched || still() || marks.length) return skip();
       const r = ArticleCore.findText(text, DEMO.phrase);

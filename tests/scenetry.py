@@ -69,9 +69,9 @@ async def main():
     card = await pg.evaluate("(() => { const c = document.querySelector('.st-video .stCard'); return c ? { ex: c.querySelector('.tiExample').textContent, take: c.querySelector('.stCardTake').textContent, what: c.querySelector('.stCardWhat').textContent } : null; })()")
     print('   the card:', card)
     if not card or card['ex'] != 'Example' or card['take'] != 'Watch his hands.' or not card['what'].startswith('Clip 2:57 to 4:22 of 5:47'): errs.append(f'the clip card read {card}')
-    vplayer = await pg.evaluate("(document.querySelector('.st-video .stCardMedia') || {}).getAttribute?.('src') || null")
+    vplayer = await pg.evaluate("(() => { const p = document.querySelector('.st-video .stClip'); return p && { src: p.querySelector('video').getAttribute('src'), time: p.querySelector('.stClipTime').textContent, trimmer: getComputedStyle(document.querySelector('.st-video .stTrack')).display }; })()")
     print('   its player:', vplayer)
-    if vplayer != '/media/artemis-i.mp4#t=177,262': errs.append(f'the clip card plays {vplayer!r}, not the clip')
+    if vplayer != {'src': '/media/artemis-i.mp4', 'time': '0:00 / 1:25', 'trimmer': 'none'}: errs.append(f'the clip card is not a player for exactly the clip, with the trimmer folded away: {vplayer!r}')
     await pg.click('.st-video .stAgain'); await asyncio.sleep(.2)
     if await pg.query_selector('.st-video .stCard') or not await pg.is_visible('.st-video .stGo'): errs.append('Make another did not put the clip scene back')
 

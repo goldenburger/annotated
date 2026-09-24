@@ -480,12 +480,58 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 
 /* The real clip and the real episode in the scenes: the video above its trimmer, its frames in the strip, the
    credit under the whole-length bar, and a player in the card. */
-.sceneTry .stScreen { margin: 0 8px 4px; border-radius: 8px; overflow: hidden; background: #0E0F12; aspect-ratio: 16 / 9; max-height: 240px; display: flex; justify-content: center; }
+.sceneTry .stScreen { margin: 0 8px 4px; border-radius: 8px; overflow: hidden; background: #0E0F12; aspect-ratio: 16 / 9; max-height: 170px; display: flex; justify-content: center; }
 .sceneTry .stScreen video { height: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; }
 .sceneTry .stFrames span { background: #2A2D34 no-repeat; }
-.sceneTry .stCredit { margin: 6px 8px 0; font: 400 12.5px/1.35 var(--sans); color: #6B6F78; }
-.sceneTry .stCredit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(107, 111, 120, .4); text-underline-offset: 2px; }
 .sceneTry .stPlay[aria-pressed="true"] { border-color: #16181D; }
 .sceneTry .stCardPlay:empty { display: none; }
 .sceneTry .stCardMedia { display: block; width: 100%; margin: 8px 0 4px; border-radius: 6px; }
 .sceneTry video.stCardMedia { background: #0E0F12; aspect-ratio: 16 / 9; }
+
+/* The tabs share one space as tall as the tallest, so choosing a tab never moves the page below. A hidden
+   panel keeps its place in the grid, unseen and out of reach. */
+.heroTry { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; }
+.heroTry > .tryTabs { grid-row: 1; }
+.heroTry > .tryPanel { grid-row: 2; grid-column: 1; align-self: start; min-width: 0; }
+.heroTry > .tryPanel[hidden] { display: block !important; visibility: hidden; pointer-events: none; }
+/* The clip's and the episode's source, on the paper's first line like the brief's. */
+.sceneTry .stSrc { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0 8px 10px; font: 500 12.5px/1.25 var(--sans); color: #5B616E; }
+.sceneTry .stSrc .ic { width: 14px; height: 14px; }
+.sceneTry .stSrc a { color: #16181D; font-weight: 600; text-decoration: none; }
+.sceneTry .stSrc a:hover { text-decoration: underline; }
+.sceneTry .stSrc .stSite::before { content: "·"; margin-right: 8px; }
+/* Captured, the trimmer folds down to its line of times and the card takes its place. */
+.st-video.taken .stScreen, .st-video.taken .stTrack, .st-video.taken .stAll, .st-video.taken .stAllLbl,
+.st-audio.taken .stTrack, .st-audio.taken .stAll, .st-audio.taken .stAllLbl { display: none; }
+/* Words marked, the ways of marking them go. */
+.sceneTry.taken .stForMe, .sceneTry.taken .stWhole { display: none; }
+/* The card's player: the clip and only the clip. */
+.sceneTry .stClip { margin: 8px 0 4px; }
+.sceneTry .stClip video { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 6px 6px 0 0; background: #0E0F12; cursor: pointer; }
+.sceneTry .stClipBar { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; background: #16181D; color: #fff; }
+.sceneTry .stClip.isVideo .stClipBar { border-radius: 0 0 6px 6px; }
+.sceneTry .stClipGo { flex: 0 0 auto; display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; border: 0; border-radius: 50%; background: #FFE14A; color: #16181D; cursor: pointer; padding: 0; }
+.sceneTry .stClipGo .ic { width: 14px; height: 14px; fill: currentColor; }
+.sceneTry .stClipTrack { flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .25); cursor: pointer; position: relative; }
+.sceneTry .stClipTrack i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: #FFE14A; }
+.sceneTry .stClipTime { flex: 0 0 auto; font: 500 12.5px/1 var(--sans); font-variant-numeric: tabular-nums; }
+/* Your latest annotation in Latest on annotated: a card of your own, only on this computer. */
+.llRow .yours .card { border-color: #F2C600; text-decoration: none; color: inherit; display: block; }
+.llRow .yours .yThumb { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0; border-radius: 6px; background-color: #0E0F12; background-repeat: no-repeat; }
+.llRow .yours .yWave { display: flex; align-items: center; gap: 2px; height: 44px; margin: 8px 0; padding: 0 6px; border-radius: 6px; background: #F2EEE2; }
+.llRow .yours .yWave i { flex: 1; border-radius: 2px; background: #1C2433; opacity: .55; }
+.llRow .yours .yGet { display: block; margin-top: 8px; font: 600 12.5px/1.3 var(--sans); color: #16181D; text-decoration: underline; text-decoration-color: #F2C600; text-underline-offset: 3px; }
+/* The outline of a page while it loads. */
+.skel .skelBody { display: flex; gap: 22px; max-width: 1080px; margin: 28px auto 0; padding: 0 16px; }
+.skel .skelCol { flex: 1 1 620px; max-width: 640px; display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+.skel .skelRail { flex: 0 0 260px; display: flex; flex-direction: column; gap: 14px; }
+.skel i { display: block; border-radius: 8px; background: linear-gradient(90deg, #EFEBDF 0%, #F7F4EB 50%, #EFEBDF 100%); background-size: 200% 100%; animation: skel 1.3s ease-in-out infinite; }
+.skel .sk1 { height: 34px; width: 45%; } .skel .sk2 { height: 26px; width: 70%; } .skel .sk3 { height: 300px; } .skel .sk4 { height: 16px; width: 80%; } .skel .sk5 { height: 16px; width: 60%; }
+.skel .skelRail i { height: 110px; }
+@keyframes skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (max-width: 860px) { .skel .skelRail { display: none; } }
+@media (prefers-reduced-motion: reduce) { .skel i { animation: none; } }
+/* "See it", to your annotation in Latest, reads as the link it is wherever the line it sits in is set quieter. */
+.seeYours { font: inherit; font-weight: 600; color: #16181D; text-decoration: underline; text-decoration-color: #F2C600; text-underline-offset: 3px; background: none; border: 0; padding: 0; cursor: pointer; }
+.skel { width: 100%; }
+.skel .skelBody { width: 100%; box-sizing: border-box; }
