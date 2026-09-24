@@ -2,6 +2,8 @@
 // Files (clips, audio, screenshots, posters, voice notes) go to the public "media" bucket under the author's
 // own folder. The database's row level security decides who may write what.
 const Cloud = (() => {
+  // In the extension, rather than on the website, where there may be no panel at all.
+  const IN_EXT = typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.id);
   const c = () => Backend.client;
   const BUCKET = 'media';
   const publicUrl = (path) => (path ? c().storage.from(BUCKET).getPublicUrl(path).data.publicUrl : null);
@@ -386,7 +388,7 @@ const Cloud = (() => {
         // Signed out nobody can follow anyone, so telling them to follow people pointed at nothing they could do.
         note: !me ? 'Sign in to follow people and see their annotations here.'
           : soc.followed.size ? `Annotations from the ${soc.followed.size === 1 ? 'person' : soc.followed.size + ' people'} you follow.` : 'Follow people to see their annotations here.',
-        empty: !me ? 'Sign in from the panel, then follow people from their annotations.'
+        empty: !me ? (IN_EXT ? 'Sign in from the panel, then follow people from their annotations.' : 'Sign in, then follow people from their annotations.')
           : soc.followed.size ? 'Nothing from them yet.' : 'Follow someone and their annotations show up here.' },
       // Everyone means what everyone published. Annotations saved only on this computer are in nobody else's
       // feed, so counting them here told you the site held things it did not.

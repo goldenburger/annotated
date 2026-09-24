@@ -89,8 +89,9 @@ var Landing = (() => {
         timer = setTimeout(next, 4000);
       }, 320);
     };
-    const begin = () => { if (!stopped && !still()) timer = setTimeout(next, 1500); };
-    document.addEventListener('annotated-tryit-demo-done', begin, { once: true });
+    // It used to go round the four words on its own after the example, which put "a clip" and "a podcast" over
+    // the article while the Article tab was chosen (recording of 2026-09-24 at 20:19). It follows the tab now.
+    void next;
     document.addEventListener('annotated-tryit-touched', stop);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') stop(); });
     return { set: (w) => { stop(); if (mark.textContent !== w) { mark.classList.remove('lifting'); show(w); } } };
@@ -246,6 +247,15 @@ var Landing = (() => {
       }
     };
     apply();
+    // The extension marks the page a moment after it loads, and the hero used to show the install steps and then
+    // swap them for "You have annotated" in front of you (recording of 2026-09-24 at 20:19). They wait unseen for
+    // up to 0.8 seconds, the time the mark takes, and appear at once if it comes.
+    if (!installed()) {
+      root.classList.add('landChecking');
+      const reveal = () => root.classList.remove('landChecking');
+      const t = setTimeout(reveal, 800);
+      document.addEventListener('annotated-installed', () => { clearTimeout(t); apply(); reveal(); }, { once: true });
+    }
     document.addEventListener('annotated-installed', apply);
     new MutationObserver(apply).observe(document.documentElement, { attributes: true, attributeFilter: ['data-annotated-installed'] });
   }

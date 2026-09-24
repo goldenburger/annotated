@@ -1087,6 +1087,13 @@ async function refresh() {
       p.api.update(info);
       return;
     }
+    // annotated's own website: its brief, its demo clip and its demo episode are there to try annotated on,
+    // with nothing sent. The panel beside it is Home, which also offers to publish a take made there. It used to
+    // read the demo episode as a podcast and offer to clip it (recording of 2026-09-24 at 20:19).
+    if (/^https:\/\/annotated-app\.netlify\.app\//.test(tab.url || '')) {
+      if (p) { drop(tab.id); p = null; }
+      busyRefresh = false; return openBrowse('home', { byHand: false });
+    }
     if (isPost(tab.url)) {
       const url = tab.url.split('?')[0];
       if (p && (p.kind !== 'post' || p.url !== url)) { drop(tab.id); p = null; }
@@ -1170,7 +1177,7 @@ async function refresh() {
       const sourceName = srcTab ? cleanTitle(srcTab.title) : '';
       // Drawn again only when something on it would change. A redraw replaces the buttons, and one landing
       // while a button is held down loses the click.
-      const sig = mirrors ? [mirrors, srcTab && srcTab.id, sourceName].join('|') : '';
+      const sig = mirrors ? [mirrors, srcTab && srcTab.id, sourceName, AnnotationPage.mineCount(records, who && who.id) === 0].join('|') : '';
       const drawn = $('#annMode .annside.mirror');
       if (sig && drawn && drawn.dataset.sig === sig) return;
       // A shared annotation's reactions, comments and votes live in the database. The copy here never learns
@@ -1217,7 +1224,10 @@ async function refresh() {
       const ms = $('#annMode .mirrorStart');
       // With a way back to what you were reading, the line and that button are enough: the page beside already
       // shows the feed. With nowhere to go back to, the start page stays, so the panel is never a dead end.
-      if (ms && !back) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
+      // An empty page beside it (nothing of yours yet, or all deleted) keeps the start page too, since the page
+      // then has nothing to offer (recording of 2026-09-24 at 20:19, a panel with one line in it).
+      const pageEmpty = mirrors && AnnotationPage.mineCount(records, who && who.id) === 0;
+      if (ms && (!back || pageEmpty)) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
       else if (ms) ms.remove();
       const mirror = $('#annMode .annside.mirror');
       if (mirror) {

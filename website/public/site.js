@@ -82,7 +82,7 @@
       social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag); } };
     }
     document.title = tag ? `${tag} | annotated` : 'annotated';
-    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav });
+    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn });
     headerAccount();
     // Signed in, the front page is the feed, with the try-it one line away.
     if (!tag && me && typeof Landing !== 'undefined') Landing.slimLine(page);

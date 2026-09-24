@@ -102,7 +102,8 @@ async def main():
     if 'Harbor story' not in m['back'] or 'YouTube' in m['back']: errs.append(f"the way back does not name where it goes: {m['back']!r}")
     # Since the recording of 2026-09-24 at 19:34: with a way back to what you were reading, the start page is not
     # repeated beside the page that already shows the feed; with none it stays (below).
-    if m['paste'] or m['podcast']: errs.append('beside your profile, with a way back, the start page is repeated')
+    # Nothing of yours here, so the page beside is empty and the start page stays (recording of 2026-09-24 at 20:19).
+    if not (m['paste'] and m['podcast']): errs.append('beside an empty profile the panel has no start page')
     await side.evaluate("lastSourceTab = null; annKey = null;"); await asyncio.sleep(1.5)
     alone = await side.evaluate("({ paste: !!document.querySelector('.mirrorStart .pasteForm'), back: !!document.querySelector('.sideBack') })")
     print('   with nowhere to go back to:', alone)

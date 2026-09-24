@@ -259,6 +259,12 @@ var TryIt = (() => {
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     async function demo() {
+      // Someone who has made one already needs no showing (recording of 2026-09-24 at 20:19, where it ran again
+      // above four of their own).
+      try {
+        const y = JSON.parse(localStorage.getItem('annotated-yours') || 'null');
+        if ((Array.isArray(y) ? y.length : y) || localStorage.getItem(KEY)) { document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); return; }
+      } catch { /* no storage: show it */ }
       // Not on the heels of an arrival: while the page's opening motion is still playing, and for two seconds
       // after it, the example waits (planes-waiting and data-plane-landed are set by the experiment in
       // experiments/planes.js, and without it neither is ever set).

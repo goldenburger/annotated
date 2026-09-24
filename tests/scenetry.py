@@ -4,7 +4,7 @@
 #   A podcast moment: Play selection runs a playhead across the stretch, and Clip it makes a card.
 #   A passage and a post: selected words get the real pen, the extension's own button stays away, and a take
 #   makes a card quoting them. The post can also take the whole post.
-#   Every card is labelled Example, Start over and Make another put the scene back, and no scene shows a
+#   Every card says it is yours ("You just now"), Start over and Make another put the scene back, and no scene shows a
 #   second, static Example card beside it.
 #   The clip and the moment are real NASA files served by the site: the filmstrip is the video's own frames, the
 #   waveform the episode's own loudness, Play selection plays from the start handle, and the card carries a
@@ -66,9 +66,9 @@ async def main():
     if '85 seconds' not in t3: errs.append(f'the arrow key did not move the handle five seconds: {t3!r}')
     await pg.click('.st-video .stGo'); await asyncio.sleep(.3)
     await pg.fill('.st-video textarea', 'Watch his hands.'); await pg.keyboard.press('Enter'); await asyncio.sleep(.4)
-    card = await pg.evaluate("(() => { const c = document.querySelector('.st-video .stCard'); return c ? { ex: c.querySelector('.tiExample').textContent, take: c.querySelector('.stCardTake').textContent, what: c.querySelector('.stCardWhat').textContent } : null; })()")
+    card = await pg.evaluate("(() => { const c = document.querySelector('.st-video .stCard'); return c ? { ex: c.querySelector('.stWho').textContent.trim(), take: c.querySelector('.stCardTake').textContent, what: c.querySelector('.stCardWhat').textContent } : null; })()")
     print('   the card:', card)
-    if not card or card['ex'] != 'Example' or card['take'] != 'Watch his hands.' or not card['what'].startswith('Clip 2:57 to 4:22 of 5:47'): errs.append(f'the clip card read {card}')
+    if not card or card['ex'] != 'You just now' or card['take'] != 'Watch his hands.' or not card['what'].startswith('Clip 2:57 to 4:22 of 5:47'): errs.append(f'the clip card read {card}')
     vplayer = await pg.evaluate("(() => { const p = document.querySelector('.st-video .stClip'); return p && { src: p.querySelector('video').getAttribute('src'), time: p.querySelector('.stClipTime').textContent, trimmer: getComputedStyle(document.querySelector('.st-video .stTrack')).display }; })()")
     print('   its player:', vplayer)
     if vplayer != {'src': '/media/artemis-i.mp4', 'time': '0:00 / 1:25', 'trimmer': 'none'}: errs.append(f'the clip card is not a player for exactly the clip, with the trimmer folded away: {vplayer!r}')

@@ -550,3 +550,13 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 /* The example's pen starts just off the paper's right edge; on a phone that is off the window, so it is clipped
    to the try-it's width rather than widening the page while it glides in. */
 .heroTry { overflow-x: clip; }
+
+/* The hero's install area waits, unseen, for the extension's mark (landing.js watchInstalled). */
+.landChecking .heroGetRow, .landChecking .heroHave, .landChecking .landGet { visibility: hidden; }
+/* Cards in a row share one height, with "Get the extension" at the foot of each, so a clip's taller card no
+   longer leaves the others short (recording of 2026-09-24 at 20:19). */
+.llRow { align-items: stretch; }
+.llRow .yours, .llRow .yours .card { height: 100%; }
+.llRow .yours .card { box-sizing: border-box; display: flex; flex-direction: column; }
+.llRow .yours .cbody { display: flex; flex-direction: column; flex: 1; }
+.llRow .yours .yGet { margin-top: auto; padding-top: 8px; }

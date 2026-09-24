@@ -36,7 +36,8 @@ var SceneTry = (() => {
     make.addEventListener('click', () => {
       const take = box.value.trim();
       if (!take) { t.querySelector('.stSay').hidden = false; return; }
-      t.innerHTML = `<article class="stCard"><p class="tiExample">Example</p><h4 class="stCardTake"></h4>
+      // It is the visitor's own take, so it is theirs, as on the brief's card, not an Example.
+      t.innerHTML = `<article class="stCard"><p class="tiWho stWho"><span class="tiAv">${icon('user')}</span>You <span class="tiNow">just now</span></p><h4 class="stCardTake"></h4>
         <p class="stCardWhat"></p><div class="stCardPlay"></div><p class="stCardSrc">${icon(kindIcon)} <span></span></p></article>
         <p class="stRow"><button type="button" class="link stAgain">Make another</button></p>`;
       t.querySelector('.stCardTake').textContent = take;
@@ -128,7 +129,8 @@ var SceneTry = (() => {
 
     // The strip for the window on show: frames from the video's own sprite, cut to fill each tile, or the
     // episode's loudness, the loudest half second under each bar.
-    let peaks = null;
+    let peaks = null, bright = null;
+    if (video && media.sprite.bright) fetch(media.sprite.bright).then((r) => r.json()).then((j) => { bright = j.bright; }).catch(() => {});
     if (!video) fetch(media.peaks).then((r) => r.json()).then((p) => { peaks = p; drawnW0 = -1; draw(); }).catch(() => {});
     const strip = () => {
       if (w0 === drawnW0) return;
@@ -288,7 +290,13 @@ var SceneTry = (() => {
       root.querySelector('.stHint').textContent = video ? `${Math.round(z - a)} seconds captured, playing inside the annotation.` : `${Math.round(z - a)} seconds cut from the show's own audio.`;
       takeStep(root, { kind, what: () => `${video ? 'Clip' : 'Audio clip'} ${fmt(a)} to ${fmt(z)} of ${fmt(duration)}`, source, kindIcon, onAgain: reset, player, yours: () => {
         const out = { a, z, duration };
-        if (video) { const sp = media.sprite; out.thumb = { src: sp.src, cols: sp.cols, rows: Math.ceil(sp.count / sp.cols), idx: Math.min(sp.count - 1, Math.floor(((a + z) / 2) / sp.every)) }; }
+        if (video) {
+          // The brightest frame inside the clip: the middle one of a night launch was a black square.
+          const sp = media.sprite, lo = Math.floor(a / sp.every), hi = Math.min(sp.count - 1, Math.floor(z / sp.every));
+          let idx = Math.min(sp.count - 1, Math.floor(((a + z) / 2) / sp.every));
+          if (bright) for (let i = lo, best = -1; i <= hi; i++) if ((bright[i] || 0) > best) { best = bright[i] || 0; idx = i; }
+          out.thumb = { src: sp.src, cols: sp.cols, rows: Math.ceil(sp.count / sp.cols), idx };
+        }
         else if (peaks) { const from = Math.floor(a / peaks.every), to = Math.max(from + 1, Math.ceil(z / peaks.every)), n = 28; out.wave = [...Array(n)].map((_, i) => Math.max(.1, Math.max(0, ...peaks.peaks.slice(from + Math.floor(i * (to - from) / n), from + Math.floor((i + 1) * (to - from) / n) + 1)))).map((v) => +v.toFixed(2)); }
         return out;
       } });
@@ -303,7 +311,7 @@ var SceneTry = (() => {
     // Liftoff, from ignition to the rocket climbing clear of its cloud.
     video: (root) => trimmer(root, { kind: 'video', duration: 347, start: 177, end: 199, kindIcon: 'clip',
       source: 'NASA, To the Moon and Back: The Journey of Artemis I (5:47)',
-      media: { src: '/media/artemis-i.mp4', sprite: { src: '/media/artemis-i-frames.jpg', every: 2, cols: 12, w: 96, h: 54, count: 174 },
+      media: { src: '/media/artemis-i.mp4', sprite: { src: '/media/artemis-i-frames.jpg', bright: '/media/artemis-i-frames.json', every: 2, cols: 12, w: 96, h: 54, count: 174 },
         credit: { text: 'To the Moon and Back: The Journey of Artemis I', site: 'NASA, public domain', href: 'https://images.nasa.gov/details/jsc2022m000294_TheJourneyofArtemisI' } } }),
     // From one pause to the next, so the moment starts and ends on whole words.
     audio: (root) => trimmer(root, { kind: 'audio', duration: 664, start: 76, end: 98, kindIcon: 'podcast',

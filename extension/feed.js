@@ -79,6 +79,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       onDeleteAll: mineOnly ? async (progress) => {
         const all = records.slice(), failed = [];
         let done = 0;
+        deleting = true;
         for (const r of all) {
           if ((r.cloud || r.author) && me) {
             try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
@@ -86,12 +87,23 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
           await Store.del(r.id).catch(() => {});
           progress(++done, all.length);
         }
+        deleting = false;
         await load();
         return failed;
       } : null,
     });
   };
   window.addEventListener('hashchange', load);
+  // Annotations deleted or published from the panel beside this page (or another window) change the store's
+  // stamp. The page draws again, so it never lists, or offers to delete, what is already gone (recording of
+  // 2026-09-24 at 20:19). Its own delete all is left to finish first.
+  let deleting = false, again = 0;
+  try {
+    chrome.storage.onChanged.addListener((ch, area) => {
+      if (area !== 'local' || !ch.annotatedStamp || deleting) return;
+      clearTimeout(again); again = setTimeout(() => { if (!deleting) load(); }, 400);
+    });
+  } catch { /* not in the extension */ }
   Backend.onChange((who) => { if ((who && who.id) !== (me && me.id)) load(); });
   load();
 })();

@@ -409,6 +409,17 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   menu has About annotated. The website was deployed on 2026-09-24 through the Netlify connector, since the
   CLI is not signed in (`npx -y @netlify/mcp@latest --site-id ... --proxy-path ...` from `website/`, the path
   given by the connector's deploy-site). Netlify adds its own toolbar script, which the CSP blocks; harmless.
+- **The recording of 2026-09-24 at 20:19** (`tests/walk2019.py`). The extension's feed and profile pages redraw
+  when the store's stamp changes, so a delete in the panel no longer leaves them listing, and offering to delete,
+  what is gone. The delete-all button stays red on hover. Beside annotated's own website the panel is Home,
+  where it read the demo episode as a podcast to clip. The panel starts blank rather than on the old "Open
+  something to annotate". Signed out on the website's feed the rail offers Sign in, not a "You" card, Following
+  does not mention the panel, and an empty feed offers the home page. On the home page, the example does not run
+  for someone who has made one, your cards from before do not fly in again, the headline's word follows only the
+  tab (it no longer goes round on its own), and the install area waits up to 0.8 s for the extension's mark
+  (`landChecking`). A take in the clip, podcast or post tab says "You, just now", not Example. A fold keeps the
+  words until it is halfway. The clip card uses the brightest frame in the clip (`artemis-i-frames.json`, from the
+  sprite), and the cards in Yours so far share one height. The panel keeps the start page beside an empty page.
 - **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
   make their own in the try-it. The row under the install steps holds up to four of yours from any tab
   (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides

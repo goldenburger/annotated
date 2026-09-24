@@ -212,7 +212,8 @@
       const grab = () => {
         const row = document.querySelector('.llRow');
         if (!row) return;
-        const cards = [...row.querySelectorAll(':scope > .cardItem > .card')].filter((c) => !c.dataset.plQueued);
+        // Yours were made on an earlier visit and are simply there; only a take made now flies (onYours).
+        const cards = [...row.querySelectorAll(':scope > .cardItem:not(.yours) > .card')].filter((c) => !c.dataset.plQueued);
         cards.forEach((c) => { c.dataset.plQueued = '1'; c.classList.add('pl-hidden'); waiting.push(c); });
         if (cards.length) landLatest();
       };

@@ -1075,15 +1075,26 @@ const AnnotationPage = (() => {
           const why = tabs && tabs.current === 'following' ? (tabs.empty || 'Follow someone and their annotations show up here.')
             : tabs && tabs.empty && filter === 'all' ? tabs.empty
             : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter];
-          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}</li>`;
+          // On the website an empty feed leads somewhere: the home page, where anyone can make one in a minute.
+          const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
+          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !person ? '<a class="ghost sm esMake" href="/">Make one on the home page</a>' : ''}</li>`;
         })(); })()}</ul>`;
       const ownProfile = mode === 'profile' && !person;
-      rail.innerHTML = (ownProfile ? '' : railYou(social && social.you ? social.you : { annotations: mineCount(yours || records, social && social.youId), followers: 0 })) + railTrending(social, null, mode === 'profile' && !person ? records : []) + railFollow(social) + railTags(yours || records) + railAbout();
+      const inExt = typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.id);
+      const youCard = ownProfile ? ''
+        : social && social.you ? railYou(social.you)
+        // Signed out on the website there is no "you" yet: it used to say "You, 0 annotations, 0 followers".
+        : !inExt && onSignIn ? '<section class="railcard"><p class="note">Sign in with Google to follow people, react and comment.</p><button type="button" class="strong sm railSignIn">Sign in with Google</button></section>'
+        : !inExt ? ''
+        : railYou({ annotations: mineCount(yours || records, social && social.youId), followers: 0 });
+      rail.innerHTML = youCard + railTrending(social, null, mode === 'profile' && !person ? records : []) + railFollow(social) + railTags(yours || records) + railAbout();
       wireDelAll(main, onDeleteAll);
       const esMine = main.querySelector('.esMine');
       if (esMine) esMine.addEventListener('click', () => onProfile());
       const signInBtn = main.querySelector('.pSignIn');
       if (signInBtn) signInBtn.addEventListener('click', () => onSignIn());
+      const railIn = rail.querySelector('.railSignIn');
+      if (railIn) railIn.addEventListener('click', () => onSignIn());
       // A card opens its annotation, by click or by Enter and Space, since it is a link and not a button now.
       main.querySelectorAll('.card').forEach((c) => {
         c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn')) onOpen(c.dataset.id); });

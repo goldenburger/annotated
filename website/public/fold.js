@@ -150,7 +150,9 @@ var Fold = (() => {
       // The flat sheet's shadow only once the sheet is nearly flat, since it is the shape of the whole page.
       [under, [k2(0, { opacity: 0 }), k2(.6, { opacity: 0 }), k2(1, { opacity: 1 })], 'ease-in'],
     ];
-    sheet.querySelectorAll('.pl-cover').forEach((x) => steps.push([x, [k2(0, { opacity: 1 }), k2(.18, { opacity: 1 }), k2(.55, { opacity: 0 }), k2(1, { opacity: 0 })], 'ease-in-out']));
+    // The words come up as it opens, and when it folds they stay until it is halfway folded, so what flies off
+    // still reads as the annotation (they used to go at once, recording of 2026-09-24 at 20:19).
+    sheet.querySelectorAll('.pl-cover').forEach((x) => steps.push([x, [k2(0, { opacity: 1 }), k2(.3, { opacity: 1 }), k2(.62, { opacity: 0 }), k2(1, { opacity: 0 })], 'ease-in-out']));
     [[top, 1], [bot, -1]].forEach(([s, m], i) => {
       const lag = i * .06;
       steps.push(

@@ -94,7 +94,8 @@ async def main():
     after = await pg.evaluate("document.querySelector('.heroMark').textContent")
     print('4. while the example runs the headline says', repr(during['word']), '| after it', repr(after))
     if not during['example'] or during['word'] != 'anything': errs.append(f'two things moved at once: {during}')
-    if after == 'anything': errs.append('the headline never took its turn after the example')
+    # Since the recording of 2026-09-24 at 20:19 the word follows the tab only, and never changes on its own.
+    if after != 'anything': errs.append(f'the headline changed on its own after the example: {after!r}')
     # Fixes of the pass after: a tab chosen mid-example puts the example away, and the headline is two lines
     # for every word, with no empty third line held for "on the web".
     await pg.reload(); await pg.wait_for_selector('.tryTabs'); await pg.mouse.move(700, 890); await asyncio.sleep(4.9)
