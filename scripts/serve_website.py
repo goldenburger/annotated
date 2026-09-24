@@ -35,6 +35,50 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             clean = clean.rstrip('/') + '.html'
         return super().translate_path(clean)
 
+    # Byte ranges, as Netlify answers them. A browser can only seek in audio or video whose server answers a
+    # range with 206, so without this the front page's clips all started from the beginning.
+    def send_head(self):
+        rng = self.headers.get('Range', '')
+        path = pathlib.Path(self.translate_path(self.path))
+        if not rng.startswith('bytes=') or not path.is_file():
+            return super().send_head()
+        size = path.stat().st_size
+        first, _, last = rng[6:].split(',')[0].partition('-')
+        try:
+            if first:
+                start, end = int(first), int(last) if last else size - 1
+            else:
+                start, end = max(0, size - int(last)), size - 1
+        except ValueError:
+            return super().send_head()
+        end = min(end, size - 1)
+        if start > end:
+            self.send_response(416)
+            self.send_header('Content-Range', f'bytes */{size}')
+            self.end_headers()
+            return None
+        f = open(path, 'rb'); f.seek(start)
+        self.send_response(206)
+        self.send_header('Content-Type', self.guess_type(str(path)))
+        self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
+        self.send_header('Content-Length', str(end - start + 1))
+        self.send_header('Accept-Ranges', 'bytes')
+        self.end_headers()
+        self._left = end - start + 1
+        return f
+
+    def copyfile(self, source, outputfile):
+        left = getattr(self, '_left', None)
+        if left is None:
+            return super().copyfile(source, outputfile)
+        self._left = None
+        while left > 0:
+            chunk = source.read(min(65536, left))
+            if not chunk:
+                break
+            outputfile.write(chunk)
+            left -= len(chunk)
+
     def end_headers(self):
         for k, v in HEADERS:
             self.send_header(k, v)

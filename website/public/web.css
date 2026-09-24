@@ -477,3 +477,15 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .installHave { margin: 0 0 20px; }
 .installHave[hidden] { display: none; }
 .giSteps li { grid-template-rows: auto 1fr; align-content: start; align-items: start; } .giSteps li > span { align-self: start; }
+
+/* The real clip and the real episode in the scenes: the video above its trimmer, its frames in the strip, the
+   credit under the whole-length bar, and a player in the card. */
+.sceneTry .stScreen { margin: 0 8px 4px; border-radius: 8px; overflow: hidden; background: #0E0F12; aspect-ratio: 16 / 9; max-height: 240px; display: flex; justify-content: center; }
+.sceneTry .stScreen video { height: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; }
+.sceneTry .stFrames span { background: #2A2D34 no-repeat; }
+.sceneTry .stCredit { margin: 6px 8px 0; font: 400 12.5px/1.35 var(--sans); color: #6B6F78; }
+.sceneTry .stCredit a { color: inherit; text-decoration: underline; text-decoration-color: rgba(107, 111, 120, .4); text-underline-offset: 2px; }
+.sceneTry .stPlay[aria-pressed="true"] { border-color: #16181D; }
+.sceneTry .stCardPlay:empty { display: none; }
+.sceneTry .stCardMedia { display: block; width: 100%; margin: 8px 0 4px; border-radius: 6px; }
+.sceneTry video.stCardMedia { background: #0E0F12; aspect-ratio: 16 / 9; }

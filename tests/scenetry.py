@@ -6,6 +6,9 @@
 #   makes a card quoting them. The post can also take the whole post.
 #   Every card is labelled Example, Start over and Make another put the scene back, and no scene shows a
 #   second, static Example card beside it.
+#   The clip and the moment are real NASA files served by the site: the filmstrip is the video's own frames, the
+#   waveform the episode's own loudness, Play selection plays from the start handle, and the card carries a
+#   player for exactly the clip.
 import asyncio, pathlib, mimetypes
 from playwright.async_api import async_playwright
 from _env import *
@@ -16,7 +19,15 @@ def site(route):
   path = urlparse(route.request.url).path.lstrip('/') or 'index.html'
   f = PUB / path
   if not f.is_file(): f = PUB / 'index.html'
-  return route.fulfill(status=200, body=f.read_bytes(), headers={'Content-Type': mimetypes.guess_type(str(f))[0] or 'application/octet-stream'})
+  ctype = mimetypes.guess_type(str(f))[0] or 'application/octet-stream'
+  body = f.read_bytes()
+  # Byte ranges, as Netlify answers them, since a browser can only seek in media whose server does.
+  rng = route.request.headers.get('range', '')
+  if rng.startswith('bytes='):
+    first, _, last = rng[6:].partition('-')
+    start = int(first or 0); end = min(int(last) if last else len(body) - 1, len(body) - 1)
+    return route.fulfill(status=206, body=body[start:end + 1], headers={'Content-Type': ctype, 'Accept-Ranges': 'bytes', 'Content-Range': f'bytes {start}-{end}/{len(body)}'})
+  return route.fulfill(status=200, body=body, headers={'Content-Type': ctype, 'Accept-Ranges': 'bytes'})
 SEL = """([k, a, z]) => { const t = document.querySelector('.st-' + k + ' [data-annotated-self]'); const w = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
   let n; while ((n = w.nextNode())) if (n.nodeValue.includes(a)) break; const r = document.createRange(); r.setStart(n, n.nodeValue.indexOf(a)); r.setEnd(n, n.nodeValue.indexOf(z) + z.length);
   getSelection().removeAllRanges(); getSelection().addRange(r); }"""
@@ -39,6 +50,9 @@ async def main():
 
     # A clip.
     await tab('video'); await asyncio.sleep(.4)
+    tiles = await pg.evaluate("[...document.querySelectorAll('.st-video .stFrames span')].map((t) => t.style.backgroundImage.includes('/media/artemis-i-frames.jpg') ? t.style.backgroundPosition : null)")
+    print('clip: filmstrip tiles', tiles)
+    if not tiles or None in tiles or len(set(tiles)) < len(tiles) - 1: errs.append("the filmstrip is not the video's own frames")
     h = await pg.query_selector('.st-video .stHandle.z'); await h.scroll_into_view_if_needed(); await asyncio.sleep(.5)
     bb = await h.bounding_box()
     await pg.mouse.move(bb['x'] + 7, bb['y'] + 30); await pg.mouse.down(); await pg.mouse.move(bb['x'] + 90, bb['y'] + 30, steps=8); await pg.mouse.up()
@@ -54,19 +68,27 @@ async def main():
     await pg.fill('.st-video textarea', 'Watch his hands.'); await pg.keyboard.press('Enter'); await asyncio.sleep(.4)
     card = await pg.evaluate("(() => { const c = document.querySelector('.st-video .stCard'); return c ? { ex: c.querySelector('.tiExample').textContent, take: c.querySelector('.stCardTake').textContent, what: c.querySelector('.stCardWhat').textContent } : null; })()")
     print('   the card:', card)
-    if not card or card['ex'] != 'Example' or card['take'] != 'Watch his hands.' or not card['what'].startswith('Clip 3:10 to 4:35'): errs.append(f'the clip card read {card}')
+    if not card or card['ex'] != 'Example' or card['take'] != 'Watch his hands.' or not card['what'].startswith('Clip 2:57 to 4:22 of 5:47'): errs.append(f'the clip card read {card}')
+    vplayer = await pg.evaluate("(document.querySelector('.st-video .stCardMedia') || {}).getAttribute?.('src') || null")
+    print('   its player:', vplayer)
+    if vplayer != '/media/artemis-i.mp4#t=177,262': errs.append(f'the clip card plays {vplayer!r}, not the clip')
     await pg.click('.st-video .stAgain'); await asyncio.sleep(.2)
     if await pg.query_selector('.st-video .stCard') or not await pg.is_visible('.st-video .stGo'): errs.append('Make another did not put the clip scene back')
 
     # A podcast moment.
-    await tab('audio'); await asyncio.sleep(.4)
-    await pg.click('.st-audio .stPlay'); await asyncio.sleep(1)
-    head = await pg.evaluate("(() => { const h = document.querySelector('.st-audio .stHead'); return { shown: !h.hidden, left: h.style.left }; })()")
-    print('podcast: the playhead', head)
+    await tab('audio'); await asyncio.sleep(1.2)
+    bars = await pg.evaluate("[...document.querySelectorAll('.st-audio .stWave span')].map((b) => +getComputedStyle(b).getPropertyValue('--v'))")
+    print('podcast: waveform bars', len(bars), 'distinct heights', len(set(bars)))
+    if len(set(bars)) < 10: errs.append("the waveform is not the episode's own loudness")
+    await pg.click('.st-audio .stPlay'); await asyncio.sleep(1.5)
+    head = await pg.evaluate("(() => { const h = document.querySelector('.st-audio .stHead'), m = document.querySelector('.st-audio .stMedia'); return { shown: !h.hidden, left: h.style.left, t: m.currentTime, paused: m.paused }; })()")
+    print('podcast: playing', head)
     if not head['shown']: errs.append('Play selection showed no playhead')
+    if head['paused'] or not 76 <= head['t'] <= 80: errs.append(f'Play selection did not play from the start handle: {head}')
     await asyncio.sleep(3.5); await pg.click('.st-audio .stGo'); await pg.fill('.st-audio textarea', 'The number.'); await pg.keyboard.press('Enter'); await asyncio.sleep(.4)
     what = await pg.evaluate("(document.querySelector('.st-audio .stCardWhat') || {}).textContent || ''")
-    if not what.startswith('Audio clip 21:05 to 21:25 of 58:00'): errs.append(f'the podcast card read {what!r}')
+    if not what.startswith('Audio clip 1:16 to 1:38 of 11:04'): errs.append(f'the podcast card read {what!r}')
+    if await pg.evaluate("!document.querySelector('.st-audio .stMedia').paused"): errs.append('the moment went on playing after it was clipped')
 
     # A passage, and a post.
     for k, a, z, want in [('post', 'support tickets', 'weekend', 'support tickets doubled over the weekend')]:
