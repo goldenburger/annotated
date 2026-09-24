@@ -14,7 +14,7 @@ var TryIt = (() => {
   const KEY = 'annotated-tryit';
   const MAX_QUOTE = 280, MAX_TAKE = 280;
   // What the page does by itself, once, for anyone who has not touched it. Labelled Example on screen.
-  const DEMO = { phrase: 'must link back to its original source URL', take: 'Every annotation here does, and each one has File a claim.' };
+  const DEMO = { phrase: 'must link back to its original source URL', take: 'So every take you read comes with the words it is about.' };
   const INK = { hi: '#FFE14A', deep: '#F2C600', lift: '#FFEE9E' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const icon = (n) => (typeof Brand !== 'undefined' ? Brand.icon(n) : '');
@@ -47,7 +47,7 @@ var TryIt = (() => {
             <p class="tiWho"><span class="tiAv">${icon('user')}</span>You <span class="tiNow">just now</span></p>
             <h3 class="tiTakeOut"></h3>
             <p class="tiOn">on <span class="tiInk"></span></p>
-            <p class="tiMeta"><span>${icon('link')} Links back to the source</span><span>${icon('flag')} File a claim</span></p>
+            <p class="tiMeta"><span>${icon('link')} Links back to the source</span></p>
           </article>
         </div>
         <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>

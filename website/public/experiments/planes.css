@@ -1,0 +1,31 @@
+/* EXPERIMENT: paper airplanes. Removed with experiments/planes.js. */
+.planes-waiting .tp-article .tiStage { opacity: 0; }
+.tp-article .tiStage { transition: opacity .25s ease; }
+.pl-fly { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; transform-style: preserve-3d; perspective: 900px; will-change: transform; }
+.pl-plane { position: absolute; left: calc(var(--s) / -2); top: calc(var(--s) / -2); width: var(--s); height: var(--s); transform-style: preserve-3d; }
+.pl-face { position: absolute; inset: 0; background: #FFFDF7; backface-visibility: visible; transform-origin: 50% 50%;
+  transition: clip-path .55s cubic-bezier(.2, .7, .2, 1), transform .55s cubic-bezier(.2, .7, .2, 1), opacity .4s ease; }
+/* Folded: each face is one triangle of the dart, the same four corners in every state so the unfold can move them. */
+.pl-wl { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 4%); transform: rotateX(32deg); background: linear-gradient(100deg, #E2D9C0, #FFFDF7 55%, #F4EEDC); }
+.pl-wr { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 96%); transform: rotateX(-32deg); background: linear-gradient(80deg, #CFC4A6, #EFE8D3 55%, #E4DCC4); }
+.pl-kl { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 70%); transform: rotateX(84deg); background: linear-gradient(90deg, #BDB08E, #D8CEB2); }
+.pl-kr { clip-path: polygon(100% 50%, 100% 50%, 0 50%, 0 70%); transform: rotateX(96deg); background: linear-gradient(90deg, #B0A27E, #CFC4A6); }
+/* Opened: the wings become the two halves of the sheet and the keel folds away into them. */
+.pl-open .pl-wl { clip-path: polygon(100% 0, 100% 50%, 0 50%, 0 0); transform: none; background: #FFFDF7; }
+.pl-open .pl-wr { clip-path: polygon(100% 100%, 100% 50%, 0 50%, 0 100%); transform: none; background: #FFFDF7; }
+.pl-open .pl-kl, .pl-open .pl-kr { transform: none; opacity: 0; }
+.pl-shadow { position: absolute; left: -46px; top: -10px; width: 92px; height: 22px; border-radius: 50%; background: radial-gradient(closest-side, rgba(30, 26, 12, .35), transparent); filter: blur(3px); opacity: 0; }
+.pl-small .pl-shadow { display: none; }
+/* The creases the sheet keeps for a moment after it lands. */
+.tp-article .tiPaper.pl-creased::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 1; animation: plCrease 1.3s ease-out forwards;
+  background: linear-gradient(to bottom, transparent calc(50% - .5px), rgba(120, 100, 60, .22) 50%, transparent calc(50% + .5px)),
+    linear-gradient(28deg, transparent calc(50% - .5px), rgba(120, 100, 60, .16) 50%, transparent calc(50% + .5px)),
+    linear-gradient(-28deg, transparent calc(50% - .5px), rgba(120, 100, 60, .16) 50%, transparent calc(50% + .5px)); }
+@keyframes plCrease { 0% { opacity: 1; } 60% { opacity: .8; } 100% { opacity: 0; } }
+/* Your take, landed in the latest row. */
+.pl-yours .card { border-color: #F2C600; animation: plLand .45s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes plLand { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
+
+/* A fine edge on every face, so a folded sheet reads as folds rather than one pale shape. */
+.pl-plane { filter: drop-shadow(0 0 .6px rgba(60, 50, 25, .55)) drop-shadow(0 6px 8px rgba(30, 26, 12, .18)); }
+.pl-open { filter: none; }

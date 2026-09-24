@@ -360,6 +360,13 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   anything." with no "on the web", so every word fits two lines and no empty third line is held; the Latest
   row takes as many columns as it has cards (`--n`); and `/install` (`installpage.js`) is the same header and
   the same three steps as the front page, where it was an older list of four with no header.
+- **EXPERIMENT: paper planes on the front page** (`website/public/experiments/planes.js` and `planes.css`,
+  `tests/planes.py`). The brief glides in as a paper dart, lands where the paper sits and unfolds into it; a take
+  made in the try-it flies down to Latest and lands there as a card marked "Yours, on this computer"; a tab
+  chosen sends a small plane. A click, key or scroll finishes the landing at once, it plays once a visit, and
+  reduced motion, phones and `?noplanes` get none. Test browsers get none unless the address has `?planes`, so
+  no other test sees them. To remove it, delete the folder, the one marked line in `index.html`, `tests/planes.py`
+  and its name in `scripts/run_tests.py`.
 - **Published is said once**, arriving from Publish (`annFrom`). Opening your own annotation later from a
   list or from trending used to say Published again, because the banner went by whether the page had been
   seen, and staying in the panel after publishing means it never had been.
