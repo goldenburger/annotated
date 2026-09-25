@@ -965,6 +965,18 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   little chance), using `approach`, `dist` and `swoop` added to `Fold.arrive`; the row of chips arrives as a flock
   of three small planes whose chips then pop in one by one. They fly only once the page is scrolled, and not with
   ?noplanes, on a phone or a touch screen, as on the rest of the front page.
+- **The recording of 2026-09-25 at 20:19** (`tests/walk2019b.py`). The decorations come in many versions
+  (`paperdeco.js`): the dart, a glider, a half folded sheet, a dart landed nose first, three crumpled balls, a stack
+  of sheets, a torn strip, a sheet folded in half, and four trails (loop, arc, zigzag, and one that missed and ends in
+  a ball). Piles are laid out fresh from them on each call, the panel's corner picks one of five, empty lists one of
+  four, and a full page's margins choose what goes left and right and at what height (`--pdy`) on every visit.
+  Planes open five ways (`open(T, reverse, style)` in `fold.js`, `unfold` on `Fold.arrive`): classic, cascade (one
+  fold after another), snap (springing past flat), flutter (wobbles first) and spin; the four examples each use a
+  different one, the chip flock three, and an annotation page picks one of classic, cascade and flutter. The example
+  planes start inside the window (`within`) at a smaller scale and lower, measured in flight at about half their
+  card's width (they were cut by the window's edge and larger than the card). The loading outline is visible (grey
+  lines on a bordered sheet; it was white on white, so the annotation page after View page looked blank), its avatar
+  is a light placeholder, and switching to an open home page scrolls it to the top.
 - **The recording of 2026-09-25 at 19:26** (`tests/walk1926.py`). View page did nothing, ten presses: `openExtPage`
   reused annotated's Feed tab in a second window (opened at 0:07) and moved it to the annotation without bringing
   that window forward. Our pages now open in the window you are in (the panel's tab's window): a tab of ours there

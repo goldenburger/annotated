@@ -1205,8 +1205,11 @@ body.signedOut .pubSignIn { display: block; }
 /* Something to look at while an annotation page loads, instead of a blank window. */
 .bootSkel { animation: bootFade .9s ease-in-out infinite alternate; }
 .bootBar { height: 52px; border-bottom: 1px solid var(--rule); background: var(--sheet); }
-.bootMain { display: grid; gap: 14px; max-width: 680px; margin: 0 auto; padding: 32px 20px; }
-.bootSkel span { display: block; border-radius: 8px; background: var(--sheet); }
+/* The outline a page shows while it loads: a sheet with grey lines on it, the same as the website's. Drawn in the
+   page's own white it could not be seen, and the annotation page after View page looked blank for a second
+   (recording of 2026-09-25 at 20:19, 1:39). */
+.bootMain { display: grid; gap: 14px; max-width: 640px; margin: 28px auto 0; padding: 24px 22px; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; }
+.bootSkel span { display: block; border-radius: 8px; background: var(--newsprint); }
 .bootLine { height: 18px; }
 .bootBlock { height: 200px; }
 .bootLine.w40 { width: 40%; height: 30px; }
@@ -1599,16 +1602,18 @@ body.embedded > .brand .wmPlane { display: none; }
 @media (min-width: 1440px) and (hover: hover) {
   .pdDesk { display: block; position: fixed; inset: 0; z-index: 0; }
   .pdDesk .pd-pile svg { width: 220px; height: auto; } .pdDesk .pd-sheet svg { width: 128px; height: auto; } .pdDesk .pd-trail svg { width: 190px; height: auto; }
-  .pdDesk .pdL { position: absolute; left: max(24px, calc(50vw - 780px)); bottom: 48px; opacity: .95; }
-  .pdDesk .pdR { position: absolute; right: max(28px, calc(50vw - 770px)); top: 120px; opacity: .9; }
-  .pdDesk .pdT { position: absolute; left: max(40px, calc(50vw - 760px)); bottom: 196px; opacity: .8; }
+  .pdDesk .pd-stack svg { width: 150px; height: auto; } .pdDesk .pd-strip svg { width: 190px; height: auto; } .pdDesk .pd-lone svg { width: 130px; height: auto; }
+  .pdDesk .pd-halfFold svg { width: 104px; height: auto; } .pdDesk .pd-folded svg { width: 130px; height: auto; } .pdDesk .pd-ball svg { width: 64px; height: auto; }
+  /* Each drawing's height is chosen per visit (--pdy, paperdeco.js), so the margins do not look the same twice. */
+  .pdDesk .pdL { position: absolute; left: max(24px, calc(50vw - 780px)); bottom: var(--pdy, 48px); opacity: .95; }
+  .pdDesk .pdR { position: absolute; right: max(28px, calc(50vw - 770px)); top: var(--pdy, 120px); opacity: .9; }
+  .pdDesk .pdT { position: absolute; left: max(40px, calc(50vw - 760px)); bottom: var(--pdy, 196px); opacity: .8; }
   .site .sitegrid, .site .sitebar { position: relative; z-index: 1; }
 }
 /* An empty list: a crumpled sheet and a plane above its words. */
 .pdEmpty { display: flex; justify-content: center; align-items: flex-end; gap: 6px; margin: 4px auto 10px; opacity: .95; }
-.pdEmpty .paperDeco { height: auto; }
-.pdEmpty svg:first-child { width: 44px; }
-.pdEmpty svg:last-child { width: 86px; }
+.pdEmpty svg { height: 50px; width: auto; }
+.pdEmpty svg:only-child { height: 64px; }
 /* The panel's quiet corner, under its lists. */
 .pd-corner { display: flex; justify-content: center; margin: 22px auto 8px; opacity: .9; }
 .pd-corner svg { width: 150px; height: auto; }
@@ -1617,8 +1622,8 @@ body.embedded > .brand .wmPlane { display: none; }
 .welcome .pd-trail { position: absolute; right: 6px; top: -6px; }
 .welcome .pd-trail svg { width: 120px; height: auto; }
 
-.shellEmpty .pdEmpty svg:first-child { width: 60px; }
-.shellEmpty .pdEmpty svg:last-child { width: 120px; }
+.shellEmpty .pdEmpty svg { height: 66px; }
+.shellEmpty .pdEmpty svg:only-child { height: 84px; }
 .shellEmpty .pdEmpty { margin-bottom: 18px; }
 
 /* Paper in the interface itself (paperdeco.js), small and quiet. */
@@ -1647,3 +1652,7 @@ body.embedded > .brand .wmPlane { display: none; }
   opacity: .9; transform: translateX(24px); }
 @media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before { animation: pdGlide 2.6s cubic-bezier(.45, .05, .35, 1) infinite; } }
 @keyframes pdGlide { 0% { transform: translate(-30px, 8px) rotate(6deg); opacity: 0; } 12% { opacity: .9; } 88% { opacity: .9; } 100% { transform: translate(calc(100cqw + 30px), -2px) rotate(-4deg); opacity: 0; } }
+
+/* The loading outline's avatar is a light placeholder, not an empty circle drawn in ink (recording of 2026-09-25 at
+   20:19, 0:51.5). */
+.skel .avatar:empty { background: var(--newsprint); }

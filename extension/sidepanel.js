@@ -844,6 +844,7 @@ document.addEventListener('click', async (e) => {
   if (!open) { chrome.tabs.create({ url: a.href }).catch(() => {}); return; }
   await chrome.tabs.update(open.id, { active: true }).catch(() => {});
   if (open.windowId != null) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+  chrome.scripting.executeScript({ target: { tabId: open.id }, func: () => scrollTo({ top: 0, behavior: 'instant' }) }).catch(() => {});
 });
 // The start page: what people are talking about, places to start, a link to paste and a podcast to find by
 // name. It used to be drawn only beside a page with nothing to annotate, so once the tab went to a video

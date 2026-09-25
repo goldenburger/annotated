@@ -194,8 +194,34 @@ var Fold = (() => {
     const at = opts.startOpen ? (kf) => kf[kf.length - 1] : (kf) => kf[0];
     const pose = (kf) => { const c = Object.assign({}, at(kf)); delete c.offset; return c; };
     const held = steps.map(([el, kf]) => el.animate([pose(kf), pose(kf)], { duration: 1, fill: 'forwards' }));
-    const open = (T, reverse = false) => {
-      const runs = steps.map(([el, kf, easing]) => el.animate(kf, { duration: T, easing, fill: 'forwards', direction: reverse ? 'reverse' : 'normal' }));
+    // Ways of opening, so a run of planes does not open the same way every time (David, 2026-09-25: "include more
+    // animations how the plane unfolds"). The folds are the same; what changes is their timing and what the sheet
+    // does meanwhile.
+    //   classic  wings and halves together, then the leading folds, then the corners (as before).
+    //   cascade  one fold after another, slower, each waiting for the one before.
+    //   snap     quicker, every fold springing a little past flat.
+    //   flutter  it catches the air and wobbles before it opens.
+    //   spin     it turns once in place as it opens out.
+    const STYLE = {
+      classic: { f: (o) => o, t: 1 },
+      cascade: { f: (o) => Math.pow(o, 1.6), t: 1.35 },
+      snap: { f: (o) => o, t: .72, ease: 'cubic-bezier(.34, 1.56, .64, 1)' },
+      flutter: { f: (o) => .3 + .7 * o, t: 1.3 },
+      spin: { f: (o) => o, t: 1.15 },
+    };
+    const sheetKf = {
+      flutter: [k2(0, { transform: `scale3d(${s0},${s0},${s0}) rotate(0deg)` }), k2(.08, { transform: `scale3d(${s0},${s0},${s0}) rotate(8deg)` }), k2(.16, { transform: `scale3d(${s0},${s0},${s0}) rotate(-7deg)` }),
+        k2(.24, { transform: `scale3d(${s0},${s0},${s0}) rotate(4deg)` }), k2(.3, { transform: `scale3d(${s0},${s0},${s0}) rotate(0deg)` }), k2(.62, { transform: 'scale3d(1,1,1) rotate(0deg)' }), k2(1, { transform: 'scale3d(1,1,1) rotate(0deg)' })],
+      spin: [k2(0, { transform: `scale3d(${s0},${s0},${s0}) rotate(-200deg)` }), k2(.5, { transform: 'scale3d(1,1,1) rotate(0deg)' }), k2(1, { transform: 'scale3d(1,1,1) rotate(0deg)' })],
+    };
+    const open = (T, reverse = false, style = 'classic') => {
+      const st = (!reverse && STYLE[style]) || STYLE.classic;
+      const runs = steps.map(([el, kf, easing]) => {
+        if (el === sheet && !reverse && sheetKf[style]) kf = sheetKf[style];
+        else if (st.f !== STYLE.classic.f) { kf = kf.map((k) => Object.assign({}, k, { offset: st.f(k.offset) })); kf[0].offset = 0; kf[kf.length - 1].offset = 1; }
+        const ease = st.ease && el !== sheet && easing === 'ease-in-out' ? st.ease : easing;
+        return el.animate(kf, { duration: T * st.t, easing: ease, fill: 'forwards', direction: reverse ? 'reverse' : 'normal' });
+      });
       held.forEach((x) => x.cancel());
       return Promise.all(runs.map((r) => r.finished)).catch(() => {});
     };
@@ -337,7 +363,7 @@ var Fold = (() => {
   // `approach` turns where the plane comes from around its landing (degrees, 0 is from behind it), `dist` is how far
   // off it starts, and `swoop` how far its path bows to one side (negative bows the other way), so a run of
   // arrivals need not all look alike.
-  function arrive(el, { delay = 0, from = null, len = 0, z0 = 150, T = 1000, openT = 1000, s0 = 0, approach = 0, dist = 300, swoop = .15 } = {}) {
+  function arrive(el, { delay = 0, from = null, len = 0, z0 = 150, T = 1000, openT = 1000, s0 = 0, approach = 0, dist = 300, swoop = .15, within = false, unfold = 'classic' } = {}) {
     return new Promise((resolve) => {
       el.classList.add('pl-hidden');
       const go = () => {
@@ -347,13 +373,20 @@ var Fold = (() => {
         const t = track(plane, el, resolve);
         const h = dir(plane.phi);
         const a = approach * Math.PI / 180, bx = -h.x * dist - h.y * 90 * dist / 300, by = -h.y * dist + h.x * 70 * dist / 300;
-        const start = { x: plane.centre.x + bx * Math.cos(a) - by * Math.sin(a), y: plane.centre.y + bx * Math.sin(a) + by * Math.cos(a) };
+        let start = { x: plane.centre.x + bx * Math.cos(a) - by * Math.sin(a), y: plane.centre.y + bx * Math.sin(a) + by * Math.cos(a) };
+        // `within`: the flight starts inside the window, so the plane is never sliced by its edge on the way in
+        // (recording of 2026-09-25 at 20:19, 0:12.75, where it came in from beyond the right edge as a pale slab).
+        if (within) {
+          const m = 60, vw = document.documentElement.clientWidth, sx = scrollX, sy = scrollY;
+          start = { x: Math.min(sx + vw - m, Math.max(sx + m, start.x)), y: Math.min(sy + innerHeight - m, Math.max(sy + m, start.y)) };
+        }
         const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, swoop), { z: descend(z0, .84), T });
         if (from) plane.fshadow.style.opacity = '0';
         air.then(async () => {
           if (!flying.has(t)) return;
           plane.fshadow.animate([{ opacity: .3 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
-          await plane.open(openT);
+          if (plane.carrier) plane.carrier.dataset.phase = 'open';
+          await plane.open(openT, false, unfold);
           if (!flying.has(t)) return;
           el.classList.remove('pl-hidden');
           handOver(plane, t, 200);

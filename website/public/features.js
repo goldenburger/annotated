@@ -279,10 +279,10 @@ var Features = (() => {
     // much larger than the card it becomes; the steep drop reads through its speed and angle, not its height. At
     // 420 it was twice the card's size (recording of 2026-09-25 at 19:26, 1:09 and 2:12).
     const STYLES = [
-      { approach: 0, dist: 300, swoop: .15, z0: 180, T: 1100 },
-      { approach: 75, dist: 440, swoop: -.45, z0: 170, T: 1300 },
-      { approach: -55, dist: 240, swoop: .05, z0: 190, T: 800 },
-      { approach: 140, dist: 520, swoop: .38, z0: 160, T: 1500 },
+      { approach: 0, dist: 300, swoop: .15, z0: 80, T: 1100, unfold: 'cascade' },
+      { approach: 75, dist: 440, swoop: -.45, z0: 70, T: 1300, unfold: 'flutter' },
+      { approach: -55, dist: 240, swoop: .05, z0: 100, T: 800, unfold: 'snap' },
+      { approach: 140, dist: 520, swoop: .38, z0: 60, T: 1500, unfold: 'spin' },
     ];
     demos.forEach((d) => d.classList.add('pl-hidden', 'ftWaiting'));
     let queue = Promise.resolve();
@@ -292,7 +292,8 @@ var Features = (() => {
         d.classList.remove('ftWaiting');
         const w = Math.max(1, d.offsetWidth), st = STYLES[demos.indexOf(d) % STYLES.length];
         let over = false; const end = () => { if (over) return; over = true; d.classList.remove('pl-hidden'); done(); };
-        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(170 / w, .18, .36) }).then(end);
+        // Sized from the card: the plane is about 150 pixels long whatever the card's width, and starts in sight.
+        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(150 / w, .14, .3), within: true }).then(end);
         // Never held longer than the flight, whatever becomes of it.
         setTimeout(end, 3500);
       }));
@@ -315,7 +316,7 @@ var Features = (() => {
         groups.forEach((g, gi) => {
           const lead = g[0]; if (!lead) return;
           setTimeout(() => {
-            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 180, T: 1000 + gi * 150, openT: 600, s0: .5 })
+            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 90, T: 1000 + gi * 150, openT: 600, s0: .5, within: true, unfold: ['snap', 'spin', 'flutter'][gi % 3] })
               .then(() => g.forEach((li, k) => setTimeout(() => { li.classList.remove('ftChipWait'); li.classList.add('ftChipPop'); }, k * 70)));
           }, gi * 260);
         });

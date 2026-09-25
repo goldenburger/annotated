@@ -142,6 +142,9 @@ const AnnotationPage = (() => {
       if (!open) { chrome.tabs.create({ url: a.href }).catch(() => {}); return; }
       await chrome.tabs.update(open.id, { active: true }).catch(() => {});
       if (open.windowId != null && chrome.windows) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+      // It opens at the top, where it used to keep wherever it had been scrolled to (recording of 2026-09-25 at
+      // 20:19, 1:58, halfway down at Receipts that stay).
+      if (chrome.scripting) chrome.scripting.executeScript({ target: { tabId: open.id }, func: () => scrollTo({ top: 0, behavior: 'instant' }) }).catch(() => {});
     }));
     container.querySelectorAll('.navFeed').forEach((b) => b.addEventListener('click', () => (onFeed || onHome) && (onFeed || onHome)()));
     const you = container.querySelector('.navProfile');
@@ -154,7 +157,7 @@ const AnnotationPage = (() => {
   // A page for an annotation that is not there, deleted or never found, inside the same frame as every other
   // page, with the wordmark to go home. It used to be one line of text on an empty page.
   // An empty list's drawing: a crumpled sheet and a plane (paperdeco.js), or nothing where it is not loaded.
-  const emptyArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.ART.ball()}${PaperDeco.ART.lone()}</div>` : '');
+  const emptyArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.emptyArt()}</div>` : '');
   // The panel's quiet corner under a list.
   const cornerArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pd pd-corner" aria-hidden="true">${PaperDeco.ART.corner()}</div>` : '');
   function renderMissing(container, { title, why = '', onHome, onProfile, onAll = null, siteNav = true }) {
@@ -634,7 +637,9 @@ const AnnotationPage = (() => {
       container.classList.add('pl-landing');
       let done = false;
       const land = () => { if (done) return; done = true; container.classList.remove('pl-landing', 'pl-arriving'); };
-      Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) }).then(land);
+      // The whole post still unwraps; how it opens changes from one annotation to the next.
+      const unfold = ['classic', 'cascade', 'flutter', 'classic'][Math.floor(Math.random() * 4)];
+      Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, unfold, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) }).then(land);
       // The card is the plane's to show now (pl-hidden until it opens), so the first-frame hold can go.
       container.classList.remove('pl-arriving');
       // Never held for longer than the flight, whatever becomes of it.
