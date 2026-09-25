@@ -510,6 +510,16 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   which plays it whatever has happened before; on its own it still plays once a visit, with Yours so far empty.
   After the recording at 05:47: on the website the logo is the home page and the nav's button is Feed (`.navFeed`,
   `onFeed`), where the button was called Home and opened the feed, so Home on the feed went nowhere.
+- **The recording of 2026-09-25 at 06:01** (`tests/walk0601.py`). A published annotation deleted online (from another
+  page, computer or the website) is taken off this computer when the panel or the extension's feed pages list it
+  (`Cloud.gone`, `Store.pruneGone`), and the panel says so once; "test 5" went on showing in the panel and on the
+  extension's profile after it was deleted online at 04:53. `Cloud.gone` treats an error as nothing gone, so a network
+  hiccup never drops anything. `?preview=visitor` shows the home page as a visitor sees it, extension or not, with the
+  install plane every time. The install button's plane is decided at launch: holding it only when the button was
+  already showing skipped the plane whenever the 0.8 s installed check was still running, real visitors included.
+  Tests that serve an empty database must answer the existence check (`exists_reply` in `_env.py`), or their published
+  records are taken for deleted online. The YouTube tab shows the clip's start frame from the sprite until the video
+  plays (`.stScreen.live`), where it was a black box.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

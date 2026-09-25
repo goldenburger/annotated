@@ -33,6 +33,8 @@ async def main():
     await ctx.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}")
     async def db(route):
       u = route.request.url
+      ex = exists_reply(u)
+      if ex is not None: return await route.fulfill(status=200, content_type='application/json', body=ex)
       if '/auth/v1/' in u: return await route.fulfill(status=200, content_type='application/json', body=json.dumps(sess(who['id'])['user']))
       if '/rest/v1/profiles' in u: return await route.fulfill(status=200, content_type='application/json', body=json.dumps([PROFILES[who['id']]]))
       await route.fulfill(status=200, content_type='application/json', headers={'Content-Range': '*/0'}, body='[]')

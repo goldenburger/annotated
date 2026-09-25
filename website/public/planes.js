@@ -21,6 +21,8 @@
   if (off || location.pathname !== '/') return;
   let seen = false;
   try { seen = sessionStorage.getItem('annotated-plane-seen') === '1'; } catch { /* no storage */ }
+  // A visitor preview always plays the opening, however often it is loaded.
+  if (new URLSearchParams(location.search).get('preview') === 'visitor') seen = false;
 
   const root = document.documentElement;
   if (!seen) root.classList.add('planes-waiting');
@@ -241,7 +243,10 @@
       // The install button arrives as a plane of its own once the brief is down, and unfolds into the button
       // (David, 2026-09-25). With the extension installed the button is hidden, has no size, and nothing flies.
       const get = document.querySelector('.heroGet');
-      if (get && get.offsetWidth) get.classList.add('pl-hidden');
+      // Held back whether or not it is showing yet: for up to 0.8 s the page hides it while it waits to learn whether
+      // the extension is installed, and checking its size then skipped the plane for real visitors too. Whether it
+      // flies is decided at launch, when that is known.
+      if (get) get.classList.add('pl-hidden');
       // A click, a key or a scroll finishes the opening at once, and the button is then simply there.
       let hurried = false;
       const hurry = () => { hurried = true; };
@@ -255,10 +260,14 @@
       const launch = () => {
         if (!get || done) return;
         settle();
+        // Still waiting to learn whether the extension is installed: one more try in 0.7 s.
+        const waiting = document.querySelector('.landChecking');
+        if (!hurried && waiting && !get.offsetWidth && !launch.retried) { launch.retried = true; done = false; setTimeout(launch, 700); return; }
         if (hurried || !get.offsetWidth) { get.classList.remove('pl-hidden'); return; }
         Fold.arrive(get, { z0: 120, T: 900, openT: 800, s0: .6 });
       };
       setTimeout(launch, 1300);
+
       // The check waits a turn: a click finishes the brief's flight in fold.js's own listener, before this one hears it.
       setTimeout(() => briefIn(paper, true).then(() => new Promise((r) => setTimeout(r, 0))).then(() => {
         if (!done && get && hurried) { settle(); get.classList.remove('pl-hidden'); }

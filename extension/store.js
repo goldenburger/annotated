@@ -94,6 +94,18 @@ const Store = (() => {
       return allOf('meta');
     },
     async stamp() { try { return (await chrome.storage.local.get('annotatedStamp')).annotatedStamp || 0; } catch { return 0; } },
+    // Takes out of a list the published ones that have been deleted online, and removes their copies here, so no
+    // page of the extension goes on listing what is gone (recording of 2026-09-25 at 06:01). Answers the list
+    // that is left and how many went.
+    async pruneGone(records) {
+      if (typeof Cloud === 'undefined' || !Cloud.gone) return { records, dropped: 0 };
+      const shared = records.filter((r) => r.cloud).map((r) => r.id);
+      if (!shared.length) return { records, dropped: 0 };
+      const gone = new Set(await Cloud.gone(shared).catch(() => []));
+      if (!gone.size) return { records, dropped: 0 };
+      for (const id of gone) await Store.del(id).catch(() => {});
+      return { records: records.filter((r) => !gone.has(r.id)), dropped: gone.size };
+    },
   };
   return Store;
 })();

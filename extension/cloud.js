@@ -73,6 +73,20 @@ const Cloud = (() => {
     return toRecord(data);
   }
   // Newest annotations from everyone, or from one person.
+  // Which of these published ids are no longer in the database: deleted from another page, another computer or
+  // the website. Asked at most once a minute for the same ids. An error answers none, so nothing local is ever
+  // dropped on a network hiccup (recording of 2026-09-25 at 06:01: the panel went on listing "test 5" after it
+  // had been deleted online).
+  const goneAsked = new Map();
+  async function gone(ids) {
+    const fresh = ids.filter((id) => !(goneAsked.get(id) > Date.now() - 60000));
+    if (!fresh.length || (typeof navigator !== 'undefined' && navigator.onLine === false)) return [];
+    const { data, error } = await c().from('annotations').select('id').in('id', fresh);
+    if (error || !Array.isArray(data)) return [];
+    fresh.forEach((id) => goneAsked.set(id, Date.now()));
+    const here = new Set(data.map((r) => r.id));
+    return fresh.filter((id) => !here.has(id));
+  }
   async function list({ authorId = null, limit = 60 } = {}) {
     // Who replied, reacted and voted, not only how many, because For you counts different people rather
     // than raw activity, and needs to know what you have already joined in on.
@@ -405,5 +419,5 @@ const Cloud = (() => {
     };
   }
 
-  return { publish, carryOver, get, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
+  return { publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
 })();

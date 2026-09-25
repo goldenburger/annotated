@@ -23,7 +23,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // then the rail) kept Home blank for about three seconds (recording of 2026-09-25 at 01:15, 2:36).
     // Only your own profile has to wait for who you are before it can ask for the list.
     const meP = readMe();
-    const localP = Store.allMeta().catch(() => []);
+    // Copies of annotations deleted online are taken off this computer as the list is read (recording of
+    // 2026-09-25 at 06:01, where the profile page went on listing one).
+    const localP = Store.allMeta().catch(() => []).then((l) => Store.pruneGone(l)).then((p) => p.records);
     const listFor = (authorId) => Cloud.list({ authorId, limit: 100 }).catch(() => []);
     const early = mode === 'home' ? listFor(null) : userId ? listFor(userId) : null;
     await meP;

@@ -36,6 +36,8 @@ async def main():
     await ctx.add_init_script(INIT)
     async def db(route):
       u = route.request.url
+      ex = exists_reply(u)
+      if ex is not None: return await route.fulfill(status=200, content_type='application/json', body=ex)
       if '/rest/v1/follows' in u:
         # One person follows me and I follow nobody, which is what the database held in the recording.
         n = 1 if f'followee_id=eq.{ME}' in u else 0

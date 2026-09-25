@@ -919,7 +919,8 @@ async function annotateNow(tid) {
 }
 async function drawBrowse() {
   const kind = browsing;
-  const local = await Store.allMeta().catch(() => []);
+  const pruned = await Store.pruneGone(await Store.allMeta().catch(() => []));
+  const local = pruned.records;
   const me = await cachedProfile();
   // Yours, not this computer's. Another account's annotations share the store, and the list used to show
   // them, and offer to delete them, to whoever was signed in or to nobody at all.
@@ -960,6 +961,8 @@ async function drawBrowse() {
     action = { label: 'Sign in with Google', onClick: signIn };
   }
   if (!me && signIn && kind === 'home' && tabs && tabs.current === 'following') action = { label: 'Sign in with Google', onClick: signIn };
+  // Said once, when copies of annotations deleted online have just been taken off this computer.
+  if (pruned.dropped) note = `${pruned.dropped === 1 ? 'One annotation was' : pruned.dropped + ' annotations were'} deleted online, so ${pruned.dropped === 1 ? 'it is' : 'they are'} gone from here too.${note ? ' ' + note : ''}`;
   AnnotationPage.renderBrowse($('#browseMode'), {
     title, records, note, emptyNote, tabs, localAware: true, backTo, action,
     onOpen: (id) => openExtPage('annotation.html#' + id),

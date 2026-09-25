@@ -58,3 +58,18 @@ async def press_annotate(pg):
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }""")
   if not r: raise RuntimeError('no Annotate button showing')
   await pg.mouse.click(r['x'], r['y'])
+
+
+# A stand-in database that holds every annotation asked about. Cloud.gone asks which published ids still exist
+# (select=id&id=in.(...)), and a test that serves an empty database would otherwise have its published records
+# taken for deleted online and removed. Returns the reply body, or None when the request is something else.
+def exists_reply(url):
+  import json as _json
+  from urllib.parse import urlparse, parse_qs
+  if '/rest/v1/annotations' not in url: return None
+  q = parse_qs(urlparse(url).query)
+  if q.get('select') != ['id'] or not q.get('id'): return None
+  inner = q['id'][0]
+  if not inner.startswith('in.('): return None
+  ids = [x.strip().strip('"') for x in inner[4:-1].split(',') if x.strip()]
+  return _json.dumps([{'id': i} for i in ids])

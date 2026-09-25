@@ -154,7 +154,21 @@ var SceneTry = (() => {
         });
       }
     };
+    // The screen shows the frame at the clip's start from the sprite until the video itself is playing. It was a
+    // black box until Play selection (recording of 2026-09-25 at 06:24).
+    const screen = root.querySelector('.stScreen');
+    const still = () => {
+      if (!screen || screen.classList.contains('live')) return;
+      const sp = media.sprite, rows = Math.ceil(sp.count / sp.cols);
+      const idx = Math.min(sp.count - 1, Math.max(0, Math.round(a / sp.every)));
+      const col = idx % sp.cols, row = Math.floor(idx / sp.cols);
+      screen.style.backgroundImage = `url("${sp.src}")`;
+      screen.style.backgroundSize = `${sp.cols * 100}% ${rows * 100}%`;
+      screen.style.backgroundPosition = `${sp.cols > 1 ? (col / (sp.cols - 1)) * 100 : 0}% ${rows > 1 ? (row / (rows - 1)) * 100 : 0}%`;
+    };
+    if (video) el.addEventListener('playing', () => screen.classList.add('live'), { once: true });
     const draw = () => {
+      if (video) still();
       if (a < w0) w0 = a; if (z > w0 + span) w0 = z - span;
       sel.style.left = pct(a) + '%'; sel.style.width = ((z - a) / span) * 100 + '%';
       ha.style.left = pct(a) + '%'; hz.style.left = pct(z) + '%';

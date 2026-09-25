@@ -59,7 +59,8 @@ function matchExtension(me) {
     // The feed is at /?feed, a link in the header.
     {
       const signInNow = () => Backend.signIn().catch(() => {});
-      const land = Landing.mount(page, { signedIn: !!session, onSignIn: signInNow });
+      const visitor = query.get('preview') === 'visitor';
+      const land = Landing.mount(page, { signedIn: !!session && !visitor, onSignIn: signInNow });
       document.title = 'annotated: say what you think about anything on the web';
       void land;
       const who = session ? { id: session.user.id, name: ((session.user.user_metadata || {}).full_name) || 'another account' } : null;

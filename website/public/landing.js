@@ -15,7 +15,10 @@ var Landing = (() => {
   const WORDS = ['anything', ...TABS.map((t) => t.word)];
   const icon = (n) => (typeof Brand !== 'undefined' ? Brand.icon(n) : '');
   const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const installed = () => document.documentElement.dataset.annotatedInstalled === '1';
+  // ?preview=visitor shows the page as a first-time visitor sees it, extension or not, install plane and all
+  // (David, 2026-09-25: with annotated installed he could never see the plane that brings the install button).
+  const PREVIEW = new URLSearchParams(location.search).get('preview') === 'visitor';
+  const installed = () => !PREVIEW && document.documentElement.dataset.annotatedInstalled === '1';
 
   function header(root, { signedIn, onSignIn }) {
     const bar = document.createElement('header');
