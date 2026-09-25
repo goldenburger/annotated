@@ -1009,6 +1009,9 @@ async function drawBrowse({ quick = false } = {}) {
       return failed;
     } : null,
   });
+  // The list is kept when nothing on it changed (renderBrowse's dataset.sig), and so are the start tools under its
+  // heading, which were otherwise added a second time.
+  if (kind === 'home' && $('#browseMode .startBlock')) return;
   if (kind === 'home') {
     const st = document.createElement('div');
     st.className = 'startBlock esAction';
