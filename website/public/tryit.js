@@ -53,7 +53,7 @@ var TryIt = (() => {
         <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>
         <span class="tiPen" aria-hidden="true" hidden>${PEN}</span>
       </div>
-      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><span class="tiLinks"><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="link tiShowMe">Show me an example</button></span><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
+      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><span class="tiLinks"><button type="button" class="link tiWhole" hidden>Use the whole sentence</button><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="link tiShowMe">Show me an example</button></span><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
       <form class="tiTake" hidden>
         <label class="tiLabel" for="tiInput">Your take</label>
         <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
@@ -209,6 +209,12 @@ var TryIt = (() => {
       if (!ArticleCore.norm(words)) return;
       getSelection().removeAllRanges();
       btn.hidden = true;
+      // Words that start or end part way through a sentence are offered the whole of it, as the extension offers
+      // it beside a quote. Worked out before the pen, since marking the words moves the range.
+      let full = '';
+      try { full = ArticleCore.quoteText(ArticleCore.expandToSentences(range.cloneRange())); } catch { full = ''; }
+      wholeWords = full && ArticleCore.norm(full) !== ArticleCore.norm(words) && ArticleCore.norm(full).length <= MAX_QUOTE ? full : '';
+      q('.tiWhole').hidden = !wholeWords;
       if (marks.length) ArticleCore.clearHighlights(text);
       quote = words;
       const ms = ink(range);
@@ -216,6 +222,16 @@ var TryIt = (() => {
       hint.textContent = 'That is the pen the extension uses on any page.';
       setTimeout(() => { form.hidden = false; requestAnimationFrame(() => form.classList.add('up')); input.focus({ preventScroll: true }); }, ms + 150);
     };
+    let wholeWords = '';
+    q('.tiWhole').addEventListener('mousedown', (e) => e.preventDefault());
+    q('.tiWhole').addEventListener('click', () => {
+      const want = wholeWords; if (!want) return;
+      ArticleCore.clearHighlights(text); marks = [];
+      const r = ArticleCore.findText(text, ArticleCore.norm(want));
+      q('.tiWhole').hidden = true;
+      if (r) take(r, { keepBox: !form.hidden });
+      wholeWords = ''; q('.tiWhole').hidden = true;
+    });
     // For the keyboard, and for anyone who does not know the words can be selected: one sentence, marked.
     q('.tiForMe').addEventListener('click', () => {
       quiet();
@@ -250,6 +266,7 @@ var TryIt = (() => {
     const reset = async () => {
       const g = ++resetGen;
       form.hidden = true; form.classList.remove('up'); input.value = ''; q('.tiCount').textContent = ''; say(''); q('.tiSwap').hidden = true; q('.tiMake').disabled = true;
+      q('.tiWhole').hidden = true;
       q('.tiAfter').hidden = true;
       await sinkLift();
       if (g !== resetGen) return;
@@ -272,7 +289,7 @@ var TryIt = (() => {
       try { localStorage.setItem(KEY, JSON.stringify(made)); } catch { /* private window */ }
       // The extension, if it is installed, hears this and keeps it for its panel.
       document.dispatchEvent(new CustomEvent('annotated-tryit-made'));
-      form.classList.remove('up'); form.hidden = true;
+      form.classList.remove('up'); form.hidden = true; q('.tiWhole').hidden = true;
       showLift(t);
       q('.tiAfter').hidden = false;
       hint.textContent = 'Your take on top, the source underneath.';

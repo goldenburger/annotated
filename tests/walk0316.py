@@ -62,7 +62,8 @@ async def main():
     fid = await sw.evaluate("chrome.tabs.query({}).then(t=>t.find(x=>x.url.includes('feed.html')).id)")
     side = await ctx.new_page(); await side.set_viewport_size({'width': 400, 'height': 900}); side.on('pageerror', lambda e: errs.append('SIDE ' + str(e)))
     await side.goto(f'chrome-extension://{extid}/sidepanel.html?tab={fid}'); await asyncio.sleep(2)
-    await side.evaluate(f"lastSourceTab = {tid}; annKey = null;"); await asyncio.sleep(1.5)
+    # A change made from here, which nothing announces, is found by the panel's slow check (every two seconds).
+    await side.evaluate(f"lastSourceTab = {tid}; annKey = null;"); await asyncio.sleep(2.6)
     await side.evaluate("window.__heard = 0; Backend.onChange(() => { window.__heard++; }); document.querySelector('.sideBack').__mark = 1")
     await asyncio.sleep(1)
     base = await side.evaluate("window.__heard")

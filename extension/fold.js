@@ -54,7 +54,29 @@ var Fold = (() => {
     c.removeAttribute('id');
     c.querySelectorAll('[id]').forEach((x) => x.removeAttribute('id'));
     c.querySelectorAll('[data-annotated-self]').forEach((x) => x.removeAttribute('data-annotated-self'));
-    c.querySelectorAll('video, audio, iframe').forEach((x) => x.replaceWith(make('div', 'pl-media')));
+    // A video is copied as the frame it shows, where it became a black box, and a clip folded with a black bar
+    // across it (recording of 2026-09-25 at 15:38, 2:29). A video that cannot be drawn keeps the plain box.
+    const vids = [...target.querySelectorAll('video')];
+    c.querySelectorAll('video').forEach((x, i) => {
+      const v = vids[i], box = make('div', 'pl-media');
+      box.className = (typeof x.className === 'string' ? x.className : '') + ' pl-media';
+      try {
+        if (v && v.videoWidth && v.readyState >= 2) {
+          const cv = document.createElement('canvas'); cv.width = v.videoWidth; cv.height = v.videoHeight;
+          cv.getContext('2d').drawImage(v, 0, 0);
+          box.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', .8)})`;
+          box.style.backgroundSize = 'cover'; box.style.backgroundPosition = 'center'; box.classList.add('pl-frame');
+        } else if (v && v.style.backgroundImage) {
+          // A still of its own, set on the video until it plays (scenetry.js).
+          box.style.backgroundImage = v.style.backgroundImage; box.style.backgroundSize = v.style.backgroundSize;
+          box.style.backgroundPosition = v.style.backgroundPosition; box.classList.add('pl-frame');
+        } else if (v && v.poster) { box.style.backgroundImage = `url("${v.poster}")`; box.style.backgroundSize = 'cover'; box.classList.add('pl-frame'); }
+      } catch { /* a frame from another site cannot be read */ }
+      const r = v && v.getBoundingClientRect();
+      if (r && r.height) { box.style.width = r.width + 'px'; box.style.height = r.height + 'px'; }
+      x.replaceWith(box);
+    });
+    c.querySelectorAll('audio, iframe').forEach((x) => x.replaceWith(make('div', 'pl-media')));
     c.setAttribute('aria-hidden', 'true'); c.inert = true;
     // The copy is the element's own size, turned back against the sheet's own turn so it reads the right way up.
     c.style.cssText += `;position:absolute;left:${(Lw - W) / 2}px;top:${(Lh - H) / 2}px;width:${W}px;height:${H}px;margin:0;box-sizing:border-box;opacity:1;visibility:visible;transform:rotate(${-theta}deg);box-shadow:none;`;
@@ -312,7 +334,10 @@ var Fold = (() => {
 
   // Drop in from just above an element and open into it. `from` and `len` hand over from a plane already on
   // the spot, which is how a plane that flew here becomes the thing it lands as.
-  function arrive(el, { delay = 0, from = null, len = 0, z0 = 150, T = 1000, openT = 1000, s0 = 0 } = {}) {
+  // `approach` turns where the plane comes from around its landing (degrees, 0 is from behind it), `dist` is how far
+  // off it starts, and `swoop` how far its path bows to one side (negative bows the other way), so a run of
+  // arrivals need not all look alike.
+  function arrive(el, { delay = 0, from = null, len = 0, z0 = 150, T = 1000, openT = 1000, s0 = 0, approach = 0, dist = 300, swoop = .15 } = {}) {
     return new Promise((resolve) => {
       el.classList.add('pl-hidden');
       const go = () => {
@@ -321,8 +346,9 @@ var Fold = (() => {
         const plane = buildPlane(el, { s0: len ? len / L : (s0 || clamp(150 / L, .2, .5)) });
         const t = track(plane, el, resolve);
         const h = dir(plane.phi);
-        const start = { x: plane.centre.x - h.x * 300 - h.y * 90, y: plane.centre.y - h.y * 300 + h.x * 70 };
-        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, .15), { z: descend(z0, .84), T });
+        const a = approach * Math.PI / 180, bx = -h.x * dist - h.y * 90 * dist / 300, by = -h.y * dist + h.x * 70 * dist / 300;
+        const start = { x: plane.centre.x + bx * Math.cos(a) - by * Math.sin(a), y: plane.centre.y + bx * Math.sin(a) + by * Math.cos(a) };
+        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, swoop), { z: descend(z0, .84), T });
         if (from) plane.fshadow.style.opacity = '0';
         air.then(async () => {
           if (!flying.has(t)) return;

@@ -230,6 +230,12 @@ async function openFull(kind, me) {
   const tabs = await chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).catch(() => []);
   const want = (u) => { try { const x = new URL(u); return kind === 'home' ? x.pathname === '/' && x.searchParams.has('feed') : !!(me && me.handle) && x.pathname === '/@' + me.handle; } catch { return false; } };
   const open = tabs.find((x) => want(x.url));
+  // Beside our website, that tab goes to the website's own full page, rather than the extension opening its copy
+  // in a new tab (recording of 2026-09-25 at 15:38, 3:44).
+  const here = await activeTabNow().catch(() => null);
+  if (!open && here && /^https:\/\/annotated-app\.netlify\.app\//.test(here.url || '') && (kind === 'home' || (me && me.handle))) {
+    return chrome.tabs.update(here.id, { url: 'https://annotated-app.netlify.app/' + (kind === 'home' ? '?feed' : '@' + me.handle) });
+  }
   if (open) {
     await chrome.tabs.update(open.id, { active: true }).catch(() => {});
     if (open.windowId != null) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
@@ -625,7 +631,7 @@ function makeArticle(tid, url, hasAudio = false) {
     async capture() {
       const r = await sendTo(tid, { type: 'capture-passage' });
       if (!r || !r.ok) return r || { ok: false };
-      try { await tabShot(tid, r); } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
+      try { await tabShot(tid, r); } catch (e) { r.shotError = 'No picture this time. ' + e.message; }
       return r;
     },
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked,
@@ -670,7 +676,7 @@ function makePost(tid, url) {
     async capture() {
       const r = await sendTo(tid, { type: 'capture-post' });
       if (!r || !r.ok) return r || { ok: false };
-      try { await tabShot(tid, r); } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
+      try { await tabShot(tid, r); } catch (e) { r.shotError = 'No picture this time. ' + e.message; }
       return r;
     },
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked, draftKey: 'p:' + url, keep: keepFor('p:' + url) });
@@ -869,6 +875,12 @@ function wirePaste(root, beside = false) {
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
 let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null, lastHome = null;
+// What a list row needs of a record, so the kept lists stay small.
+const slim = (r) => ({ id: r.id, created: r.created, why: r.why || '', cloud: !!r.cloud, mine: !!r.mine,
+  author: r.author ? { id: r.author.id, name: r.author.name, handle: r.author.handle } : null,
+  take: { text: (r.take && r.take.text) || '', poll: r.take && r.take.poll ? { question: r.take.poll.question } : null, voice: !!(r.take && r.take.voice), gif: r.take && r.take.gif ? { url: '' } : null },
+  item: { kind: r.item && r.item.kind, title: r.item && r.item.title, author: r.item && r.item.author, handle: r.item && r.item.handle, meta: { title: (r.item && r.item.meta && r.item.meta.title) || '' } } });
+const lastHomeP = chrome.storage.session.get('annotated-lastHome').then((o) => { if (!lastHome && o && o['annotated-lastHome']) lastHome = o['annotated-lastHome']; }).catch(() => {});
 // Beside annotated's own page, Home and Your profile move that page, which is already the full version of
 // them. Drawing the list in the panel first showed it for a second before the panel put back its line about
 // the page beside it, and offered "Back to annotated" from annotated (recording of 2026-09-24 at 19:34).
@@ -883,6 +895,16 @@ async function homeOrPage(kind) {
   leaveHelp();
   const t = await activeTabNow().catch(() => null);
   if (t && t.url && t.url.startsWith(chrome.runtime.getURL('')) && OWN_PAGE.test(t.url)) {
+    // Already that page: the panel shows its own list, since moving the page to where it already is changed
+    // nothing, and Home was pressed four times in the recording of 2026-09-25 at 15:38 (3:47 to 3:52).
+    // Any feed page counts, whatever follows in its address: Home did nothing five more times in the recording
+    // of 2026-09-25 at 16:02 (2:05 to 2:07), with a feed address the exact match did not know.
+    const u = new URL(t.url), h = u.hash.replace(/^#/, '');
+    const onFeed = u.pathname.endsWith('/feed.html');
+    const same = onFeed && (kind === 'profile' ? h === 'profile' : !/^(profile|user=)/.test(h));
+    if (same) return openBrowse(kind);
+    // The page is moved to the other list. Chrome hands the tab back before it has moved, still showing its old
+    // address, so that is not taken as nothing having happened (it drew the panel's list beside the page too).
     return openExtPage(kind === 'profile' ? 'feed.html#profile' : 'feed.html');
   }
   return openBrowse(kind);
@@ -970,10 +992,18 @@ async function drawBrowse({ quick = false } = {}) {
     // 1:56 to 2:04, 2:21, 3:07). Only with nothing kept does it say it is loading.
     tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
       onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
+    if (quick) await lastHomeP;
     const kept = lastHome && lastHome.who === (me && me.id) ? lastHome : null;
     if (quick && kept) { records = kept.records; note = kept.note; emptyNote = kept.emptyNote; tabs = { ...tabs, current: kept.current }; }
-    else if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; }
-    else lastHome = { who: me && me.id, records, note, emptyNote, current: cur };
+    // With nothing kept, the tabs wait too, since For you shown while loading gave way to Everyone a moment later
+    // (recording of 2026-09-25 at 16:02, 0:05).
+    else if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; tabs = null; }
+    else {
+      lastHome = { who: me && me.id, records: records.map(slim), note, emptyNote, current: cur };
+      // Kept for the next time the panel opens too, where the first Home said "Loading annotations…" under For you
+      // and then jumped to Everyone (recording of 2026-09-25 at 15:38, 0:17.75 to 0:18.25).
+      chrome.storage.session.set({ 'annotated-lastHome': lastHome }).catch(() => {});
+    }
   }
   if (browsing !== kind) return;
   // Where Back goes, by name. Beside a bare tab Home has nowhere to go back to, and Your profile goes to Home.
@@ -1027,7 +1057,11 @@ let lastSourceTab = null, openingHost = '';
 // the web", which the way back used to show word for word (recording of 2026-09-25 at 04:27).
 const cleanTitle = (t) => {
   const s = String(t || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X|annotated)$/, '').replace(/\s+\/\s+X$/, '').trim();
-  return /^annotated\s*:/i.test(s) ? "annotated's home page" : s;
+  if (/^annotated\s*:/i.test(s)) return "annotated's home page";
+  // A post on X is titled with its whole text ("Sawyer Merritt on X: "Motortrend after…"), which the way back cut
+  // off mid word (recording of 2026-09-25 at 15:38, 3:47). It is called what it is.
+  if (/^.{1,80}? on X: [“"]/.test(s)) return 'the post on X';
+  return s;
 };
 // A tab with nothing to annotate and no page of ours: a new tab, a blank page, a browser page.
 const bareTab = (url) => !isWeb(url) && !String(url || '').startsWith(chrome.runtime.getURL(''));
@@ -1102,13 +1136,13 @@ async function inject(tid, files, ping) {
   catch { await chrome.scripting.executeScript({ target: { tabId: tid }, files }); log('Injected ' + files.join(', ')); }
 }
 
-let busyRefresh = false;
+let busyRefresh = false, refreshAgain = false;
 async function refresh() {
   // A panel turned away by the key check has no panel to draw into. Other things, a change of settings for
   // one, still ask for a refresh, and it used to throw on the parts that were never drawn.
   if (!(await OURS)) return;
-  if (busyRefresh) return;
-  busyRefresh = true;
+  if (busyRefresh) { refreshAgain = true; return; }
+  busyRefresh = true; refreshAgain = false;
   try {
     // Test hook: sidepanel.html?tab=<id> pins the panel to one tab.
     const pinned = Number(new URLSearchParams(location.search).get('tab'));
@@ -1121,6 +1155,8 @@ async function refresh() {
     // part way through is never pulled out from under you. Go to another tab, or let this one go somewhere
     // else, and the panel comes back to what you are looking at instead of waiting to be sent back.
     if (browsing) {
+      // Still opening: Home has not yet noted the tab it opened beside, and a look now would close it at once.
+      if (!browseFrom) return;
       // Home beside a bare tab gives way as soon as that tab starts loading a page, so it can say what is opening.
       const leaving = bareTab(browseFrom && browseFrom.url) && tab && tab.status === 'loading' && isWeb(tab.pendingUrl || '');
       if (browseFrom && tab && tab.id === browseFrom.id && tab.url === browseFrom.url && !leaving && !feedAsked.has(tab.id)) return;
@@ -1301,7 +1337,7 @@ async function refresh() {
     // which is how "I can't get back to the start page" happened in the recording of 2026-09-23 at 02:48.
     if (!openingHost && bareTab(tab.url)) { busyRefresh = false; return openBrowse('home', { byHand: false }); }
     show(null);
-  } finally { busyRefresh = false; }
+  } finally { busyRefresh = false; if (refreshAgain) { refreshAgain = false; setTimeout(refresh, 0); } }
 }
 
 chrome.runtime.onMessage.addListener((m, sender) => {
@@ -1339,7 +1375,20 @@ chrome.tabs.onRemoved.addListener((id) => {
 // comes back, which it does immediately rather than on the next tick.
 OURS.then((ok) => {
   if (!ok) return;
-  setInterval(() => { if (document.visibilityState !== 'hidden') refresh(); }, 400);
+  // Every 400 ms only while a clip or a podcast moment is open, whose trimmer follows the player, or while a tab
+  // is opening. Otherwise every two seconds, with the tab's own events calling at once: switching tabs, a page
+  // loading or changing its address or title, a window coming forward, annotations changing. Checking every
+  // 400 ms on every page redrew beside pages that had not changed, which is where pressed buttons went missing.
+  let ticks = 0;
+  const fast = () => { const q = activeTab != null && panels.get(activeTab); return !!openingHost || !!(q && (q.kind === 'video' || q.kind === 'audio' || q.feed)); };
+  setInterval(() => { if (document.visibilityState === 'hidden') return; ticks++; if (fast() || ticks % 5 === 0) refresh(); }, 400);
+  const now = () => { if (document.visibilityState !== 'hidden') refresh(); };
+  chrome.tabs.onActivated.addListener(now);
+  chrome.tabs.onUpdated.addListener((id, ch, t) => { if (t && t.active && (ch.url || ch.status || ch.title)) now(); });
+  if (chrome.windows && chrome.windows.onFocusChanged) chrome.windows.onFocusChanged.addListener(now);
+  chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ch.annotatedStamp) now(); });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
+  // Help opened or Home pressed: what they show depends on the tab, so the panel looks again at once.
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.helpBtn, .homeBtn, .youBtn')) setTimeout(now, 0); });
   refresh();
 });

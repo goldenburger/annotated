@@ -522,7 +522,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stClipTime { flex: 0 0 auto; font: 500 12.5px/1 var(--sans); font-variant-numeric: tabular-nums; }
 /* Your latest annotation in Latest on annotated: a card of your own, only on this computer. */
 .llRow .yours .card { border-color: #F2C600; text-decoration: none; color: inherit; display: block; }
-.llRow .yours .yThumb { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0; border-radius: 6px; background-color: #0E0F12; background-repeat: no-repeat; }
+.llRow .yours .yThumb { display: block; width: 100%; aspect-ratio: 16 / 9; margin: 8px 0; border-radius: 6px; background-color: #E9E5D8; background-repeat: no-repeat; }
 .llRow .yours .yWave { display: flex; align-items: center; gap: 2px; height: 44px; margin: 8px 0; padding: 0 6px; border-radius: 6px; background: #F2EEE2; }
 .llRow .yours .yWave i { flex: 1; border-radius: 2px; background: #1C2433; opacity: .55; }
 .llRow .yours .yGet { display: block; margin-top: 8px; font: 600 12.5px/1.3 var(--sans); color: #16181D; text-decoration: underline; text-decoration-color: #F2C600; text-underline-offset: 3px; }
@@ -738,3 +738,73 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 /* A tip over a chip near the right edge made a phone page scroll sideways; the section clips sideways only. */
 .landFeatures { overflow-x: clip; }
 @media (max-width: 760px) { .ftChips li:nth-child(even) .ftTip { left: auto; right: 0; } }
+
+/* The podcast example plays (features.js): the player's button and the clipped waveform. */
+.ftPlay { border: 0; padding: 0; cursor: pointer; }
+.ftWave { cursor: pointer; }
+.ftWave:focus-visible, .ftPlay:focus-visible { outline: 2px solid var(--focus, #2563EB); outline-offset: 2px; }
+.ftWave.playing i.in { background: var(--hi); opacity: 1; }
+@media (prefers-reduced-motion: no-preference) { .ftFrame:not([hidden]) .ftProg i { animation: none; } }
+.ftProg i { width: 12%; transition: width .25s linear; }
+/* The header in the loading outline stays still; only the outline below it breathes. */
+.bootSkel { animation: none; }
+.bootSkel .bootMain { animation: bootFade .9s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .bootSkel .bootMain { animation: none; } }
+
+/* Receipts that stay, the X link card, and the post shown as a screenshot, an embed or both (features.js,
+   scenetry.js). */
+.ftRec, .ftRShot .ftRPost { display: grid; gap: 8px; }
+.ftRPost { padding: 12px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); }
+.ftRPost[hidden], .ftRGone[hidden], .ftRBack[hidden], .ftRDel[hidden] { display: none; }
+.ftRHead { display: flex; align-items: center; gap: 8px; font: 400 13px/1.3 var(--sans); color: var(--ink); }
+.ftRHead > .ic:last-child { margin-left: auto; width: 15px; height: 15px; color: var(--ink-2); }
+.ftRText { margin: 8px 0 0; font: 400 14.5px/1.5 var(--sans); color: var(--ink); }
+.ftRGone { margin: 0; padding: 14px; border: 1px dashed var(--rule); border-radius: 12px; display: flex; align-items: center; gap: 8px; font: 500 13.5px/1.3 var(--sans); color: var(--ink-3); }
+.ftRGone .ic { width: 16px; height: 16px; }
+.ftRArrow { font: 600 12.5px/1 var(--sans); color: var(--ink-3); text-align: center; }
+.ftRShot { margin: 0; display: grid; gap: 6px; }
+.ftRShot figcaption { font: 400 12.5px/1.35 var(--sans); color: var(--ink-3); }
+.ftRSaved.kept { box-shadow: 0 0 0 2px var(--hi); transition: box-shadow .3s ease; }
+.ftRRow { margin: 0; display: flex; gap: 12px; align-items: center; }
+.ftRRow .ghost { width: auto; display: inline-flex; align-items: center; gap: 6px; }
+.ftRRow .ic { width: 14px; height: 14px; }
+.ftShare { display: grid; gap: 6px; }
+.ftXCard { max-width: 440px; border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; background: var(--paper); }
+.ftXImg { aspect-ratio: 2.4 / 1; display: grid; align-content: center; gap: 10px; padding: 18px 22px; background: #FBF8EE; }
+.ftXTake { font: 600 clamp(15px, 1.6vw, 19px)/1.3 var(--serif); color: #16181D; }
+.ftXFrom { display: inline-flex; align-items: center; gap: 6px; font: 500 12.5px/1.2 var(--sans); color: #5B616E; }
+.ftXFrom .ic { width: 14px; height: 14px; }
+.ftXMeta { margin: 0; padding: 8px 12px; display: grid; gap: 2px; font: 400 12.5px/1.35 var(--sans); color: var(--ink-3); border-top: 1px solid var(--rule); }
+.ftXMeta b { font-weight: 500; color: var(--ink); }
+.sceneTry .stShow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 8px; }
+.sceneTry .stShowL { font: 600 12.5px/1.3 var(--sans); color: #5B616E; }
+.sceneTry .stShowSeg { display: inline-flex; gap: 4px; }
+.sceneTry .stShowB { font: 500 12.5px/1 var(--sans); color: #3A3F4A; background: #fff; border: 1px solid #E1DCCB; border-radius: 999px; padding: 6px 10px; cursor: pointer; }
+.sceneTry .stShowB[aria-checked="true"] { background: #FFE14A; border-color: #FFE14A; color: #16181D; }
+.sceneTry .stPostAs { display: grid; gap: 8px; margin: 8px 0 4px; }
+.sceneTry .stShot { margin: 0; display: grid; gap: 4px; }
+.sceneTry .stShot .stPost { pointer-events: none; font-size: 12.5px; max-height: 190px; overflow: hidden; border-radius: 8px; position: relative; }
+.sceneTry .stShot figcaption { font: 400 12.5px/1.3 var(--sans); color: #5B616E; }
+.sceneTry .stEmbed { margin: 0; padding: 10px 12px; border: 1px solid #E1DCCB; border-radius: 10px; background: #fff; display: grid; gap: 6px; }
+.sceneTry .stEmbedWho { margin: 0; display: flex; align-items: center; gap: 6px; font: 400 12.5px/1.3 var(--sans); color: #5B616E; }
+.sceneTry .stEmbedWho b { color: #16181D; }
+.sceneTry .stEmbedWho .ic { width: 14px; height: 14px; }
+.sceneTry .stEmbedText { margin: 0; font: 400 13.5px/1.45 var(--sans); color: #16181D; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.sceneTry .stEmbed .link { font-size: 12.5px; justify-self: start; }
+/* The bar under the paper sits on the page, not the paper, so in dark mode it takes the page's light ink. Its
+   hint and links were grey on near black (UX audit of 2026-09-25). */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .heroTry .tiBar, :root:not([data-theme="light"]) .heroTry .stBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; } }
+:root[data-theme="dark"] .heroTry .tiBar, :root[data-theme="dark"] .heroTry .stBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; }
+/* The row of smaller features arrives as a small flock (features.js): hidden until it comes into view, each chip
+   waiting unseen until its plane has opened, then popping into place. */
+.ftChips.ftFlock { visibility: hidden; }
+.ftChips li.ftChipWait { opacity: 0; transform: translateY(6px) scale(.9); }
+.ftChips li { transition: opacity .25s ease, transform .35s cubic-bezier(.2, 1.4, .4, 1); }
+@media (prefers-reduced-motion: reduce) { .ftChips li { transition: none; } }
+/* The home page ends on the desk (paperdeco.js): a pile of planes, one flying off on its dashed trail, a sheet. */
+.pdFoot { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin: 10px 0 -10px; }
+.pdFoot .pd-pile svg { width: 250px; height: auto; }
+.pdFoot .pd-trail { flex: 1; display: flex; justify-content: center; align-self: center; }
+.pdFoot .pd-trail svg { width: min(100%, 300px); height: auto; }
+.pdFoot .pd-sheet svg { width: 120px; height: auto; transform: translateY(12px); }
+@media (max-width: 760px) { .pdFoot .pd-trail { display: none; } .pdFoot .pd-pile svg { width: 170px; } .pdFoot .pd-sheet svg { width: 84px; } }

@@ -31,8 +31,12 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   };
 
   const load = async () => {
-    await readMe();
+    // Who you are and the local copy are asked for together, and the rest below too, since one after another they
+    // left the page white for most of a second before the plane from Publish arrived (recording of 2026-09-25 at
+    // 15:38, 1:02).
+    const meP = readMe();
     const id = decodeURIComponent(location.hash.slice(1));
+    const localP = id ? Store.get(id).catch(() => null) : Promise.resolve(null);
     // How you got here decides what Back can honestly mean. The panel says so when it sent you here from
     // publishing. Otherwise anything behind you in this tab is one of our own pages, because this tab only
     // ever shows them. Arriving cold on a shared link there is nothing behind you at all.
@@ -43,7 +47,8 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       await chrome.storage.session.remove('annFrom');
     } catch { /* no session storage, so treat it as any other arrival */ }
     if (from !== 'publish' && beenHereBefore) from = 'history';
-    const local = id ? await Store.get(id).catch(() => null) : null;
+    const local = await localP;
+    await meP;
     window.scrollTo(0, 0);
     // Saved on this computer, or shared by anyone.
     let rec = local ? { id, ...local } : null;
@@ -65,6 +70,12 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // Publishing takes a copy of the author, and the local copy is preferred over the shared one because it
     // holds the files. That copy goes stale the moment a name or a handle changes, so a shared annotation
     // asks who its author is now and keeps the answer.
+    const socialP = shared ? Cloud.social(id, me && me.id).catch(() => null) : Promise.resolve(null);
+    const recordsP = Store.allMeta().catch(() => []);
+    const discoveryP = Cloud.discovery(me, {
+      signIn: () => Backend.signIn().then(() => load()).catch(() => {}),
+      onPerson: (handle) => Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.href = 'feed.html#user=' + encodeURIComponent(data.id); }),
+    }).catch(() => null);
     if (shared && author && author.id) {
       const now = await Cloud.authorNow(author.id).catch(() => null);
       if (now && (now.handle !== author.handle || now.name !== author.name || now.avatar !== author.avatar)) {
@@ -81,18 +92,15 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // Shared: everyone's comments, reactions and votes come from the database.
     let comments = rec.comments || [], reactions = rec.reactions || [];
     if (shared) {
-      const soc = await Cloud.social(id, me && me.id).catch(() => null);
+      const soc = await socialP;
       if (soc) {
         comments = soc.comments; reactions = soc.reactions;
         if (rec.take.poll) rec.take = { ...rec.take, poll: { ...rec.take.poll, counts: soc.poll.counts, vote: soc.poll.vote } };
       }
     }
-    const records = await Store.allMeta().catch(() => []);
+    const records = await recordsP;
     // Following and discovery for the rail and the author's Follow button.
-    const soc = await Cloud.discovery(me, {
-      signIn: () => Backend.signIn().then(() => load()).catch(() => {}),
-      onPerson: (handle) => Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.href = 'feed.html#user=' + encodeURIComponent(data.id); }),
-    }).catch(() => null);
+    const soc = await discoveryP;
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.

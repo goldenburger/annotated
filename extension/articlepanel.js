@@ -131,7 +131,7 @@ const ArticlePanel = (() => {
       q('.selQuote').classList.toggle('bad', s.state !== 'ok');
       q('.selQuote').textContent = s.text.length > 600 ? s.text.slice(0, 600) + '…' : s.text;
       PanelKit.clampQuote(q('.selQuote'));
-      q('.selCount').textContent = `${s.len.toLocaleString()} characters selected`;
+      { const n = s.text.trim().split(/\s+/).filter(Boolean).length; q('.selCount').textContent = n === 1 ? '1 word selected' : `${n.toLocaleString()} words selected`; }
       const eb = q('.exactBtn');
       if (s.expanded) { q('.selNote').textContent = 'Snapped to full sentences.'; eb.textContent = 'Use exactly what I selected'; eb.dataset.exact = '1'; eb.hidden = false; }
       // The whole sentence is offered once, beside the captured quote, where the note saying it is part of a
@@ -227,7 +227,7 @@ const ArticlePanel = (() => {
       status.add(m.image ? 'pass' : 'info', 'Preview image', m.image ? 'Found' : 'None. The screenshot is used instead.');
       status.add('pass', 'Link to the exact passage', r.fragmentUrl);
       if (shot) status.add('pass', 'Screenshot of the passage', `${shot.w}x${shot.h}${shot.clipped ? '. Taller than the window, so only the visible part is shown.' : ''}`);
-      else status.add('fail', 'Screenshot', r.shotError || 'Could not take a screenshot.');
+      else status.add('fail', 'Screenshot', r.shotError || 'No picture this time.');
       status.done(`Passage ready. From ${m.site}${m.author ? ', by ' + m.author : ''}.`, { quiet: true });
 
       q('.aPublished').hidden = true;

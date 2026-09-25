@@ -185,7 +185,7 @@ const PostPanel = (() => {
       status.add(r.author ? 'pass' : 'fail', 'Author', `${r.author} ${r.handle}`.trim());
       status.add(r.posted ? 'pass' : 'info', 'Posted', fmtDate(r.posted) || 'Not found');
       status.add('pass', 'Link to the post', r.url);
-      status.add(shot ? 'pass' : 'fail', 'Screenshot of the post', shot ? `${shot.w}x${shot.h}${shot.clipped ? '. Taller than the window, so only the visible part is shown.' : ''}` : (r.shotError || 'Could not take a screenshot.'));
+      status.add(shot ? 'pass' : 'fail', 'Screenshot of the post', shot ? `${shot.w}x${shot.h}${shot.clipped ? '. Taller than the window, so only the visible part is shown.' : ''}` : (r.shotError || 'No picture this time.'));
       status.done(`Post ready. By ${r.author}${r.handle ? ' (' + r.handle + ')' : ''}.`, { quiet: true });
       q('.pGrab').hidden = true;
       // The post and the hints fold away. Only the choice of how to show it stays above your take.

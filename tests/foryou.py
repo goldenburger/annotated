@@ -49,7 +49,10 @@ async def main():
     first_sam = min(ids.index(x) for x in ('sam1', 'sam2', 'sam3'))
     if first_sam > ids.index('busy'): errs.append(f'a busy post by a stranger came before someone you follow: {ids[:4]}')
     if out[first_sam]['why'] != 'You follow Sawyer Merritt': errs.append(f"their card says {out[first_sam]['why']!r}")
-    if any(not r['why'] for r in out[:8]): errs.append('a card near the top has no reason on it')
+    # A card with nothing about you in it has no reason line: "New today" was dropped, the time being beside the
+    # author already (UX audit of 2026-09-25). The ones picked for you still say why.
+    if any(not r['why'] for r in out[:3]): errs.append('a card picked for you has no reason on it')
+    if any(r['why'] == 'New today' for r in out): errs.append('a card still says New today')
     for a, b in zip(out, out[1:]):
       if a['author'] == b['author'] and len(set(r['author'] for r in out)) > 1:
         errs.append(f'two by {a["author"]} in a row: {a["id"]}, {b["id"]}'); break

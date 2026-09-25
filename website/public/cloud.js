@@ -314,7 +314,7 @@ const Cloud = (() => {
       if (likedAuthors.has(r.author.id) && !followed.has(r.author.id)) { s += 1.5; why.push([1.5, `You have replied to or reacted to ${r.author.name || 'them'} before`]); }
       if (r.take && r.take.tag && tags.has(r.take.tag)) { s += 0.8; why.push([1, `Tagged ${r.take.tag}, like yours`]); }
       if (voices.length >= 2) why.push([0.9, `${voices.length} people are talking about this`]);
-      else if (ageH < 24) why.push([0.5, 'New today']);
+      // "New today" is left out: the time is already beside the author, and it headed every card (UX audit of 2026-09-25).
       if (seen.has(r.id)) s *= 0.5;
       if (myId && (r.voices || []).includes(myId)) s *= 0.4;
       why.sort((a, b) => b[0] - a[0]);

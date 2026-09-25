@@ -354,7 +354,7 @@ const article = ArticlePanel.create($('#articleMode'), {
       r.clip = { x: (r.clip.x - sr.left) * shotScale, y: (r.clip.y - sr.top) * shotScale, w: r.clip.w * shotScale, h: r.clip.h * shotScale };
       const vy1 = Math.max(vp.top, sr.top) - sr.top, vy2 = Math.min(vp.bottom, sr.bottom) - sr.top;
       r.bounds = { x: 0, y: vy1 * shotScale, w: canvas.width, h: (vy2 - vy1) * shotScale };
-    } catch (e) { r.shotError = 'Could not take a screenshot. ' + e.message; }
+    } catch (e) { r.shotError = 'No picture this time. ' + e.message; }
     return r;
   },
 }, { log, onPublish: (i, t) => publish('article', i, t), onView: viewPublished, findDuplicate });
@@ -381,7 +381,7 @@ const post = PostPanel.create($('#postMode'), {
       out.image = canvas;
       out.clip = { x: 0, y: 0, w: canvas.width, h: canvas.height };
       out.bounds = { ...out.clip };
-    } catch (e) { out.shotError = 'Could not take a screenshot. ' + e.message; }
+    } catch (e) { out.shotError = 'No picture this time. ' + e.message; }
     return out;
   },
 }, { log, onPublish: (i, t) => publish('post', i, t), onView: viewPublished, findDuplicate });

@@ -13,7 +13,8 @@ html:has(> body > .pl-layer) { overflow-x: hidden; }
 .pl-blank { background: #F3ECD8; transform: rotateY(180deg); }
 .pl-cover { position: absolute; inset: 0; background: #FFFDF7; }
 .pl-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(90, 76, 40, .55), rgba(90, 76, 40, .25)); }
-.pl-leaf .tiCurl, .pl-leaf .tiShadow, .pl-leaf .pl-media { display: none; }
+.pl-leaf .tiCurl, .pl-leaf .tiShadow, .pl-leaf .pl-media:not(.pl-frame) { display: none; }
+.pl-leaf .pl-frame { display: block; }
 /* The plane's shadow on the page below it, and the sheet's own once it lies down. */
 .pl-fshadow { position: absolute; transform-origin: 50% 50%; opacity: 0; }
 .pl-sil { position: absolute; background: rgba(30, 26, 12, .6); transform-origin: 50% 50%; }
@@ -30,6 +31,9 @@ html:has(> body > .pl-layer) { overflow-x: hidden; }
 .flyCard .fcSrc:empty, .flyCard .fcQuote:empty { display: none; }
 /* An annotation page arriving from Publish: everything but the card waits for its plane (annotation-page.js). */
 .pl-landing .comments, .pl-landing .rail, .pl-landing .banner, .pl-landing .topRow { opacity: 0; }
+/* Before the plane is made the card waits unseen too, so nothing of the page shows ahead of it. */
+.pl-arriving .annCard:not(.pl-copy) { opacity: 0; }
+.pl-arriving .annCard.pl-hidden { opacity: 0; }
 /* The Published toast rises in with an animation that keeps its end state, which outranks the opacity above, so it
    showed over the plane still flying (recording of 2026-09-25 at 06:58, 2:57). It rises in once the plane opens. */
 .pl-landing .banner.toast { animation: none; }

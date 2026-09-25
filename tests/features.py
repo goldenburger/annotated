@@ -52,6 +52,31 @@ async def main():
     four = await pg.evaluate("({ chips: document.querySelectorAll('.ftChip').length, tips: [...document.querySelectorAll('.ftTip')].filter((t) => t.textContent.trim()).length, shown: getComputedStyle(document.querySelector('.ftTip')).visibility })")
     print('4.', four)
     if four['chips'] < 8 or four['tips'] != four['chips'] or four['shown'] != 'visible': errs.append(f'the chips have no tips: {four}')
+    # 7. Receipts: deleting the post leaves the saved picture. The X card. The new chips.
+    await pg.click('.ftRDel'); await asyncio.sleep(.2)
+    rec = await pg.evaluate("""({ gone: !document.querySelector('.ftRGone').hidden, post: !document.querySelector('.ftRec .ftRPost').hidden,
+      kept: document.querySelector('.ftRSaved .ftRText').textContent.includes('before the end of the year'), card: !!document.querySelector('.ftXCard .ftXTake'),
+      chips: [...document.querySelectorAll('.ftChip')].map((c) => c.textContent) })""")
+    print('7.', {k: rec[k] for k in ('gone', 'post', 'kept', 'card')}, len(rec['chips']), 'chips')
+    if not rec['gone'] or rec['post'] or not rec['kept'] or not rec['card']: errs.append(f'receipts or the X card did not work: {rec}')
+    if not {'Invite by email', 'Works offline', 'Drafts are kept', 'Trending and people to follow'} <= set(rec['chips']): errs.append(f"chips missing: {rec['chips']}")
+    # 8. The Post on X tab shows the post as a screenshot, an embed or both.
+    await pg.evaluate("scrollTo(0, 0)"); await pg.click('#tab-post'); await asyncio.sleep(.6)
+    await pg.click('.tp-post .stForMe'); await asyncio.sleep(2)
+    await pg.click('.tp-post .stShowB[data-v="both"]')
+    await pg.fill('.tp-post .stTake textarea', 'Hardware really is hard.'); await pg.click('.tp-post .stMake'); await asyncio.sleep(.6)
+    both = await pg.evaluate("({ shot: !!document.querySelector('.tp-post .stShot mark'), embed: !!document.querySelector('.tp-post .stEmbed .stEmbedText') })")
+    print('8. screenshot and embed:', both)
+    if both != {'shot': True, 'embed': True}: errs.append(f'the post was not shown both ways: {both}')
+    # 9. The Article tab offers the whole sentence for part of one.
+    await pg.click('#tab-article'); await asyncio.sleep(.5)
+    await pg.evaluate("(() => { const t = document.querySelector('.tp-article [data-annotated-self]'); const r = ArticleCore.findText(t, 'sidebar Chrome extension'); getSelection().removeAllRanges(); getSelection().addRange(r); })()")
+    await asyncio.sleep(.3); await pg.click('.tiBtn'); await asyncio.sleep(2)
+    offered = await pg.evaluate("!document.querySelector('.tiWhole').hidden")
+    await pg.click('.tiWhole'); await asyncio.sleep(2)
+    marked = await pg.evaluate("[...document.querySelectorAll('.tp-article mark.annotated-hl')].map((m) => m.textContent).join('').trim()")
+    print('9. whole sentence offered', offered, '| marked:', marked[:60])
+    if not offered or not marked.startswith('Annotated is a sidebar'): errs.append(f'the whole sentence was not offered or taken: {offered}, {marked[:60]}')
     # 6.
     ink = await pg.evaluate("getComputedStyle(document.querySelector('.ftDemo mark')).color")
     print('6. marked words in dark mode:', ink)

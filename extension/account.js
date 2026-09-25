@@ -28,6 +28,12 @@ const Account = (() => {
   function close() { if (pop) { pop.remove(); pop = null; } }
   function open(errText) {
     close();
+    // The menu and the help screen put each other away, where they opened one over the other (recording of
+    // 2026-09-25 at 15:38, 0:39).
+    if (document.body.classList.contains('welcoming') && typeof PanelKit !== 'undefined' && PanelKit.closeWelcome) {
+      try { localStorage.setItem('annotated-welcome-seen', '1'); } catch { /* nowhere to keep it */ }
+      PanelKit.closeWelcome();
+    }
     pop = document.createElement('div');
     pop.className = 'acctPop'; pop.setAttribute('role', 'dialog'); pop.setAttribute('aria-label', 'Account');
     pop.innerHTML = me
@@ -47,6 +53,9 @@ const Account = (() => {
          </div>`
       : `<p class="err">${esc(errText || '')}</p><button type="button" class="ghost sm acctIn">${G} Try again</button>`;
     document.body.appendChild(pop);
+    // A link out of the menu closes it. About annotated opened the home page and left the menu open over the panel
+    // (recording of 2026-09-25 at 16:45, 1:48).
+    pop.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a')) setTimeout(close, 0); });
     // Offered only with something to delete. With nothing it opened a profile that said only that there was
     // nothing to delete (recording of 2026-09-25 at 03:14, 1:55).
     const delAll = pop.querySelector('.acctDelAll');
@@ -138,5 +147,5 @@ const Account = (() => {
     Backend.profile().then((p) => { me = p; draw(); known(); }).catch(known);
     Backend.onChange((p) => { me = p; draw(); known(); });
   }
-  return { mount, signIn, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
+  return { mount, signIn, close, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
 })();

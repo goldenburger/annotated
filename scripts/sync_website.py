@@ -6,7 +6,7 @@ Run: python scripts/sync_website.py
 import pathlib, shutil
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHARED = ['annotation-page.js', 'gifmaker.js', 'giphy.js', 'cloud.js', 'ui.css', 'brand.js', 'prefs.js', 'emoji-data.js', 'emojikit.js', 'waveform.js',
-          'compose.js', 'panel-kit.js', 'fonts.css', 'article-core.js', 'fold.js', 'fold.css']
+          'compose.js', 'panel-kit.js', 'fonts.css', 'article-core.js', 'fold.js', 'fold.css', 'paperdeco.js']
 pub = ROOT / 'website' / 'public'
 for f in SHARED:
     shutil.copy(ROOT / 'extension' / f, pub / f)

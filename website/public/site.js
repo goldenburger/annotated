@@ -257,12 +257,13 @@ function matchExtension(me) {
     }
   }
 
+  // Drawn in the site's own frame, with the header, like every other page. It was a line of small text alone at
+  // the top of a blank page (UX audit of 2026-09-25).
   function notFound(msg) {
     document.title = 'Not found | annotated';
-    page.className = 'ann';
-    AnnotationPage.stopClock(page);
-    page.innerHTML = '<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p class="esWhy"></p><p><a href="/?feed">See annotations</a></p></div>';
-    page.querySelector('.esWhy').textContent = msg;
+    page.className = '';
+    AnnotationPage.renderMissing(page, { title: 'Not found', why: msg, ...nav });
+    headerAccount();
   }
 
   if (parts[0] && parts[0].startsWith('@') && parts[1]) await annotation(parts[1]);

@@ -25,10 +25,16 @@ var SceneTry = (() => {
   function takeStep(root, { kind, what, source, kindIcon, onAgain, player = null, yours = () => ({}) }) {
     const t = root.querySelector('.stTake');
     t.hidden = false;
-    t.innerHTML = `<label class="stLabel">Your take<textarea rows="2" maxlength="200" placeholder="What should people notice?"></textarea></label>
+    // A post is shown as a screenshot, an embed or both, as the extension asks (Jason's round one feedback).
+    const showAs = kind === 'post' ? `<div class="stShow"><span class="stShowL">Show the post as</span><span class="seg stShowSeg" role="radiogroup" aria-label="Show the post as">${['Screenshot', 'Embed', 'Both'].map((l, i) => `<button type="button" role="radio" class="stShowB" data-v="${l.toLowerCase()}" aria-checked="${i === 0}">${l}</button>`).join('')}</span></div>` : '';
+    t.innerHTML = `${showAs}<label class="stLabel">Your take<textarea rows="2" maxlength="200" placeholder="What should people notice?"></textarea></label>
       <p class="stSay" role="status" hidden>Write a sentence first.</p>
       <p class="stRow"><button type="button" class="primary sm stMake" disabled>Make the annotation</button><button type="button" class="link stAgain">Start over</button></p>`;
     const box = t.querySelector('textarea'), make = t.querySelector('.stMake');
+    let shown = 'screenshot';
+    t.querySelectorAll('.stShowB').forEach((b) => b.addEventListener('click', () => {
+      shown = b.dataset.v; t.querySelectorAll('.stShowB').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    }));
     box.focus({ preventScroll: true });
     box.addEventListener('input', () => { make.disabled = !box.value.trim(); t.querySelector('.stSay').hidden = true; });
     box.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); make.click(); } });
@@ -44,11 +50,42 @@ var SceneTry = (() => {
       t.querySelector('.stCardWhat').textContent = what();
       t.querySelector('.stCardSrc span').textContent = source;
       if (player) t.querySelector('.stCardPlay').appendChild(player());
+      if (kind === 'post') t.querySelector('.stCardPlay').appendChild(postAs(root, shown));
       t.querySelector('.stAgain').addEventListener('click', onAgain);
       root.classList.add('made');
       // The front page keeps your latest annotation in Latest on annotated, whichever tab it came from.
       document.dispatchEvent(new CustomEvent('annotated-scene-made', { detail: Object.assign({ kind, take, source, what: what(), card: t.querySelector('.stCard'), root }, yours()) }));
     });
+  }
+
+  // The post on the card, the way it was asked for. A screenshot is a picture of the post with the words marked,
+  // kept even if the post is deleted; an embed is the post's words, linked; both is the two together.
+  function postAs(root, how) {
+    const box = document.createElement('div');
+    box.className = 'stPostAs';
+    const post = root.querySelector('.stStage .stPost');
+    if (post && how !== 'embed') {
+      const shot = document.createElement('figure'); shot.className = 'stShot';
+      const copy = post.cloneNode(true); copy.removeAttribute('data-annotated-self');
+      copy.querySelectorAll('[data-annotated-self]').forEach((x) => x.removeAttribute('data-annotated-self'));
+      copy.querySelectorAll('a').forEach((a) => { a.removeAttribute('href'); a.setAttribute('tabindex', '-1'); });
+      shot.appendChild(copy);
+      shot.insertAdjacentHTML('beforeend', '<figcaption>Screenshot, kept even if the post is deleted</figcaption>');
+      box.appendChild(shot);
+      // The picture is taken where the quoted words are, as the extension's is, so they show in it.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const m = copy.querySelector('mark'); if (!m) return;
+        copy.scrollTop = Math.max(0, m.offsetTop - copy.offsetTop - 40);
+      }));
+    }
+    if (how !== 'screenshot') {
+      const em = document.createElement('blockquote'); em.className = 'stEmbed';
+      em.innerHTML = `<p class="stEmbedWho">${icon('x')} <b>Elon Musk</b> <span>@elonmusk · Sep 24, 2026</span></p><p class="stEmbedText"></p><a class="link" href="${POST_URL}" target="_blank" rel="noopener">See the post on X</a>`;
+      const pt = root.querySelector('.stPostText');
+      em.querySelector('.stEmbedText').textContent = pt ? (pt.children.length ? [...pt.children].map((x) => ArticleCore.norm(x.textContent)).join(' ') : ArticleCore.norm(pt.textContent)) : '';
+      box.appendChild(em);
+    }
+    return box;
   }
 
   // ---- words: a passage or a post, selected and marked with the real pen.
@@ -283,6 +320,15 @@ var SceneTry = (() => {
           <span class="stClipTrack"><i></i></span><span class="stClipTime">0:00 / ${fmt(len)}</span></div>`;
       const m = box.querySelector(video ? 'video' : 'audio'), go = box.querySelector('.stClipGo'), fill = box.querySelector('.stClipTrack i'), time = box.querySelector('.stClipTime'), bar = box.querySelector('.stClipTrack');
       m.src = media.src;
+      // Until the video has a frame of its own, it shows the clip's first frame from the sprite. The new card was an
+      // empty grey box for a moment (recording of 2026-09-25 at 15:38, 2:28).
+      if (video && media.sprite) {
+        const sp = media.sprite, rows = Math.ceil(sp.count / sp.cols), idx = Math.min(sp.count - 1, Math.floor(c0 / sp.every));
+        const col = idx % sp.cols, row = Math.floor(idx / sp.cols);
+        m.style.backgroundImage = `url("${sp.src}")`;
+        m.style.backgroundSize = `${sp.cols * 100}% ${rows * 100}%`;
+        m.style.backgroundPosition = `${sp.cols > 1 ? (col / (sp.cols - 1)) * 100 : 0}% ${rows > 1 ? (row / (rows - 1)) * 100 : 0}%`;
+      }
       let raf2 = 0;
       const at0 = () => { m.currentTime = c0; };
       m.addEventListener('loadedmetadata', at0, { once: true });

@@ -146,19 +146,25 @@ const AnnotationPage = (() => {
     container.querySelectorAll('.navFeed').forEach((b) => b.addEventListener('click', () => (onFeed || onHome) && (onFeed || onHome)()));
     const you = container.querySelector('.navProfile');
     if (you) you.addEventListener('click', () => onProfile && onProfile());
+    // Paper on the desk in the page's margins, where there is room for it (paperdeco.js).
+    if (typeof PaperDeco !== 'undefined') PaperDeco.desk(document.body);
     return { main: container.querySelector('.sitemain'), rail: container.querySelector('.rail') };
   }
 
   // A page for an annotation that is not there, deleted or never found, inside the same frame as every other
   // page, with the wordmark to go home. It used to be one line of text on an empty page.
-  function renderMissing(container, { title, why = '', onHome, onProfile, siteNav = true }) {
+  // An empty list's drawing: a crumpled sheet and a plane (paperdeco.js), or nothing where it is not loaded.
+  const emptyArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.ART.ball()}${PaperDeco.ART.lone()}</div>` : '');
+  // The panel's quiet corner under a list.
+  const cornerArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pd pd-corner" aria-hidden="true">${PaperDeco.ART.corner()}</div>` : '');
+  function renderMissing(container, { title, why = '', onHome, onProfile, onAll = null, siteNav = true }) {
     stopClock(container);
-    const { main, rail } = shell(container, { active: null, onHome, onProfile, siteNav });
+    const { main, rail } = shell(container, { active: null, onHome, onFeed: onAll, onProfile, siteNav });
     main.classList.add('ann');
-    main.innerHTML = `<div class="emptyState shellEmpty"><p class="esTitle">${esc(title)}</p>${why ? `<p>${esc(why)}</p>` : ''}
+    main.innerHTML = `<div class="emptyState shellEmpty">${emptyArt()}<p class="esTitle">${esc(title)}</p>${why ? `<p>${esc(why)}</p>` : ''}
       <p><button type="button" class="ghost sm missHome">See annotations</button></p></div>`;
     rail.remove();
-    main.querySelector('.missHome').addEventListener('click', () => onHome && onHome());
+    main.querySelector('.missHome').addEventListener('click', () => (onAll || onHome) && (onAll || onHome)());
   }
 
   // A small popup menu anchored to a button. Closes on outside click or Escape.
@@ -348,6 +354,9 @@ const AnnotationPage = (() => {
   function stopClock(container) { if (container && container.__annClock) { clearInterval(container.__annClock); container.__annClock = null; } }
   async function render(container, opts, hooks = {}) {
     stopClock(container);
+    // Arriving from Publish the page is held from its first frame, not only once the plane is made. The back link,
+    // the rail and the comment box showed for a moment before the plane (recording of 2026-09-25 at 16:02, 1:56).
+    if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on()) container.classList.add('pl-landing', 'pl-arriving');
     const { item, take, permalink, backLabel } = opts;
     // Saved only here, the banner just says so. The line under it already says how to share it, and the
     // banner used to repeat that in other words, asking to publish "again" something never published.
@@ -624,12 +633,15 @@ const AnnotationPage = (() => {
     if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) {
       container.classList.add('pl-landing');
       let done = false;
-      const land = () => { if (done) return; done = true; container.classList.remove('pl-landing'); };
+      const land = () => { if (done) return; done = true; container.classList.remove('pl-landing', 'pl-arriving'); };
       Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) }).then(land);
+      // The card is the plane's to show now (pl-hidden until it opens), so the first-frame hold can go.
+      container.classList.remove('pl-arriving');
       // Never held for longer than the flight, whatever becomes of it.
       setTimeout(land, 3500);
     }
-    else if (showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
+    else container.classList.remove('pl-landing', 'pl-arriving');
+    if (!(opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) && showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
 
     if (hooks.onBack) q('.back').addEventListener('click', hooks.onBack);
     container.querySelectorAll('.profileLink').forEach((b) => b.addEventListener('click', () => hooks.onProfile && hooks.onProfile()));
@@ -1117,7 +1129,7 @@ const AnnotationPage = (() => {
           // 2026-09-25 at 06:58, 1:00 and 1:22). With the extension already installed there is nothing to offer.
           const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
           const hasExt = document.documentElement.dataset.annotatedInstalled === '1';
-          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
+          return `<li class="emptyState">${emptyArt()}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })(); })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
       // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button
@@ -1235,10 +1247,11 @@ const AnnotationPage = (() => {
       <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
         <span class="rlKind">${kindIcon(r.item)}</span>
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
-        </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
+        </button></li>`).join('') : `<li class="browseEmpty">${emptyArt()}<p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
       ${onFull ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
+      ${list.length ? cornerArt() : ''}
     </div>`;
     wireDelAll(container, onDeleteAll);
     const bk = container.querySelector('.browseBack');

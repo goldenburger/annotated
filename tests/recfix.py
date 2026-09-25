@@ -188,7 +188,9 @@ async def main():
     await pan.evaluate("() => document.querySelector('.homeBtn').click()")
     await pan.wait_for_selector('#browseMode h2', timeout=15000); await asyncio.sleep(.6)
     await pan.evaluate("() => { browseFrom = { id: -1, url: 'somewhere else' }; }")
-    await asyncio.sleep(1.2)
+    # Nothing tells the panel about this made-up change, so it is the slow check, every two seconds, that finds it
+    # (2.33.16). A real change of tab calls the panel at once.
+    await asyncio.sleep(2.6)
     swapped = await pan.evaluate("() => ({ browse: !document.getElementById('browseMode').hidden })")
     print('after the tab in front changed:', swapped)
     if swapped['browse']: errs.append('the panel stayed on Home after the tab in front changed')

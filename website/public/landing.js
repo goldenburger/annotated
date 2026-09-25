@@ -173,6 +173,9 @@ var Landing = (() => {
   // A clip on a card: muted, inline, playing from its start to its end and round again while the card is in sight.
   // `from`: where the first play starts, the brightest frame of the clip, since the launch clip opens on night
   // and the card showed a black square for its first seconds (recording of 2026-09-25 at 03:54, 1:06 and 1:28).
+  // The clip's frames are fetched as the page opens, so a new card shows its frame at once. It was a black box for
+  // half a second while the picture of frames arrived (recording of 2026-09-25 at 16:45, 2:24).
+  try { const warm = new Image(); warm.src = '/media/artemis-i-frames.jpg'; } catch { /* no images */ }
   function loopClip(frame, src, a, z, from = a) {
     const v = document.createElement('video');
     v.className = 'yClip'; v.muted = true; v.playsInline = true; v.preload = 'none';
@@ -458,6 +461,12 @@ var Landing = (() => {
     // What else the extension does, shown working, before the steps to get it (David, 2026-09-25).
     if (typeof Features !== 'undefined') Features.mount(main);
     install(main);
+    // The foot of the page ends on the desk: planes thrown in a pile, one still flying off, a sheet half folded.
+    if (typeof PaperDeco !== 'undefined') {
+      const desk = document.createElement('div'); desk.className = 'pdFoot'; desk.setAttribute('aria-hidden', 'true');
+      desk.append(PaperDeco.make('pile'), PaperDeco.make('trail'), PaperDeco.make('sheet'));
+      main.appendChild(desk);
+    }
     watchInstalled(root);
     return { fillLatest: l.fill };
   }

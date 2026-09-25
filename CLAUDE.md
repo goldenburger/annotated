@@ -552,6 +552,35 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   they have not published anything. Download buttons read Downloaded once pressed. The page does not scroll
   sideways while a plane flies (`html:has(> body > .pl-layer)`). The stroke under the take is gone. The dark
   divider on a post card in Yours so far at 0:36 could not be reproduced: all cards draw the same line.
+- **The recording of 2026-09-25 at 15:38** (`tests/walk1538.py`). Beside the extension's own feed page, Home in the
+  panel opens the panel's list (`homeOrPage`), since moving the page to where it already was did nothing four
+  times. Beside our website, "Open the feed as a full page" moves that tab to `/?feed` (`openFull`). The annotation
+  page asks for who you are, the local copy, its social counts and the rail together (`annotation.js`), 1.9 s
+  where it was 3.5 s with a slow database, so the plane from Publish starts sooner. The account menu and help put
+  each other away (`Account.close`). The panel's last Home lists are kept in `chrome.storage.session`
+  (`annotated-lastHome`, slimmed by `slim`), so reopening the panel shows them rather than "Loading annotations…"
+  and a jump from For you to Everyone. A video folds into a plane as the frame it shows (`fold.js` draws it to a
+  canvas, or uses the still set on it), where it was a black bar, and the try-it's new clip card shows the clip's
+  first frame from the sprite until the video has one. The podcast example's player plays the episode and the
+  clipped waveform plays 1:16 to 1:38; "It lands as a page" has four reactions; the poll editor holds only the
+  question. The way back calls an X post's page "the post on X" (`cleanTitle`).
+- **The recording of 2026-09-25 at 16:02** (`tests/walk1602.py`). Home in the panel beside any feed page opens the
+  panel's list, whatever follows in the address, and Your profile beside `feed.html#profile` does the same
+  (`homeOrPage`); should Home only have switched to the tab already in front, the panel shows its list. It did
+  nothing five times in real Chrome while the exact-address test passed. From Publish, an annotation page is held
+  from its first frame (`pl-arriving` set at the start of `render`), where its back link, rail and comments showed
+  for a quarter second before the plane. The website's loading outline (`index.html`) is the real header, still,
+  with only the outline under it breathing, where the home page opened on a white screen. The panel's first Home
+  with nothing kept hides its tabs while loading. The home page replaying its opening at 2:15 was a new tab from
+  the extension page's logo, not a tab Chrome had put to sleep.
+- **More of the extension on the front page** (2026-09-25, `tests/features.py`). "Receipts that stay": a post
+  saved as a marked picture, with a Delete the post button that leaves the saved annotation standing. Under "It
+  lands as a page", how its link looks as a card in a post on X. The Post on X tab asks to show the post as a
+  Screenshot, an Embed or Both (`postAs` in `scenetry.js`, the screenshot a copy of the marked post scrolled to
+  the quote). The Article tab offers "Use the whole sentence" when the words start or end part way through one
+  (`tiWhole` in `tryit.js`, from `ArticleCore.expandToSentences`). Six more chips: trending and people to follow,
+  invite by email, already annotated, drafts kept, clips checked, works offline. The example account in Receipts
+  is invented and labelled Example; nothing claims a real person said it.
 - **What else it does** (`website/public/features.js`, `tests/features.py`, 2026-09-25). Under Yours so far on the
   front page and before the install steps, three working examples, each labelled Example and sending nothing: "Say
   it your way" (a take, a tag, a poll to vote on and reactions, drawn as the card while you make it), "It lands as a
@@ -919,10 +948,37 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 
 ## Open items
 
-- The panel polls every 400 ms (`setInterval` at the foot of `sidepanel.js`), and on a YouTube or an X tab
-  each pass also sends a ping and an info message. Driving it from `chrome.tabs.onUpdated`, `onActivated` and
-  `chrome.storage.onChanged` with a slow poll behind it would save nearly all of that. Left alone before the
-  deadline because every extension test leans on the current timing.
+- **The panel's refresh** (2.33.16, foot of `sidepanel.js`). Every 400 ms only while a clip, a podcast moment or
+  the podcast finder is open (their trimmers follow the player) or a tab is opening (`fast`); otherwise every two
+  seconds, with `tabs.onActivated`, `tabs.onUpdated` (address, status, title of the active tab),
+  `windows.onFocusChanged` and the store's stamp calling `refresh` at once. A refresh asked for while one is
+  running runs straight after it (`refreshAgain`) rather than being dropped.
+- **Paper on the desk** (`extension/paperdeco.js`, shared with the website; `tests/paperdeco.py`, 2026-09-25). Drawings
+  in the site's own paper and ink, in the shape of annotated's own dart (`brand.js`): planes thrown in a pile (one
+  marked in highlighter), a crumpled sheet, a sheet half folded with one line marked, a plane leaving a dashed trail.
+  The full pages (feed, profiles, annotations, Not found; `shell` calls `PaperDeco.desk`) carry a pile low on the left,
+  a trail above it and a sheet high on the right, fixed in the margins, only at 1440 pixels and wider with a mouse.
+  Empty lists show a crumpled sheet and a plane; the panel's lists end on a small pile (`cornerArt`), help has a
+  plane on its trail over its drawing, and the home page ends on the desk (`.pdFoot`). All `aria-hidden`, no
+  pointer events, no motion; colours are `--pd-*` tokens with a dark half. The examples under "What else it does"
+  each arrive their own way (`STYLES` in `features.js`: a glide, a wide swing, a steep drop, a long S, each with a
+  little chance), using `approach`, `dist` and `swoop` added to `Fold.arrive`; the row of chips arrives as a flock
+  of three small planes whose chips then pop in one by one. They fly only once the page is scrolled, and not with
+  ?noplanes, on a phone or a touch screen, as on the rest of the front page.
+- **The recording of 2026-09-25 at 16:45** (`tests/walk1645.py`). A link in the account menu (About annotated) closes
+  it. A clip card in Yours so far waits on a light placeholder, not black, and the clip's picture of frames is
+  fetched as the home page opens, so the card shows its frame at once. Each example under "What else it does"
+  arrives as a plane the first time it comes into view and unwraps as itself, like an annotation after Publish
+  (`arrive` in `features.js`, David's ask), one at a time in page order; a key finishes them, and with the planes
+  off they are simply there.
+- **The UX audit of 2026-09-25** (`tests/audit_shots.py` takes the pictures, read-only against the live database;
+  `tests/uxaudit4.py`). A saved post on a feed card keeps its own shape (`.cthumb.cwide img.top`, height auto,
+  cut only at its foot), where a short wide one lost both sides; the stored picture was whole. The take on a feed
+  card is 22 pixels, the largest words on it. For you no longer gives "New today" as a reason. The panel's tags wrap
+  with padding, the selection is counted in words, a failed picture says "No picture this time." once. "Not found"
+  on the website is drawn in the site's frame (`renderMissing` with `onAll`). In dark mode the bar under the home
+  page's paper has light ink. "Save on this computer" only looked disabled because the audit shot it before the
+  take was checked.
 
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
   is now possible because sign-in is published. This is the last part of the product with no evidence behind it.

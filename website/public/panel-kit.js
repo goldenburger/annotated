@@ -285,7 +285,7 @@ const PanelKit = (() => {
       h.setAttribute('aria-label', 'How annotated works'); h.textContent = '?';
       const x = brand.querySelector('.x');
       brand.insertBefore(h, x || null);
-      h.addEventListener('click', () => welcome(panel, { shortcut, force: true, onDisplayChoice }));
+      h.addEventListener('click', () => { if (typeof Account !== 'undefined' && Account.close) Account.close(); welcome(panel, { shortcut, force: true, onDisplayChoice }); });
     }
     if (seen && !force) return;
     let w = panel.querySelector('.welcome');
@@ -295,7 +295,7 @@ const PanelKit = (() => {
       w = document.createElement('section');
       w.className = 'welcome'; w.setAttribute('aria-labelledby', 'welcomeTitle');
       w.innerHTML = `
-        <div class="wHero">${illo('article')}</div>
+        <div class="wHero">${illo('article')}${typeof PaperDeco !== 'undefined' ? `<div class="pd pd-trail" aria-hidden="true">${PaperDeco.ART.trail()}</div>` : ''}</div>
         <h1 id="welcomeTitle">Say what you think about anything.</h1>
         <p class="wLead">annotated turns a passage, a clip, a podcast moment, or a post into a page with your take on top and the source underneath.</p>
         <ol class="wSteps">
