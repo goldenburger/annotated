@@ -59,10 +59,12 @@
       });
       if (first) ['wheel', 'touchstart'].forEach((e) => addEventListener(e, t.finish, true));
       const from = first ? { x: scrollX - 160, y: scrollY + 50 } : { x: plane.centre.x - 70, y: plane.centre.y - 340 };
-      flight(plane, landPath(plane, from, first ? -.18 : .06), { z: first ? descend(300, .86) : descend(170, .8), T: first ? 1700 : 900 }).then(async () => {
+      // The fresh brief after a take comes down quickly: the page was without its paper long enough already
+      // (recording of 2026-09-24 at 23:56, three seconds with nothing there).
+      flight(plane, landPath(plane, from, first ? -.18 : .06), { z: first ? descend(300, .86) : descend(170, .8), T: first ? 1700 : 600 }).then(async () => {
         if (!flying.has(t)) return;
         plane.fshadow.animate([{ opacity: .3 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
-        await plane.open(first ? 1300 : 1100);
+        await plane.open(first ? 1300 : 700);
         if (!flying.has(t)) return;
         root.classList.remove('planes-waiting');
         paper.classList.remove('pl-hidden');
@@ -129,6 +131,8 @@
     (async () => {
       await plane.open(paper ? 900 : 800, true);
       if (!flying.has(t)) return;
+      // The tab resets while it is out of sight, so the fresh brief can follow the plane out at once.
+      bringBack();
       const len = plane.Lw * plane.s0;
       const start = plane.centre, h = dir(plane.phi);
       let target = null;
@@ -153,7 +157,7 @@
       setTimeout(() => {
         if (!flying.has(t)) return;
         bringBack().then(() => (paper ? briefIn(paper, false) : null)).then(release).then(() => { if (example) document.dispatchEvent(new CustomEvent('annotated-example-settled')); });
-      }, T * .4);
+      }, T * .2);
       await air;
       if (!flying.has(t)) return;
       flying.delete(t); plane.layer.remove();
@@ -163,7 +167,7 @@
   }
 
   // Your latest annotation is drawn in Latest the moment it is made (landing.js). It stays hidden while what it
-  // was made from is shown for four seconds, with a line saying where it is going, and then flies there.
+  // was made from is shown for two seconds (four felt stuck, recording of 2026-09-24 at 23:56), with a line saying where it is going, and then flies there.
   // Anything done in that tab meanwhile, or another tab chosen, keeps it where it is and shows the card at once.
   function onYours(e) {
     const { card, fresh, origin, kind, example } = e.detail || {};
@@ -171,8 +175,12 @@
     card.dataset.plQueued = '1';
     if (!fresh || !origin) return;
     card.classList.add('pl-hidden');
+    // Held out of the row until it leaves, so the row does not show an empty slot while the take is still up.
+    const li = card.closest('li');
+    const held = (on) => { if (li) li.classList.toggle('pl-held', on); };
     // The try-it's example has already been shown for its moment, so it goes at once.
     if (example) { send(origin, card, { paper: origin, example: true }); return; }
+    held(true);
     const paper = kind === 'article' ? origin : null;
     const scene = paper ? null : origin.closest('.sceneTry');
     const panel = origin.closest('.tryPanel');
@@ -186,7 +194,7 @@
       if (cancelled) return; cancelled = true; clearTimeout(timer);
       document.removeEventListener('pointerdown', stop, true);
       document.removeEventListener('annotated-tryit-touched', undo);
-      card.classList.remove('pl-hidden');
+      card.classList.remove('pl-hidden'); held(false);
       if (next) next.classList.remove('pl-going');
       if (hint && said) hint.textContent = said;
     };
@@ -197,9 +205,10 @@
       if (cancelled) return;
       document.removeEventListener('pointerdown', stop, true);
       document.removeEventListener('annotated-tryit-touched', undo);
+      held(false);
       if (!origin.isConnected || (panel && panel.hidden) || !inView(origin, .5)) { cancelled = true; card.classList.remove('pl-hidden'); if (next) next.classList.remove('pl-going'); if (hint && said) hint.textContent = said; return; }
       send(origin, card, { paper, scene });
-    }, 4000);
+    }, 2000);
   }
 
   const start = () => {

@@ -19,7 +19,7 @@ async def main():
     # selecting text and clicking the page's Annotate button should bring up the floating panel
     await news.evaluate('''(()=>{const p=document.querySelectorAll("p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.6)
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     await asyncio.sleep(3)
     has=await news.evaluate("!!document.getElementById('annotated-float-host')")
     print('floating frame on page:', has)
@@ -43,7 +43,10 @@ async def main():
     # This one goes on to read the page, so it asks for it. Publishing no longer opens it by itself.
     await f.evaluate("() => Prefs.set('afterPublish','page')")
     np=asyncio.ensure_future(ctx.wait_for_event('page'))
-    await publish_now(f, '#articleMode .publish')
+    asked = await publish_now(f, '#articleMode .publish')
+    # Headless Edge reports the frame as not plainly visible, so Publish asks for a second press rather than standing down.
+    print('Publish asked for a second press:', asked)
+    if asked and asked != 'Press again to confirm': errs.append(f'the first press said {asked!r}')
     ann=await asyncio.wait_for(np, 15); await ann.wait_for_selector('.ann:not(.loading)')
     print('published page:', await ann.inner_text('.take'))
     # switching the setting back to side panel removes the frame

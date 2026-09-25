@@ -114,9 +114,9 @@ async def main():
       const r = document.createRange(); r.selectNodeContents(p.firstChild);
       const s = getSelection(); s.removeAllRanges(); s.addRange(r); }""")
     await asyncio.sleep(.9)
-    clicked=await n.evaluate("""() => { const h = document.querySelector('.annotated-ui');
-      if (!h || h.style.display === 'none') return false;
-      h.shadowRoot.querySelector('.go').click(); return true; }""")
+    # A real mouse press: the button answers only presses the browser marks as a person's (audit of 2026-09-24).
+    try: await press_annotate(n); clicked=True
+    except RuntimeError: clicked=False
     print('the page Annotate button was there:',clicked)
     if not clicked: errs.append('the Annotate button never appeared on the page')
     await pan.bring_to_front()

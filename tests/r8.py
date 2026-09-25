@@ -43,7 +43,7 @@ async def main():
     await pg.click('.tab >> nth=1'); await asyncio.sleep(.4)
     await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[0].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.6)
-    await pg.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()"); await asyncio.sleep(1.5)
+    await press_annotate(pg); await asyncio.sleep(1.5)
     print('Annotate opened the panel:', not await pg.eval_on_selector('#stage','e=>e.classList.contains("closed")'), '| captured:', await pg.is_visible(A+'.aCompose'))
     # stale notice + dimmed old highlight
     await pg.evaluate('''(()=>{const p=document.querySelectorAll(".story p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')

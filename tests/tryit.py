@@ -1,10 +1,10 @@
-# The front page's try-it (website/public/tryit.js) and the handover to the extension.
+# The front page's try-it (website/public/tryit.js), which is only ever a demonstration.
 #   1. Selecting words in the brief shows its own Annotate button, and the extension's does not appear there.
 #   2. Annotate inks the words with the real pen (one mark to a word), and a take makes the card, with the take
 #      on top and the quote under it, kept in the page's storage.
-#   3. With the extension installed, that page hands the draft over, and the panel's Home offers to publish it.
-#      Not now takes it away.
-#   4. Another site's page with the same storage key hands nothing over.
+#   3. With the extension installed, nothing made there is handed over, and the panel's Home offers nothing to
+#      publish (David, 2026-09-24: the front page's takes are demonstrations).
+#   4. Another site's page with the same storage key hands nothing over either.
 import asyncio, pathlib, mimetypes
 from playwright.async_api import async_playwright
 from _env import *
@@ -77,23 +77,18 @@ async def main():
     if not (lifted['up'] and lifted['shadow'] and lifted['wire']): errs.append(f'the take did not lift with its shadow and line: {lifted}')
     if not card['kept']: errs.append('the annotation was not kept in the page')
 
-    # 3. The handover and the offer.
+    # 3. Nothing handed over, nothing offered.
     await asyncio.sleep(.8)
     got = await sw.evaluate("chrome.storage.local.get('annotatedTryit').then(o => o.annotatedTryit || null)")
     print('3. handed to the extension:', got)
-    if not got or got.get('take') != 'Clip is the verb that matters here.': errs.append(f'the draft was not handed over: {got}')
+    if got: errs.append(f'the demonstration was handed to the extension: {got}')
     blank = await ctx.new_page()
     bid = await sw.evaluate("chrome.tabs.query({}).then(t=>Math.max(...t.filter(x=>x.url==='about:blank').map(x=>x.id)))")
     pan = await ctx.new_page(); await pan.set_viewport_size({'width': 400, 'height': 900}); pan.on('pageerror', lambda e: errs.append('PANEL ' + str(e)))
     await pan.goto(f'chrome-extension://{extid}/sidepanel.html?tab={bid}'); await asyncio.sleep(2.5)
-    offer = await pan.evaluate("""() => { const b = document.querySelector('#browseMode .tryitCarry'); return b ? { take: b.querySelector('.tcTake').textContent,
-      btn: b.querySelector('.tcPub').textContent, first: b.previousElementSibling && b.previousElementSibling.classList.contains('browseHead') } : null; }""")
-    print('   the panel offers:', offer)
-    if not offer or offer['take'] != 'Clip is the verb that matters here.' or offer['btn'] != 'Publish it': errs.append(f'Home did not offer it: {offer}')
-    elif not offer['first']: errs.append('the offer was not the first thing under Home')
-    await pan.click('#browseMode .tcNo'); await asyncio.sleep(.5)
-    gone = await sw.evaluate("chrome.storage.local.get('annotatedTryit').then(o => o.annotatedTryit || null)")
-    if gone or await pan.query_selector('#browseMode .tryitCarry'): errs.append('Not now left the offer behind')
+    offer = await pan.evaluate("!!document.querySelector('.tryitCarry, .tcPub') || document.body.innerText.includes(\"front page\")")
+    print('   the panel offers it:', offer)
+    if offer: errs.append('the panel offered to publish a demonstration')
     print('errors:', errs)
     await ctx.close()
 

@@ -102,7 +102,7 @@ async def main():
     # use the floating button path: reselect then click Annotate button in shadow root
     await news.evaluate('''(()=>{const p=document.querySelectorAll("p")[2].firstChild;const r=document.createRange();r.setStart(p,0);r.setEnd(p,p.nodeValue.indexOf("home.")+5);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.6)
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     await ap.wait_for_selector('.aCompose:not([hidden])',timeout=10000)
     print('captured quote:', await ap.inner_text('.capQuote'))
     print('status:', await ap.inner_text('.aStatus .status'))

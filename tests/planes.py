@@ -2,7 +2,7 @@
 #   1. With ?planes a plane flies in while the brief is held back: a dart folded from a copy of the brief, ten pieces
 #      of paper each with a blank back (.pl-sheet), carrying no ids and no try-it mark. It lands, opens, and goes,
 #      and the real brief is showing and works: Mark a sentence for me inks it and a take makes the card.
-#   1b. Made, the take waits four seconds with a line saying it is going to Latest, and its card in Latest stays
+#   1b. Made, the take waits two seconds with a line saying it is going to Latest, and its card in Latest stays
 #      hidden meanwhile. Then the marked sheet folds back into a plane and flies down (Latest, holding only yours
 #      here, is out of sight), a fresh brief drops in, the try-it is clean and says "Yours is below. See
 #      it", and See it scrolls there, where the card lands.
@@ -74,7 +74,8 @@ async def main():
       lift: !document.querySelector('.tiLift').hidden, marks: document.querySelectorAll('.tiText mark').length,
       hint: document.querySelector('.tiHint').textContent, hidden: document.querySelectorAll('.pl-hidden').length })""")
     print('   after it folded away and a fresh brief came in:', after)
-    if after != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is below. See it', 'hidden': 1}:
+    # The card may still wait for its row (1) or have landed already (0), now the take leaves after two seconds.
+    if {**after, 'hidden': 1 if after['hidden'] in (0, 1) else after['hidden']} != {'paper': '1', 'lift': False, 'marks': 0, 'hint': 'Yours is below. See it', 'hidden': 1}:
       errs.append(f'the fold-away did not leave a clean try-it saying where yours is: {after}')
     await pg.click('.tiHint .seeYours'); await asyncio.sleep(3.2)
     landed = await pg.evaluate("(() => { const c = document.querySelector('.llRow .yours .card'); return c && { shown: !c.classList.contains('pl-hidden'), first: c.closest('li') === document.querySelector('.llRow').firstElementChild, take: c.querySelector('.ctake').textContent }; })()")
@@ -93,8 +94,12 @@ async def main():
     if post != {'reset': True, 'card': 'A post take.'}: errs.append(f'the post take did not fold away to Latest: {post}')
     await pg.click('#tab-video'); await asyncio.sleep(.6)
     await pg.click('.st-video .stGo'); await asyncio.sleep(.3)
-    await pg.fill('.st-video textarea', 'A clip take.'); await pg.click('.st-video .stMake'); await asyncio.sleep(.6)
-    await pg.click('.st-video .stCardTake'); await asyncio.sleep(4.5)
+    await pg.fill('.st-video textarea', 'A clip take.')
+    # The take waits two seconds, and Playwright takes about as long between Make and a mouse press on this
+    # machine, so the press on the tab is sent from the page 300 ms after Make.
+    await pg.evaluate("""() => { document.querySelector('.st-video .stMake').click();
+      setTimeout(() => document.querySelector('.tryPanel.tp-video').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })), 300); }""")
+    await asyncio.sleep(4.5)
     kept = await pg.evaluate("({ planes: !!document.querySelector('.pl-layer'), card: !!document.querySelector('.st-video .stCard'), shown: !document.querySelector('.llRow .yours .card').classList.contains('pl-hidden'), take: document.querySelector('.llRow .yours .ctake').textContent })")
     print('   a clip take, clicked while it waits:', kept)
     if kept != {'planes': False, 'card': True, 'shown': True, 'take': 'A clip take.'}: errs.append(f'a click in the tab did not keep the take where it was: {kept}')

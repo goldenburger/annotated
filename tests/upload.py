@@ -177,7 +177,7 @@ async def main():
       await news.evaluate('''()=>{const p=document.querySelectorAll("p")[2];const r=document.createRange();r.selectNodeContents(p);getSelection().removeAllRanges();getSelection().addRange(r);document.dispatchEvent(new Event('selectionchange'))}''')
       await asyncio.sleep(.8)
       if await news.evaluate("[...document.querySelectorAll('.annotated-ui')].some(h=>h.style.display==='block')"): break
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     try: await ap.wait_for_selector('.aCompose:not([hidden])', timeout=25000)
     except Exception:
       print('THE PANEL SAID:', (await ap.inner_text('body'))[:900].replace(chr(10), ' | '))

@@ -3,9 +3,9 @@
 #   2. Installed from the front page: that tab, left behind while the extensions page is in front, moves to
 #      /?installed and comes forward (background.js showInstalled), and the page says annotated is installed and
 #      what to do next, with the steps put away. A front page that is itself in front is left alone.
-#   3. A take on the brief published from the panel is not handed over again, and its card on the front page
-#      goes (annotatedTryitPublished, data-annotated-tryit-published).
-#   4. The cards in Yours so far say what is true: only the brief's take can be published from the extension.
+#   3. A take on the brief is a demonstration: it is never handed to the extension, stays in Yours so far, and a
+#      handover left by an older version is cleared when the panel opens.
+#   4. The cards in Yours so far say what is true: every one is a demonstration of what the extension does.
 import asyncio, pathlib, mimetypes, json
 from playwright.async_api import async_playwright
 from _env import *
@@ -43,24 +43,29 @@ async def main():
     if now['url'] != '?installed' or not now['have'] or not now['have'].startswith('annotated is installed. Pin it') or now['steps']:
       errs.append(f'the front page tab did not move to its installed state: {now}')
     # 3.
-    await pg.evaluate("""() => { localStorage.setItem('annotated-tryit', JSON.stringify({ quote: 'must link back', take: 'Published take.', at: 123 }));
-      localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Published take.', quote: 'must link back', source: 'The annotated.com brief', tryitAt: 123, at: Date.now() },
+    await pg.evaluate("""() => { localStorage.setItem('annotated-tryit', JSON.stringify({ quote: 'must link back', take: 'Brief take.', at: 123 }));
+      localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Brief take.', quote: 'must link back', source: 'The annotated.com brief', tryitAt: 123, at: Date.now() },
         { kind: 'video', take: 'A clip take.', what: 'Clip 2:57 to 3:19 of 5:47', source: 'NASA', at: Date.now() }])); }""")
-    await sw.evaluate("chrome.storage.local.remove('annotatedTryit').then(() => chrome.storage.local.set({ annotatedTryitPublished: 123 }))")
     await pg.goto(URL); await asyncio.sleep(2)
-    after = await pg.evaluate("""() => ({ mark: document.documentElement.dataset.annotatedTryitPublished || null,
-      cards: [...document.querySelectorAll('.llRow .yours .ctake')].map((x) => x.textContent), kept: JSON.parse(localStorage.getItem('annotated-yours')).length })""")
+    after = await pg.evaluate("[...document.querySelectorAll('.llRow .yours .ctake')].map((x) => x.textContent)")
     handed = await sw.evaluate("chrome.storage.local.get('annotatedTryit').then((o) => o.annotatedTryit || null)")
-    print('3. after the take was published from the panel:', after, '| handed over again:', handed)
-    if after != {'mark': '123', 'cards': ['A clip take.'], 'kept': 1}: errs.append(f'the published take is still on the front page: {after}')
-    if handed: errs.append('the published take was handed to the panel again')
+    print('3. the front page after a take on the brief:', after, '| handed over:', handed)
+    if after != ['Brief take.', 'A clip take.']: errs.append(f'the cards changed: {after}')
+    if handed: errs.append('a take on the brief was handed to the extension')
+    await sw.evaluate("chrome.storage.local.set({ annotatedTryit: { quote: 'old', take: 'Old.', at: 1 }, annotatedTryitPublished: 1 })")
+    extid = sw.url.split('/')[2]
+    pan = await ctx.new_page(); await pan.goto(f'chrome-extension://{extid}/sidepanel.html'); await asyncio.sleep(1.5)
+    left = await sw.evaluate("chrome.storage.local.get(['annotatedTryit', 'annotatedTryitPublished'])")
+    print('   an older handover after the panel opened:', left)
+    if left: errs.append(f'an older handover was left behind: {left}')
+    await pan.close()
     # 4.
     await pg.evaluate("""() => localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Brief take.', quote: 'x', source: 'The annotated.com brief', tryitAt: 9, at: Date.now() },
       { kind: 'post', take: 'Post take.', quote: 'y', source: 'An example post on X', at: Date.now() }]))""")
     await pg.reload(); await asyncio.sleep(1.5)
     words = await pg.evaluate("[...document.querySelectorAll('.llRow .yours')].map((li) => [li.querySelector('.ctake').textContent, li.querySelector('.yGet').textContent])")
     print('4. what the cards offer:', words)
-    if words != [['Brief take.', 'Get the extension to publish it'], ['Post take.', 'Get the extension to do this on any page']]: errs.append(f'the cards offer the wrong thing: {words}')
+    if words != [['Brief take.', 'Get the extension to do this on any page'], ['Post take.', 'Get the extension to do this on any page']]: errs.append(f'the cards offer the wrong thing: {words}')
     print('errors:', errs)
     await ctx.close()
 

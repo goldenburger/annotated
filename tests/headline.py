@@ -56,7 +56,7 @@ async def main():
       if err: errs.append(f'{label}: the selection was refused with {err!r}'); return None
       shown = await pg.evaluate("[...document.querySelectorAll('.annotated-ui')].some(h=>h.style.display==='block')")
       if not shown: errs.append(f'{label}: no Annotate button beside the words'); return None
-      await pg.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+      await press_annotate(pg)
       await pan.wait_for_selector('#articleMode .aCompose:not([hidden])', timeout=25000); await asyncio.sleep(1.2)
       quote = (await pan.inner_text('#articleMode .capQuote')).strip()
       frag = (await pan.inner_text('#articleMode .aFrag')).strip() if await pan.is_visible('#articleMode .aFrag') else ''

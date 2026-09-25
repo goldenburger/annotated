@@ -107,12 +107,17 @@ const Cloud = (() => {
   // Comments, reactions and votes for one annotation, from everyone.
   async function social(id, myId) {
     const [cm, rx, pv] = await Promise.all([
-      c().from('comments').select(`id, body, gif, upload, created_at, author_id, ${COMMENT_PROFILE}`).eq('annotation_id', id).order('created_at'),
+      // Comment reactions come with the comments, one round trip where there used to be two (audit of 2026-09-24).
+      c().from('comments').select(`id, body, gif, upload, created_at, author_id, ${COMMENT_PROFILE}, comment_reactions(emoji, user_id)`).eq('annotation_id', id).order('created_at'),
       c().from('reactions').select('emoji, user_id').eq('annotation_id', id),
       c().from('poll_votes').select('option_index, user_id').eq('annotation_id', id),
     ]);
     const cIds = (cm.data || []).map((x) => x.id);
-    const crx = cIds.length ? await c().from('comment_reactions').select('comment_id, emoji, user_id').in('comment_id', cIds) : { data: [] };
+    // Asked for on their own only if the answer came without them (an older server, or a stand-in in a test).
+    const embedded = (cm.data || []).every((x) => Array.isArray(x.comment_reactions));
+    const crx = embedded
+      ? { data: (cm.data || []).flatMap((x) => x.comment_reactions.map((r) => ({ comment_id: x.id, emoji: r.emoji, user_id: r.user_id }))) }
+      : cIds.length ? await c().from('comment_reactions').select('comment_id, emoji, user_id').in('comment_id', cIds) : { data: [] };
     const comments = (cm.data || []).map((x) => ({
       dbId: x.id, text: x.body, gif: x.gif || null, t: Date.parse(x.created_at),
       upload: x.upload && x.upload.path ? { url: publicUrl(x.upload.path), kind: x.upload.kind === 'video' ? 'video' : 'image', w: x.upload.w || 0, h: x.upload.h || 0, alt: x.upload.alt || '' } : null, author: person(x.author), mine: !!myId && x.author_id === myId,

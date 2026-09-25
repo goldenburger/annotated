@@ -60,7 +60,7 @@ async def main():
     for _ in range(6):
       await pg.evaluate(SPAN); await asyncio.sleep(.8)
       if await pg.evaluate(f"!!({BTN})"): break
-    await pg.evaluate(f"{BTN}.shadowRoot.querySelector('button').click()")
+    await press_annotate(pg)
     await pan.wait_for_selector('#articleMode .aCompose:not([hidden])', timeout=25000); await asyncio.sleep(1.2)
     quote = await pan.evaluate("document.querySelector('#articleMode .capQuote').textContent")
     print('captured:', repr(quote))

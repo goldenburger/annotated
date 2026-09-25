@@ -6,7 +6,38 @@ PanelKit.compactOnScroll();
 
 // Display: side panel or floating over the page. Inside the floating frame this page runs with ?embed=float.
 const EMBED = new URLSearchParams(location.search).get('embed') === 'float';
+// Floating over a page, the panel is inside that page's document, which could make it transparent, move it or lay
+// something over it to lead clicks onto it. While the browser says the panel is not plainly visible, the buttons
+// that publish, undo or delete ask to be pressed a second time, saying so on the button (security audit of
+// 2026-09-24). They used to stand down entirely, but the browser also reports a plainly visible frame as hidden
+// in some cases (headless Edge always did), and a Publish that never works is worse than one that asks twice.
+// A single click led onto the panel is what this stops. IntersectionObserver v2 is Chrome's.
+if (EMBED && typeof IntersectionObserver !== 'undefined') {
+  try {
+    const seen = new IntersectionObserver((es) => {
+      const e = es[es.length - 1];
+      document.body.classList.toggle('occluded', e.isVisible === false);
+    }, { trackVisibility: true, delay: 100, threshold: [0, 1] });
+    addEventListener('DOMContentLoaded', () => seen.observe(document.body));
+    if (document.body) seen.observe(document.body);
+  } catch { /* an older browser: nothing to watch with */ }
+  const WEIGHTY = '.publish, .pubUndo, .pubLater, .delYes, .delAllYes, .sdYes';
+  const label = new WeakMap();
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest(WEIGHTY);
+    if (!b) return;
+    // The second press: the button's own words come back and it does what it does.
+    if (b.dataset.armed) { delete b.dataset.armed; if (label.has(b)) b.innerHTML = label.get(b); return; }
+    if (!document.body.classList.contains('occluded')) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    label.set(b, b.innerHTML);
+    b.dataset.armed = '1'; b.textContent = 'Press again to confirm';
+    setTimeout(() => { if (b.dataset.armed) { delete b.dataset.armed; b.innerHTML = label.get(b); } }, 4000);
+  }, true);
+}
 const PINNED = Number(new URLSearchParams(location.search).get('tab')) || null;
+// Left by versions that offered to publish a take from the front page's try-it, which are demonstrations.
+try { chrome.storage.local.remove(['annotatedTryit', 'annotatedTryitPublished']); } catch { /* not in the extension */ }
 if (EMBED) document.body.classList.add('embedded');
 // Any page is allowed to load an extension page it can reach, so a hostile site could put this panel in a
 // frame of its own and lay itself over the buttons. The frame the extension makes carries a key only the
@@ -767,6 +798,19 @@ async function goTo(url, name = '') {
   const done = isBlankTab(t) ? await chrome.tabs.update(t.id, { url }).catch(() => null) : await chrome.tabs.create({ url }).catch(() => null);
   if (done && name) rowNames.set(done.id, { url, title: name });
 }
+// The help screen's link to annotated's home page goes to a tab already on it, whatever its address asks
+// (?installed, ?planes), rather than opening another copy (recording of 2026-09-24 at 23:56, 2:22).
+document.addEventListener('click', async (e) => {
+  const a = e.target.closest && e.target.closest('a.wSite');
+  if (!a) return;
+  e.preventDefault();
+  const home = new URL(a.href);
+  const tabs = await chrome.tabs.query({ url: home.origin + '/*' }).catch(() => []);
+  const open = tabs.find((x) => { try { return new URL(x.url).pathname === '/'; } catch { return false; } });
+  if (!open) { chrome.tabs.create({ url: a.href }).catch(() => {}); return; }
+  await chrome.tabs.update(open.id, { active: true }).catch(() => {});
+  if (open.windowId != null) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+});
 // The start page: what people are talking about, places to start, a link to paste and a podcast to find by
 // name. It used to be drawn only beside a page with nothing to annotate, so once the tab went to a video
 // there was no way back to it (the recording of 2026-09-23 at 02:48). It is now also the top of Home and what
@@ -930,46 +974,7 @@ async function drawBrowse() {
     st.innerHTML = (bare ? '<p class="startHint">Open a YouTube video, an article, a podcast episode or a post on X in this tab and annotated is ready to annotate it. Or start here.</p>' : '') + startHtml();
     $('#browseMode .browseHead').after(st);
     wireStart(st, true);
-    // Above the start page, since it is yours and waiting.
-    await drawTryit();
   }
-}
-// The annotation someone made in the try-it on annotated's front page, before they had the extension. The
-// page's own script hands it over (annotatedTryit), and Home offers to publish it, so the first thing a new
-// person made is not thrown away. It is always the brief's words, with the brief as its source.
-const TRY_SOURCE = { title: 'The annotated.com brief', site: 'This Week in Startups', url: 'https://annotated.lovable.app/' };
-async function drawTryit() {
-  const { annotatedTryit: d } = await chrome.storage.local.get('annotatedTryit').catch(() => ({}));
-  if (!d || !d.quote || !d.take) return;
-  const box = document.createElement('section');
-  box.className = 'tryitCarry';
-  box.innerHTML = `<p class="tcLabel">You made this on annotated's front page</p><p class="tcTake"></p><blockquote class="quote tcQuote"></blockquote>
-    <p class="tcRow"><button type="button" class="primary sm tcPub">Publish it</button><button type="button" class="link tcNo">Not now</button></p>
-    <p class="note tcMsg" role="status"></p>`;
-  box.querySelector('.tcTake').textContent = d.take;
-  box.querySelector('.tcQuote').textContent = d.quote;
-  const head = $('#browseMode .browseHead');
-  if (!head) return;
-  head.after(box);
-  box.querySelector('.tcNo').addEventListener('click', () => { chrome.storage.local.remove('annotatedTryit'); box.remove(); });
-  box.querySelector('.tcPub').addEventListener('click', async () => {
-    const b = box.querySelector('.tcPub'), msg = box.querySelector('.tcMsg');
-    b.disabled = true; b.textContent = 'Publishing'; msg.textContent = '';
-    try {
-      const item = { kind: 'article', text: d.quote, meta: { ...TRY_SOURCE, author: '', published: '', image: '', description: '' },
-        fragmentUrl: `${TRY_SOURCE.url}#:~:text=${encodeURIComponent(d.quote.slice(0, 80))}` };
-      const ref = await publish(null, item, { text: d.take, tag: null, voice: null, poll: null, gif: null, upload: null });
-      if (ref.local) await publishSaved(ref.id);
-      await chrome.storage.local.remove('annotatedTryit');
-      // Remembered, so the front page stops handing it over and stops showing it as only on this computer.
-      await chrome.storage.local.set({ annotatedTryitPublished: Number(d.at) || 0 });
-      box.innerHTML = '<p class="tcLabel">Published</p><p class="note">It has a page of its own now.</p><p class="tcRow"><button type="button" class="primary sm tcView">View page</button></p>';
-      box.querySelector('.tcView').addEventListener('click', () => viewPublished({ id: ref.id }, { justPublished: false }));
-    } catch (e) {
-      b.disabled = false; b.textContent = 'Publish it';
-      msg.textContent = (e && e.message) || 'It could not be published just now.';
-    }
-  });
 }
 // The last tab that had something to annotate, so the panel beside annotated's own pages can offer the
 // way back to what you were reading.

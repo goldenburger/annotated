@@ -36,7 +36,7 @@ var Landing = (() => {
         <h1 class="heroH" aria-label="Say what you think about anything: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true">.</span></h1>
         <p class="heroSub">Your take on top, the source underneath, always linked back to where it came from.</p>
         <p class="heroDo heroGetRow"><a class="primary heroGet" href="#get">Get the Chrome extension</a><a class="link heroLook" href="/?feed">Look around first</a></p>
-        <p class="heroHave" hidden>You have annotated. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a></p>
+        <p class="heroHave" hidden>annotated is installed. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a></p>
       </div>
       <div class="heroTry">
         <div class="tryTabs" role="tablist" aria-label="Try it on">${TABS.map((t, i) => `<button type="button" role="tab" class="tryTab" id="tab-${t.kind}" aria-controls="panel-${t.kind}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-i="${i}">${icon(t.icon)}<span>${t.label}</span></button>`).join('')}</div>
@@ -64,7 +64,10 @@ var Landing = (() => {
       const i = TABS.findIndex((t) => t.kind === (e.detail && e.detail.kind));
       if (i < 0) return;
       pick(i);
-      el.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
+      // Only when the try-it is out of sight: scrolling a page already showing it nudged it on every click
+      // (recording of 2026-09-24 at 23:56, 1:56 to 1:59).
+      const r = el.getBoundingClientRect();
+      if (r.top < 0 || r.top > innerHeight * .5) el.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'start' });
     });
     tabs.forEach((b, i) => {
       b.addEventListener('click', () => pick(i));
@@ -155,11 +158,48 @@ var Landing = (() => {
     if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((x) => (x.isIntersecting ? go() : v.pause())), { threshold: .4 }).observe(frame);
     else go();
   }
+  // A moment on a card: a play button over its waveform. Playing, a line crosses the bars; it stops at the end.
+  let listening = null;
+  function listenClip(wave, src, a, z) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'yListen'; b.setAttribute('aria-label', 'Listen to this moment');
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+    const head = document.createElement('span'); head.className = 'yHead'; head.hidden = true;
+    wave.append(head, b);
+    // The whole waveform plays it, not only the button: it was clicked four times in the recording at 23:56.
+    wave.addEventListener('click', (e) => { if (e.target !== b && !b.contains(e.target)) { e.preventDefault(); e.stopPropagation(); b.click(); } });
+    let au = null, raf = 0;
+    const stop = () => {
+      if (!au) return;
+      au.pause(); cancelAnimationFrame(raf); head.hidden = true; wave.classList.remove('playing');
+      b.setAttribute('aria-label', 'Listen to this moment');
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>';
+      if (listening === stop) listening = null;
+    };
+    const tick = () => {
+      const p = Math.max(0, Math.min(1, (au.currentTime - a) / (z - a)));
+      head.style.left = `calc(44px + (100% - 50px) * ${p.toFixed(4)})`;
+      if (au.currentTime >= z || au.ended) { stop(); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    b.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (wave.classList.contains('playing')) { stop(); return; }
+      if (listening) listening();
+      if (!au) { au = new Audio(src); au.preload = 'metadata'; }
+      const go = () => { au.currentTime = a; au.play().catch(stop); };
+      if (au.readyState >= 1) go(); else au.addEventListener('loadedmetadata', go, { once: true });
+      listening = stop;
+      wave.classList.add('playing'); head.hidden = false;
+      b.setAttribute('aria-label', 'Stop');
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>';
+      raf = requestAnimationFrame(tick);
+    });
+  }
   function yoursCard(y) {
     const li = document.createElement('li');
     li.className = 'cardItem yours';
-    const brief = y.kind === 'article';
-    const get = y.example ? 'Now make your own, above' : brief ? 'Get the extension to publish it' : 'Get the extension to do this on any page';
+    const get = y.example ? 'Now make your own, above' : 'Get the extension to do this on any page';
     if (y.example) li.classList.add('example');
     li.innerHTML = `<a class="card mf nothumb" href="${y.example ? '#try' : '#get'}" aria-label="${y.example ? 'An example annotation' : 'Your annotation, only on this computer'}. ${get}.">
       <span class="cbody"><span class="cmeta">You <span class="dotsep"></span></span>
@@ -177,8 +217,12 @@ var Landing = (() => {
     if (y.example) { li.querySelector('.cmeta').innerHTML = '<span class="yEx">Example</span>'; }
     li.querySelector('.ctake').textContent = y.take || '';
     li.querySelector('.cst').textContent = y.source || '';
-    li.querySelector('.csn').textContent = y.quote ? `“${y.quote}”` : (y.what || '');
     const m = li.querySelector('.yMedia');
+    // Words are the picture of a passage or a post: shown large and inked, where they used to sit small in the
+    // source box above a card of white space (recording of 2026-09-24 at 23:56).
+    const words = y.quote && !y.thumb && !Array.isArray(y.wave);
+    li.querySelector('.csn').textContent = words ? (y.kind === 'post' ? 'Post' : 'Passage') : y.quote ? `“${y.quote}”` : (y.what || '');
+    if (words) { const q = document.createElement('span'); q.className = 'yQuote'; const k = document.createElement('span'), t = document.createElement('span'); t.textContent = y.quote; k.appendChild(t); q.appendChild(k); m.appendChild(q); }
     if (y.thumb && /^\/media\//.test(y.thumb.src)) {
       // A frame of the clip, cut from the video's own sprite of frames.
       const t = y.thumb, col = t.idx % t.cols, row = Math.floor(t.idx / t.cols);
@@ -200,13 +244,21 @@ var Landing = (() => {
       const e = document.createElement('span'); e.className = 'yWave';
       y.wave.slice(0, 40).forEach((v) => { const i = document.createElement('i'); i.style.height = Math.round(Math.max(.1, Math.min(1, +v || 0)) * 100) + '%'; e.appendChild(i); });
       m.appendChild(e);
+      // Its moment can be listened to from the card: the episode's own audio from the start of the moment to its end.
+      let a = Number(y.a), z = Number(y.z);
+      if (!(z > a)) {
+        const sec = (s) => s.split(':').reduce((n, x) => n * 60 + Number(x), 0);
+        const hit = /(\d+:\d{2}) to (\d+:\d{2})/.exec(y.what || '');
+        if (hit) { a = sec(hit[1]); z = sec(hit[2]); }
+      }
+      if (z > a) listenClip(e, '/media/astronaut.mp3', a, z);
     }
     return li;
   }
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote">Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><p class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></p><ul class="llRow"></ul>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
@@ -218,25 +270,15 @@ var Landing = (() => {
     };
     list().forEach((y) => row.appendChild(yoursCard(y)));
     tidy();
-    // Removing: one card by its ×, or all of them. Undo puts them back for six seconds. A take on the brief also
-    // leaves the extension's hands (article.js hears annotated-tryit-removed), so the panel stops offering it.
+    // Removing: one card by its ×, or all of them. Undo puts them back for six seconds.
     const undoBar = box.querySelector('.llUndo');
     let undoTimer = 0, lastGone = null;
     const redraw = () => { row.innerHTML = ''; list().forEach((y) => row.appendChild(yoursCard(y))); tidy(); };
-    const dropTryit = (items) => {
-      let t = null; try { t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch {}
-      if (t && items.some((y) => y.kind === 'article' && String(y.tryitAt) === String(t.at))) {
-        try { localStorage.removeItem('annotated-tryit'); } catch {}
-        document.dispatchEvent(new CustomEvent('annotated-tryit-removed', { detail: { at: t.at } }));
-        return t;
-      }
-      return null;
-    };
     const remove = (pick, said) => {
       const all = list(), gone = all.filter(pick), kept = all.filter((y) => !pick(y));
       if (!gone.length) { row.querySelectorAll('.example').forEach((x) => x.remove()); tidy(); return; }
       save(kept);
-      lastGone = { all, tryit: dropTryit(gone) };
+      lastGone = { all };
       redraw();
       undoBar.querySelector('span').textContent = said;
       undoBar.hidden = false; box.hidden = false;
@@ -246,10 +288,6 @@ var Landing = (() => {
     box.querySelector('.llUndoBtn').addEventListener('click', () => {
       if (!lastGone) return;
       save(lastGone.all);
-      if (lastGone.tryit) {
-        try { localStorage.setItem('annotated-tryit', JSON.stringify(lastGone.tryit)); } catch {}
-        document.dispatchEvent(new CustomEvent('annotated-tryit-restored'));
-      }
       lastGone = null; clearTimeout(undoTimer); undoBar.hidden = true; redraw();
     });
     row.addEventListener('click', (e) => {
@@ -289,19 +327,6 @@ var Landing = (() => {
       const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'An example post on X', article: 'An example article' }[d.kind] || d.source;
       add({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave, a: d.a, z: d.z }, d.card);
     });
-    // Published from the extension's panel: the extension's page script says so (data-annotated-tryit-published),
-    // and the card that said it was only on this computer goes.
-    const gone = () => {
-      const at = document.documentElement.dataset.annotatedTryitPublished;
-      if (!at) return;
-      endUndo();
-      const all = list(), keep = all.filter((y) => !(y.kind === 'article' && String(y.tryitAt) === at));
-      if (keep.length === all.length) return;
-      save(keep);
-      row.innerHTML = ''; keep.forEach((y) => row.appendChild(yoursCard(y))); tidy();
-    };
-    gone();
-    new MutationObserver(gone).observe(document.documentElement, { attributes: true, attributeFilter: ['data-annotated-tryit-published'] });
     return { fill() {} };
   }
   // "See it", wherever it is offered: to Latest on annotated, where yours is.
@@ -329,9 +354,7 @@ var Landing = (() => {
       if (fresh && !have.dataset.fresh) {
         // Opened by the extension right after it was installed.
         have.dataset.fresh = '1';
-        let waiting = false;
-        try { const t = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); waiting = !!(t && t.take && String(t.at) !== document.documentElement.dataset.annotatedTryitPublished); } catch {}
-        have.innerHTML = `<b>annotated is installed.</b> Pin it from the puzzle piece in the toolbar so the pen is always there, then open any article, video, podcast or post and press it.${waiting ? ' Your take on the brief is waiting on the panel’s Home, ready to publish.' : ''} <a class="link" href="/?feed">See what people are annotating</a>`;
+        have.innerHTML = `<b>annotated is installed.</b> Pin it from the puzzle piece in the toolbar so the pen is always there, then open any article, video, podcast or post and press it. <a class="link" href="/?feed">See what people are annotating</a>`;
       }
     };
     apply();
@@ -372,9 +395,11 @@ var Landing = (() => {
     root.innerHTML = '';
     header(root, { signedIn, onSignIn });
     const main = document.createElement('main'); main.className = 'landMain'; root.appendChild(main);
+    // Yours so far sits right under the try-it, so a take lands where it can be seen, and getting the extension
+    // comes after (audit of 2026-09-24: on a laptop the row was below the fold and the planes flew off screen).
     hero(main);
-    install(main);
     const l = latest(main);
+    install(main);
     watchInstalled(root);
     return { fillLatest: l.fill };
   }
@@ -401,7 +426,7 @@ var Landing = (() => {
     root.appendChild(bar);
     const main = document.createElement('main'); main.className = 'landMain installMain'; root.appendChild(main);
     const have = document.createElement('p'); have.className = 'heroHave installHave'; have.hidden = true;
-    have.innerHTML = 'You have annotated already. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a>';
+    have.innerHTML = 'annotated is installed. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a>';
     main.appendChild(have);
     install(main);
     main.insertAdjacentHTML('beforeend', '<p class="note installAfter">Sign in with Google from the panel to publish annotations everyone can see.</p>');

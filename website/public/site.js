@@ -1,6 +1,15 @@
 // annotated.app pages: the home feed at /, a person's profile at /@handle, and one annotation at /@handle/id.
 // Everything comes from the shared database. Reading needs no account. Commenting, reacting and voting use
 // Google sign-in, which returns to the same page.
+// The code for reading and writing annotations (emoji, the take box, GIFs, waveforms) is loaded only by the pages
+// that show annotations: a visitor's front page never uses it, and it was about 69 KB of the page (audit of
+// 2026-09-24). It is loaded in order, with the version this page was stamped with.
+const SITE_V = (document.currentScript && new URL(document.currentScript.src, location.href).searchParams.get('v')) || '';
+const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/compose.js', '/waveform.js', '/gifmaker.js']
+  .reduce((p, src) => p.then(() => new Promise((res) => {
+    const el = document.createElement('script'); el.src = src + (SITE_V ? '?v=' + SITE_V : '');
+    el.onload = res; el.onerror = res; document.head.appendChild(el);
+  })), Promise.resolve());
 (async () => {
   Prefs.init(Prefs.localBackend());
   const page = document.getElementById('page');
@@ -22,6 +31,7 @@
       return;
     }
   }
+  await loadReading();
   // An annotation or a profile takes a moment to arrive, so its outline is drawn at once rather than a blank
   // page with only the footer, which is what opening one from the front page used to show for a second or more.
   if (parts.length) {

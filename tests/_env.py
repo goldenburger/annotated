@@ -1,3 +1,4 @@
+import asyncio
 # Paths and settings for the tests, relative to the project, so they run on any computer.
 # Tests run with this folder as the working directory (scripts/run_tests.py does that).
 import os, tempfile, pathlib
@@ -31,8 +32,15 @@ def prof(name):
 
 # Presses Publish. Publishing used to ask about a quote that starts or ends mid sentence, and this answered
 # it. Nothing is asked now, because any words may be annotated, and the tests still call it by this name.
+# A floating panel the browser reports as not plainly visible (headless Edge always does) asks for a second
+# press on Publish and the other weighty buttons (sidepanel.js). Returns whether it asked.
 async def publish_now(pg, sel):
     await pg.click(sel)
+    await asyncio.sleep(.15)
+    try: armed = await pg.eval_on_selector(sel, "(b) => b.dataset.armed === '1' && b.textContent")
+    except Exception: armed = False
+    if armed: await pg.click(sel)
+    return armed
 
 
 # Tests that watch a panel in a window of its own must stop the page's Annotate button from opening the real
@@ -41,3 +49,12 @@ async def publish_now(pg, sel):
 # the test is watching decides whether it passes. In real use the panel it opens is the one you are looking at.
 async def one_panel(sw):
     await sw.evaluate("chrome.sidePanel.open = async () => {}")
+
+# A real mouse press on the page's own Annotate button (it sits in a shadow root). The button only answers presses
+# the browser marks as coming from a person, so a script's .click() no longer works (security audit of 2026-09-24).
+async def press_annotate(pg):
+  r = await pg.evaluate("""() => { const h = [...document.querySelectorAll('.annotated-ui')].find((x) => x.style.display === 'block');
+    const b = h && h.shadowRoot && h.shadowRoot.querySelector('button'); if (!b) return null; const r = b.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }""")
+  if not r: raise RuntimeError('no Annotate button showing')
+  await pg.mouse.click(r['x'], r['y'])

@@ -42,7 +42,7 @@ async def main():
       if (f && f.contentWindow) f.contentWindow.postMessage({ type: 'annotated-key', k: 'wrong' }, '*'); }, 5)""")
     await news.evaluate('''(()=>{const p=document.querySelectorAll("p")[2].firstChild;const r=document.createRange();r.setStart(p,5);r.setEnd(p,40);getSelection().removeAllRanges();getSelection().addRange(r)})()''')
     await asyncio.sleep(.6)
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     await asyncio.sleep(3.5)
     src = await news.evaluate("(() => { const h = document.getElementById('annotated-float-host'); const f = h && h.shadowRoot.querySelector('iframe'); return f ? f.src : ''; })()")
     print('what the page can read of the frame:', src.split('/')[-1])

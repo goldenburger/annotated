@@ -289,12 +289,12 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   button (in the bar under the text, where it cannot cover a line), the extension's real pen crosses them
   (`ArticleCore.highlightRange`, `sweep`, and `ArticleCore.penCss`, which moved there from `article.js` so both
   share it), and a take makes the card an annotation becomes. Nothing is sent. Left alone for a few seconds it
-  marks one phrase itself. The last one made is kept in the page's `annotated-tryit`, and with the extension
-  installed `article.js` hands it to `annotatedTryit` in `chrome.storage.local`, only from
-  `https://annotated-app.netlify.app`, so no other site can put words in front of a Publish button. The
-  panel's Home then offers "You made this on annotated's front page" with Publish it (`drawTryit`). The
-  extension's own Annotate button keeps out of `[data-annotated-self]`. The scripted bus loop in `hero.js` is
-  now only the fallback if the highlighter did not load. Publishing the handed-over draft has no test yet.
+  marks one phrase itself. The last one made is kept in the page's `annotated-tryit`. Takes made on the front page
+  are demonstrations and are never handed to the extension or published (David, 2026-09-24). The panel used
+  to offer "You made this on annotated's front page" with Publish it, and `sidepanel.js` now clears the
+  `annotatedTryit` keys that older versions left. The extension's own Annotate button keeps out of
+  `[data-annotated-self]`. The scripted bus loop in `hero.js` is now only the fallback if the highlighter did
+  not load.
 - **Media-first cards** (`renderFeed` in `annotation-page.js`, used by the feed, profiles and the website). The take,
   then the source large under it, then what it is and the counts. A clip plays silently while half its card is
   on screen (`wirePreviews`, fetched only once seen, since the free plan allows five gigabytes of downloads a
@@ -434,6 +434,20 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`annotated-open-kind`), since its install link went nowhere. The foot of the home page has "Turn paper planes
   off/on" (`annotated-planes-off` in localStorage, honoured by `planes.js` and `Fold.on()`), and the panel's
   setting is called "Paper plane animations".
+- **The recording of 2026-09-24 at 23:56** (`tests/walk2356.py`). The help screen's "Open annotated's home page"
+  goes to a tab already on the home page, whatever its query (`a.wSite`, handled in `sidepanel.js`). An empty
+  Your profile says to select words or clip something. Installed, the front page says "annotated is
+  installed." (it said "You have annotated."). A card in Yours so far scrolls to the try-it only when it is out
+  of sight, and a moment's whole waveform plays it. A take is shown for two seconds, not four, and its card is
+  kept out of the row meanwhile (`pl-held`), so no empty dashed slot waits there. The brief resets while it is
+  folded away and drops back in 1.3 seconds, about 2.6 seconds without paper in all, where it was over three.
+  A passage's and a post's card show their words large and marked (`.yQuote`), and name the kind under the
+  source. Undo sits in the row's heading, so removing a card no longer moves the row. Not done: the website
+  and the extension keep separate sign-ins, so the site offers Sign in with Google beside a signed-in panel.
+  The audit's guard on a floating panel the browser reports as covered no longer disables Publish, Undo and the
+  delete buttons. They ask for a second press ("Press again to confirm") instead, because headless Edge reports
+  a plainly visible frame as covered, and real Chrome may on some pages. `publish_now` in `_env.py` presses twice
+  when asked, and `ext_float.py` checks the wording.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is
@@ -449,10 +463,7 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **Yours so far** (`landing.js`, `tests/installed.py`). The front page shows no published annotations; people
   make their own in the try-it. The row under the install steps holds up to four of yours from any tab
   (`annotated-yours` in localStorage, newest first), with a frame of the clip or the moment's waveform, and hides
-  while empty. A take on the brief says "Get the extension to publish it", since the extension is handed it; the
-  others say "Get the extension to do this on any page", being about demo sources. Published from the panel, the
-  brief's take is not handed over again and leaves the row (`annotatedTryitPublished`, then
-  `data-annotated-tryit-published` from `article.js`). Installed from the front page, the extension moves that
+  while empty. Every card says "Get the extension to do this on any page", since they are all demonstrations. Installed from the front page, the extension moves that
   still-open tab to `/?installed` and brings it forward (`showInstalled` in `background.js`), where the hero says
   it is installed and what to do next; installed any other way, nothing opens.
 - **The logo** is the paper dart: `extension/icons` (on the dark square, with its dashed trail at 48 and 128),

@@ -2,7 +2,7 @@
 // A visitor selects words, presses Annotate, and the extension's real pen crosses them (ArticleCore, the same
 // code the extension puts on every page). Their take then lifts off the paper as a card that hangs above it,
 // its shadow landing on the words it is about: your take on top, the source underneath. Nothing is sent. The
-// last one made is kept in this browser (annotated-tryit), so the extension can offer to publish it.
+// last one made is kept in this browser (annotated-tryit), and shown under Yours so far. It is a demonstration and is never published.
 var TryIt = (() => {
   // The brief, word for word, from its own page. Short on purpose, credited and linked.
   const SOURCE = { title: 'The annotated.com brief', site: 'This Week in Startups', url: 'https://annotated.lovable.app/' };

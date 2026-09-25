@@ -322,6 +322,9 @@ const AnnotationPage = (() => {
   // Shared annotations come from other people's accounts, so every address is checked before it goes on the page.
   // Links must be web addresses. Images may also be data or blob addresses made by this extension.
   const safeLink = (u) => (/^https?:\/\//i.test(String(u || '')) ? String(u) : '');
+  // A GIF is GIPHY's to serve (giphy.js only ever offers theirs). Any other address in the gif column was written
+  // by hand, and could be a tracking image logging everyone who reads it (security audit of 2026-09-24).
+  const safeGif = (u) => (/^https:\/\/([a-z0-9-]+\.)?giphy\.com\//i.test(String(u || '')) ? String(u) : '');
   const safeImg = (u) => (/^(https?:\/\/|data:image\/(png|jpeg|webp|gif);|blob:)/i.test(String(u || '')) ? String(u) : '');
   const kindIcon = (item) => Brand.icon({ video: 'clip', post: 'post', article: 'article', audio: 'podcast' }[item.kind] || 'article');
 
@@ -451,7 +454,7 @@ const AnnotationPage = (() => {
             <span class="tagSlot">${take.tag ? `<button type="button" class="tag tagLink" title="See all ${esc(take.tag)} annotations">${esc(take.tag)}</button>` : ''}</span>
           </header>
           <p class="take" ${take.text ? '' : 'hidden'}>${esc(take.text || '')}</p>
-          ${take.gif && safeImg(take.gif.url) ? `<figure class="takeGif"><img src="${esc(safeImg(take.gif.url))}" alt="${esc(take.gif.alt || 'A GIF')}" loading="lazy">
+          ${take.gif && safeGif(take.gif.url) ? `<figure class="takeGif"><img src="${esc(safeGif(take.gif.url))}" alt="${esc(take.gif.alt || 'A GIF')}" loading="lazy">
             <figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}
           ${upSrc ? (take.upload.kind === 'video'
             ? `<figure class="takeUp"><video controls preload="metadata" src="${esc(upSrc)}" ${take.upload.alt ? `aria-label="${esc(take.upload.alt)}"` : ''}></video></figure>`
@@ -746,7 +749,7 @@ const AnnotationPage = (() => {
       q('.cList').innerHTML = list.length ? shown.map((c) => `
         <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeImg(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeImg(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
         : '<li class="empty">No comments yet. Start the conversation.</li>';
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
@@ -1188,7 +1191,7 @@ const AnnotationPage = (() => {
       <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
         <span class="rlKind">${kindIcon(r.item)}</span>
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
-        </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Capture something and it shows up.')}</p></li>`}</ul>
+        </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
     </div>`;

@@ -59,18 +59,11 @@ async def main():
     if after!=1: errs.append(f'{after} Annotate buttons were on the page, and only one of them can work')
 
     # The one that is left is the live one, and pressing it reaches the extension.
-    heard=await sw.evaluate("""async (a) => {
-      let got = false;
-      const listen = (m, s) => { if (m && m.type === 'annotate-request' && s.tab && s.tab.id === a.tid) got = true; };
-      chrome.runtime.onMessage.addListener(listen);
-      await chrome.scripting.executeScript({ target: { tabId: a.tid }, func: () => {
-        const h = document.querySelector('.annotated-ui');
-        if (h && h.shadowRoot) h.shadowRoot.querySelector('.go').click();
-      } });
-      await new Promise((r) => setTimeout(r, 600));
-      chrome.runtime.onMessage.removeListener(listen);
-      return got;
-    }""",{'tid':tid})
+    # A real mouse press: the button answers only presses the browser marks as a person's (audit of 2026-09-24).
+    await sw.evaluate("""(a) => { self.__heard = false; self.__listen = (m, s) => { if (m && m.type === 'annotate-request' && s.tab && s.tab.id === a.tid) self.__heard = true; };
+      chrome.runtime.onMessage.addListener(self.__listen); }""",{'tid':tid})
+    await press_annotate(pg); await asyncio.sleep(.6)
+    heard=await sw.evaluate("(() => { chrome.runtime.onMessage.removeListener(self.__listen); return self.__heard; })()")
     print('the button that is left reaches the extension:',heard)
     if not heard: errs.append('the Annotate button left on the page does nothing when pressed')
 

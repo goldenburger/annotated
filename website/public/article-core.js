@@ -510,7 +510,9 @@ var ArticlePage = (() => {
     (document.body || document.documentElement).appendChild(host);
     const btn = sh.querySelector('.go'), moreBtn = sh.querySelector('.more'), row = sh.querySelector('.row');
     btn.addEventListener('mousedown', (e) => e.preventDefault());
-    btn.addEventListener('click', () => requestAnnotate());
+    // Only a person's press counts. The page shares this document and could call .click() on the button itself,
+    // which put the floating panel up and captured words of its choosing (security audit of 2026-09-24).
+    btn.addEventListener('click', (e) => { if (e.isTrusted) requestAnnotate(); });
     // The second click. Takes the rest of the sentence for this capture only, and then has nothing left to offer.
     moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
     moreBtn.addEventListener('click', () => { setExact(false); moreBtn.hidden = true; });

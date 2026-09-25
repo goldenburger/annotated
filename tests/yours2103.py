@@ -2,8 +2,8 @@
 #   1. A clip's card in Yours so far plays the clip, silent and on repeat, including a card kept from before the
 #      range was stored (read from its words).
 #   2. A card can be removed by its ×, with Undo; Clear all removes every one, with Undo. Removing the brief's
-#      take clears it from the page's storage too.
-#   3. Quotes on the cards are cut to three lines, and a card waiting for its plane holds a dashed slot.
+#      take leaves the page's own record of it alone, since nothing is handed to the extension any more.
+#   3. Quotes on the cards are cut to six lines, and a card waiting for its plane holds a dashed slot.
 #   4. The website's feed is headed Feed.
 import asyncio, pathlib, mimetypes, json, time
 from playwright.async_api import async_playwright
@@ -50,16 +50,17 @@ async def main():
     if not t1 or t1['paused'] or not t1['muted'] or not (177 <= t1['t'] <= 182.5): errs.append(f'the clip card is not playing its clip, muted: {t1}')
     if not t2 or t2['paused'] or not (177 <= t2['t'] <= 182.5): errs.append(f'the clip did not go round again within its range: {t2}')
     # 3.
-    q = await pg.evaluate("(() => { const s = [...document.querySelectorAll('.llRow .yours .csn')].find((x) => x.textContent.length > 300); const lh = parseFloat(getComputedStyle(s).lineHeight); return Math.round(s.getBoundingClientRect().height / lh); })()")
+    # A passage's words are its picture now (.yQuote, recording at 23:56), held to six lines.
+    q = await pg.evaluate("(() => { const s = [...document.querySelectorAll('.llRow .yours .yQuote > span')].find((x) => x.textContent.length > 300); const lh = parseFloat(getComputedStyle(s).lineHeight); return Math.round(s.getBoundingClientRect().height / lh); })()")
     print('3. lines shown of a long quote:', q)
-    if q > 3: errs.append(f'a long quote shows {q} lines')
+    if q > 6: errs.append(f'a long quote shows {q} lines')
     css = (PUB / 'web.css').read_text(encoding='utf-8')
     if '.llRow .yours:has(> .card.pl-hidden)' not in css: errs.append('no reserved slot for a card waiting for its plane')
     # 2.
     await pg.hover('.llRow .yours:nth-child(2)'); await pg.click('.llRow .yours:nth-child(2) .yDel'); await asyncio.sleep(.4)
-    after = await pg.evaluate("({ cards: document.querySelectorAll('.llRow .yours').length, undo: !document.querySelector('.llUndo').hidden, tryit: localStorage.getItem('annotated-tryit'), kept: JSON.parse(localStorage.getItem('annotated-yours')).length })")
+    after = await pg.evaluate("({ cards: document.querySelectorAll('.llRow .yours').length, undo: !document.querySelector('.llUndo').hidden, tryit: !!localStorage.getItem('annotated-tryit'), kept: JSON.parse(localStorage.getItem('annotated-yours')).length })")
     print('2. after removing the brief take:', after)
-    if after != {'cards': 2, 'undo': True, 'tryit': None, 'kept': 2}: errs.append(f'removing a card did not work as it should: {after}')
+    if after != {'cards': 2, 'undo': True, 'tryit': True, 'kept': 2}: errs.append(f'removing a card did not work as it should: {after}')
     await pg.click('.llUndoBtn'); await asyncio.sleep(.4)
     back = await pg.evaluate("({ cards: document.querySelectorAll('.llRow .yours').length, tryit: !!localStorage.getItem('annotated-tryit') })")
     print('   after Undo:', back)

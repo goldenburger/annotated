@@ -12,3 +12,14 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()
   Cross-Origin-Opener-Policy: same-origin
+
+# Caching (audit of 2026-09-24). Netlify's default makes a returning visitor ask again for everything. Every page
+# asks for the database library with the version in its address, so a new version is a new address and the old one
+# may be kept for good. The fonts are asked for by fonts.css without a version, so they are kept a month. The NASA
+# clip and episode keep their names, so a day.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/fonts/*
+  Cache-Control: public, max-age=2592000
+/media/*
+  Cache-Control: public, max-age=86400

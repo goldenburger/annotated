@@ -38,47 +38,12 @@
     if (!alive()) return retire();
     try { chrome.runtime.sendMessage(m).catch(() => { if (!alive()) retire(); }); } catch { retire(); }
   };
-  // An annotation made in the try-it on annotated's front page, kept in that page's storage. Only our own
-  // site is read, because this is offered in the panel to publish, and a page anyone else writes must never
-  // be able to put words in front of someone with a Publish button under them.
-  const TRY_ORIGIN = 'https://annotated-app.netlify.app';
-  // A take already published from the panel is not handed over again (it used to come back as a fresh offer to
-  // publish on every visit), and the page is told, so its card for it goes.
-  let publishedAt = 0;
-  const markPublished = () => { if (location.origin === TRY_ORIGIN && publishedAt) document.documentElement.dataset.annotatedTryitPublished = String(publishedAt); };
-  const handTryit = async () => {
-    if (location.origin !== TRY_ORIGIN || !alive()) return;
-    let d = null;
-    try { d = JSON.parse(localStorage.getItem('annotated-tryit') || 'null'); } catch { return; }
-    if (!d || typeof d.quote !== 'string' || typeof d.take !== 'string' || !d.quote.trim() || !d.take.trim()) return;
-    const draft = { quote: d.quote.slice(0, 600), take: d.take.slice(0, 280), at: Number(d.at) || Date.now() };
-    try { publishedAt = Number((await chrome.storage.local.get('annotatedTryitPublished')).annotatedTryitPublished) || 0; } catch { return; }
-    markPublished();
-    if (publishedAt && publishedAt === draft.at) return;
-    try { chrome.storage.local.set({ annotatedTryit: draft }); } catch { /* the extension went away */ }
-  };
-  if (location.origin === TRY_ORIGIN) {
-    try {
-      chrome.storage.onChanged.addListener((ch, area) => {
-        if (area === 'local' && ch.annotatedTryitPublished) { publishedAt = Number(ch.annotatedTryitPublished.newValue) || 0; markPublished(); }
-      });
-    } catch { /* the extension went away */ }
-  }
-  handTryit();
-  if (location.origin === TRY_ORIGIN) {
+  // Our own front page is told the extension is here, so it can drop the install steps. Nothing made in its
+  // try-it is handed over: those are demonstrations, never published (David, 2026-09-24).
+  if (location.origin === 'https://annotated-app.netlify.app') {
     document.documentElement.dataset.annotatedInstalled = '1';
     document.dispatchEvent(new CustomEvent('annotated-installed'));
   }
-  document.addEventListener('annotated-tryit-made', handTryit);
-  document.addEventListener('annotated-tryit-restored', handTryit);
-  // Removed from Yours so far on the front page: the panel stops offering to publish it.
-  document.addEventListener('annotated-tryit-removed', async (e) => {
-    if (location.origin !== TRY_ORIGIN || !alive()) return;
-    try {
-      const { annotatedTryit: d } = await chrome.storage.local.get('annotatedTryit');
-      if (d && (!e.detail || !e.detail.at || Number(d.at) === Number(e.detail.at))) await chrome.storage.local.remove('annotatedTryit');
-    } catch { /* the extension went away */ }
-  });
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
   chrome.storage.local.get('annotatedPrefs').then((o) => { if (o.annotatedPrefs) pageButton = o.annotatedPrefs.pageButton !== false; }).catch(() => {});

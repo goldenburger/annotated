@@ -93,7 +93,7 @@ async def main():
     for _ in range(6):
       await news.evaluate(SEL); await asyncio.sleep(.8)
       if await news.evaluate("[...document.querySelectorAll('.annotated-ui')].some(h=>h.style.display==='block')"): break
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     await pan.wait_for_selector('#articleMode .aCompose:not([hidden])', timeout=25000); await asyncio.sleep(1.5)
     frag = await pan.inner_text('#articleMode .aFrag')
     print('4. a quote opening on "Shotwell" gets:', repr(frag))

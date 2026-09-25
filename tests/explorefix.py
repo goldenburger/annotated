@@ -165,7 +165,7 @@ async def main():
     ap = await ctx.wait_for_event('page'); await asyncio.sleep(2); await news.bring_to_front()
     await news.evaluate('''()=>{const p=document.querySelectorAll("p")[1].firstChild;const r=document.createRange();r.setStart(p,p.nodeValue.indexOf("paid")+2);r.setEnd(p,p.nodeValue.indexOf("Alvarez")+4);getSelection().removeAllRanges();getSelection().addRange(r)}''')
     await asyncio.sleep(.8)
-    await news.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(news)
     await ap.wait_for_selector('.aCompose:not([hidden])', timeout=25000); await asyncio.sleep(1)
     offered = await ap.is_visible('#articleMode .aFragFix')
     await ap.fill('#articleMode .takeInput', 'A take.'); await publish_now(ap, '#articleMode .publish'); await asyncio.sleep(1.5)

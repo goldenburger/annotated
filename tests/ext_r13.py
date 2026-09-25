@@ -29,7 +29,7 @@ async def main():
         await asyncio.sleep(.8)
     # Annotate button on the page starts the capture with the quote
     await select(0,'Success',25)
-    await x.evaluate("[...document.querySelectorAll('.annotated-ui')].find(h=>h.style.display==='block').shadowRoot.querySelector('button').click()")
+    await press_annotate(x)
     await pan.wait_for_selector(P+'.pCompose:not([hidden])',timeout=15000); await asyncio.sleep(.4)
     print('Annotate button captured with quote:', repr(await pan.inner_text(P+'.pQuote')))
     print('post folded away:', not await pan.is_visible(P+'.pText'), '| show-as kept:', await pan.is_visible(P+'.showAs'))
