@@ -332,6 +332,8 @@ var Landing = (() => {
       const all = list(), gone = all.filter(pick), kept = all.filter((y) => !pick(y));
       if (!gone.length) { row.querySelectorAll('.example').forEach((x) => x.remove()); tidy(); return; }
       save(kept);
+      // Emptying the row is not an invitation to the example: it waits for another visit or Show me an example.
+      try { sessionStorage.setItem('annotated-example-shown', '1'); } catch {}
       lastGone = { all };
       redraw();
       undoBar.querySelector('span').textContent = said;

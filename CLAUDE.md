@@ -581,7 +581,7 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`tiWhole` in `tryit.js`, from `ArticleCore.expandToSentences`). Six more chips: trending and people to follow,
   invite by email, already annotated, drafts kept, clips checked, works offline. The example account in Receipts
   is invented and labelled Example; nothing claims a real person said it.
-- **What else it does** (`website/public/features.js`, `tests/features.py`, 2026-09-25). Under Yours so far on the
+- **Other things it does**, called What else it does until 2.33.22 (`website/public/features.js`, `tests/features.py`, 2026-09-25). Under Yours so far on the
   front page and before the install steps, three working examples, each labelled Example and sending nothing: "Say
   it your way" (a take, a tag, a poll to vote on and reactions, drawn as the card while you make it), "It lands as a
   page" (a finished annotation with reactions, a reply box and File a claim, which says nothing was sent), and "Clip
@@ -976,6 +976,14 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   and footballs: hand-drawn edges, curled corners, soft shadows, written lines and a rough highlighter stroke; the
   stack has a paper clip; the crumpled balls are made fresh from a seed, with uneven facets, a few creases and scraps
   of the page's writing.
+- **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
+  Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a
+  row emptied before then read as a visitor with nothing made. `tryit.js` counts what the row held when the page
+  opened (`hadYours`), and `landing.js` marks the visit (`annotated-example-shown`) on any removal. Show me an example
+  still plays it, and a fresh visit with nothing made still gets it. The extension's own pages land the loading
+  plane on their outline too (`.bootMain::before`, the same `pdLand`). The examples under Other things it does were
+  rewritten to sound less like AI writing, with David's approval: Tags, polls and reactions; Every annotation gets its
+  own page; If the post gets deleted; Clip podcasts from Spotify; and the chip row headed Also.
 - **The recording of 2026-09-25 at 20:19** (`tests/walk2019b.py`). The decorations come in many versions
   (`paperdeco.js`): the dart, a glider, a half folded sheet, a dart landed nose first, three crumpled balls, a stack
   of sheets, a torn strip, a sheet folded in half, and four trails (loop, arc, zigzag, and one that missed and ends in

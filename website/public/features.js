@@ -14,24 +14,24 @@ var Features = (() => {
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
   const EMOJI = ['👍', '🔥', '🤔', '😂'];
   const MORE = [
-    ['Floating panel', 'Keep annotated in the side panel, or float it over the page and move it where you like.'],
-    ['Six highlighter colours', 'Yellow, apricot, rose, lilac, sky or mint, and the pen on the page follows your choice.'],
-    ['Light and dark', 'Every panel and page has a dark half, chosen on its own or by your system.'],
-    ['Voice notes', 'Say your take out loud instead of typing it, up to a minute.'],
+    ['Floating panel', 'Use it as a side panel, or float it over the page and drag it anywhere.'],
+    ['Six highlighter colours', 'Yellow, apricot, rose, lilac, sky or mint.'],
+    ['Light and dark', 'Follows your system, or pick one.'],
+    ['Voice notes', 'Record your take instead of typing it, up to a minute.'],
     ['GIFs', 'Search GIPHY from the take box or a comment.'],
-    ['Photos and videos', 'Drop a picture or a short video of your own into a take.'],
-    ['Save a clip as a GIF', 'Any video clip you annotate can be saved as a GIF, made on your computer.'],
-    ['Undo', 'Changed your mind? Undo takes it back for ten seconds after publishing.'],
-    ['Works signed out', 'Save annotations on your computer without an account, and publish them when you sign in.'],
-    ['Keyboard shortcut', 'Open the panel from any page with Alt + Shift + K.'],
-    ['Live streams', 'Clip the last stretch of a live stream as it plays.'],
-    ['For you', 'A feed of other people\'s annotations, with the reason each one is there.'],
-    ['Trending and people to follow', 'What people here are talking about this week, and who is worth following.'],
-    ['Invite by email', 'Send anyone a link to an annotation from its page.'],
-    ['Already annotated?', 'It tells you before you annotate the same thing twice.'],
-    ['Drafts are kept', 'A half written take survives a reload of the page.'],
-    ['Clips are checked', 'Before a clip is posted its length, picture and sound are checked.'],
-    ['Works offline', 'Offline, it saves on your computer and publishes when you are back.'],
+    ['Photos and videos', 'Add your own photo or short video to a take.'],
+    ['Save a clip as a GIF', 'Turn any video clip into a GIF, made on your computer.'],
+    ['Undo', 'You have ten seconds after publishing to take it back.'],
+    ['Works signed out', 'No account needed to start. Sign in later to publish.'],
+    ['Keyboard shortcut', 'Alt + Shift + K opens the panel on any page.'],
+    ['Live streams', "Clip a live stream while it's still going."],
+    ['For you', 'A feed picked for you, with a note on why each one is there.'],
+    ['Trending and people to follow', "What people here are annotating this week, and who's worth following."],
+    ['Invite by email', 'Send someone a link to an annotation from its page.'],
+    ['Already annotated?', "It warns you if you've already annotated the same thing."],
+    ['Drafts are kept', 'Reload the page and your half-written take is still there.'],
+    ['Clips are checked', 'Before a clip goes up, its length, picture and sound are checked.'],
+    ['Works offline', "Offline, it saves to your computer and publishes once you're back."],
   ];
 
   function row(root, { title, lead, body }) {
@@ -48,12 +48,12 @@ var Features = (() => {
   // 1. A take with a tag, a poll and reactions, and the card it becomes, drawn as you go.
   function sayIt(root) {
     const d = row(root, {
-      title: 'Say it your way',
-      lead: 'Words are only the start. Tag your take, ask a poll, and let people react.',
+      title: 'Tags, polls and reactions',
+      lead: 'Tag a take as a fact check or a hot take, add a poll, and let people react with an emoji. Try it here.',
       body: `<div class="ftMake">
           <p class="ftQuote"><mark>${esc(QUOTE)}</mark></p>
           <label class="ftLbl" for="ftTake">Your take</label>
-          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Links back to the source, every time. That is the whole point.</textarea>
+          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Good rule. I want to be able to check the original.</textarea>
           <div class="ftTags" role="radiogroup" aria-label="Tag">${TAGS.map((t) => `<button type="button" class="ftTag" role="radio" aria-checked="false">${t}</button>`).join('')}</div>
           <button type="button" class="ftPollBtn" aria-expanded="false">${icon('poll')} Add a poll</button>
           <div class="ftPollEdit" hidden><input class="ftPq" maxlength="80" value="Should every clip link its source?" aria-label="Poll question"></div>
@@ -111,22 +111,22 @@ var Features = (() => {
   // 2. The page an annotation gets: its take on top, the source under it, and a conversation that works.
   function page(root) {
     const d = row(root, {
-      title: 'It lands as a page',
-      lead: 'Every annotation gets a page of its own with a link to share. People react, reply, and can file a claim if something is wrong. The source is always one click away.',
+      title: 'Every annotation gets its own page',
+      lead: 'You get a link you can share. People can reply and react, and anyone can file a claim if an annotation gets something wrong. The original is linked right there.',
       body: `<div class="ftPage">
           <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut">Explainer</span></p>
-          <p class="ftTakeOut">Links back to the source, every time. That is the whole point.</p>
+          <p class="ftTakeOut">Good rule. I want to be able to check the original.</p>
           <blockquote class="ftQ"><mark>${esc(QUOTE)}</mark></blockquote>
           <p class="ftSrcRow"><span>${icon('article')} ${esc(SOURCE)}</span><a class="link" href="https://annotated.lovable.app/" target="_blank" rel="noopener">Read the brief ${icon('external')}</a></p>
           <div class="ftBar2"><div class="ftReact">${EMOJI.map((e) => `<button type="button" class="ftR" aria-pressed="false"><span>${e}</span><b>0</b></button>`).join('')}</div>
             <button type="button" class="ftClaim">${icon('flag')} File a claim</button></div>
           <form class="ftClaimForm" hidden><label for="ftWhy">What is wrong with it?</label><select id="ftWhy"><option>The quote is not in the source</option><option>It is misleading</option><option>It is mine and was used without permission</option><option>Something else</option></select>
-            <button type="submit" class="ghost sm">Send the claim</button><p class="ftSaid" hidden>On a real page this reaches the people who run annotated. This is an example, so nothing was sent.</p></form>
+            <button type="submit" class="ghost sm">Send the claim</button><p class="ftSaid" hidden>This is only an example, so nothing was sent. On a real page the claim comes to us.</p></form>
           <form class="ftComment"><input class="ftCIn" maxlength="140" placeholder="Reply to this annotation" aria-label="Reply"><button type="submit" class="ghost sm">Reply</button></form>
           <ul class="ftComments"></ul>
         </div>
-        <div class="ftShare"><p class="ftLbl">Shared on X, the link shows as a card</p>
-          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">Links back to the source, every time. That is the whole point.</span><span class="ftXFrom">${icon('article')} ${esc(SOURCE)}</span></div>
+        <div class="ftShare"><p class="ftLbl">How the link looks when you post it on X</p>
+          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">Good rule. I want to be able to check the original.</span><span class="ftXFrom">${icon('article')} ${esc(SOURCE)}</span></div>
             <p class="ftXMeta"><span>annotated-app.netlify.app</span><b>“Links back to the source, every time.” on annotated</b></p></div></div>`,
     });
     d.querySelectorAll('.ftR').forEach((b) => b.addEventListener('click', () => {
@@ -151,20 +151,20 @@ var Features = (() => {
   // 3. A podcast on an app that will not let its audio be recorded: found by name, cut from the show's own file.
   function podcast(root) {
     const d = row(root, {
-      title: 'Clip what\'s playing, even on Spotify',
-      lead: 'Spotify and Amazon Music lock their audio. annotated finds the same episode in Apple\'s free podcast directory and cuts your moment from the show\'s own file, so the clip is exact and nothing is re-recorded.',
+      title: 'Clip podcasts from Spotify',
+      lead: "Spotify and Amazon Music don't let anything record their audio. So annotated finds the same episode in Apple's podcast directory and cuts your clip from the show's own file.",
       body: `<ol class="ftSteps" role="tablist" aria-label="How it finds the episode">
           <li><button type="button" role="tab" class="ftStep" aria-selected="true">1. Playing</button></li>
           <li><button type="button" role="tab" class="ftStep" aria-selected="false">2. Found</button></li>
           <li><button type="button" role="tab" class="ftStep" aria-selected="false">3. Clipped</button></li></ol>
         <div class="ftFrames">
           <div class="ftFrame" role="tabpanel"><div class="ftPlayer"><span class="ftArt" aria-hidden="true">${icon('podcast')}</span><span><b>So You Want to be an Astronaut?</b><br><span class="ftDot">Houston We Have a Podcast</span></span><button type="button" class="ftPlay" aria-label="Play the episode">${icon('play')}</button></div>
-            <div class="ftProg"><i style="width:12%"></i></div><p class="ftCap">An episode playing in a podcast app whose audio cannot be recorded.</p></div>
+            <div class="ftProg"><i style="width:12%"></i></div><p class="ftCap">Playing in Spotify, which can't be recorded.</p></div>
           <div class="ftFrame" role="tabpanel" hidden><div class="ftFind"><p class="ftLbl">Episode</p><p class="ftField">So You Want to be an Astronaut?</p>
             <p class="ftHit">${icon('check')} <span><b>So You Want to be an Astronaut?</b><br><span class="ftDot">Houston We Have a Podcast · NASA · 11:04</span></span></p></div>
-            <p class="ftCap">The panel reads the episode's name from the app and finds it in Apple's podcast directory.</p></div>
+            <p class="ftCap">annotated reads the episode title and finds it in Apple's directory.</p></div>
           <div class="ftFrame" role="tabpanel" hidden><div class="ftWave" role="button" tabindex="0" aria-label="Play the clip, 1:16 to 1:38" title="Play the clip"></div><p class="ftTimes"><span>1:00</span><b>Your clip, 1:16 to 1:38, 22 seconds</b><span>1:56</span></p>
-            <p class="ftCap">Your moment is cut from the show's own file, on its own frames, with nothing re-recorded.</p></div>
+            <p class="ftCap">Your clip, cut straight from the show's file.</p></div>
         </div>
         <p class="ftCredit">Episode by NASA, <a class="link" href="https://www.nasa.gov/podcasts/houston-we-have-a-podcast/" target="_blank" rel="noopener">Houston We Have a Podcast</a>. NASA does not endorse annotated.</p>`,
     });
@@ -220,8 +220,8 @@ var Features = (() => {
   // 4. Receipts: a post saved as a picture with the quoted words marked, which stays when the post is deleted.
   function receipts(root) {
     const d = row(root, {
-      title: 'Receipts that stay',
-      lead: 'A post is saved as a picture with the words you quoted marked on it. Delete the post and the annotation still shows what it said, with the date it was saved.',
+      title: 'If the post gets deleted',
+      lead: 'When you annotate a post on X, annotated saves a screenshot with your quote highlighted. If the author deletes the post, your annotation still shows what it said.',
       body: `<div class="ftRec">
           <div class="ftRPost"><div class="ftRHead"><span class="ftAv" aria-hidden="true">E</span><span><b>Example Account</b> <span class="ftDot">@example · Sep 24, 2026</span></span>${icon('x')}</div>
             <p class="ftRText">We will ship the new model <mark>before the end of the year</mark>, no delays this time.</p></div>
@@ -232,7 +232,7 @@ var Features = (() => {
           <p class="ftTakeOut">Saving this one for January.</p>
           <figure class="ftRShot"><div class="ftRPost"><div class="ftRHead"><span class="ftAv" aria-hidden="true">E</span><span><b>Example Account</b> <span class="ftDot">@example · Sep 24, 2026</span></span>${icon('x')}</div>
             <p class="ftRText">We will ship the new model <mark>before the end of the year</mark>, no delays this time.</p></div>
-            <figcaption>Saved September 24, 2026. It stays even if the post is deleted.</figcaption></figure></div>
+            <figcaption>Saved Sep 24, 2026. Still here if the post is deleted.</figcaption></figure></div>
         <p class="ftRRow"><button type="button" class="ghost sm ftRDel">${icon('trash')} Delete the post</button><button type="button" class="link ftRBack" hidden>Put it back</button></p>`,
     });
     const del = d.querySelector('.ftRDel'), back = d.querySelector('.ftRBack');
@@ -243,7 +243,7 @@ var Features = (() => {
   function more(root) {
     const m = document.createElement('div');
     m.className = 'ftMore';
-    m.innerHTML = `<p class="ftMoreH">And</p><ul class="ftChips">${MORE.map(([t, tip]) => `<li><button type="button" class="ftChip" aria-describedby="">${esc(t)}</button><span class="ftTip" role="tooltip">${esc(tip)}</span></li>`).join('')}</ul>`;
+    m.innerHTML = `<p class="ftMoreH">Also</p><ul class="ftChips">${MORE.map(([t, tip]) => `<li><button type="button" class="ftChip" aria-describedby="">${esc(t)}</button><span class="ftTip" role="tooltip">${esc(tip)}</span></li>`).join('')}</ul>`;
     root.appendChild(m);
     // A chip says what it means on hover and on focus, and a tap shows it on a phone.
     m.querySelectorAll('.ftChip').forEach((b, i) => {
@@ -256,7 +256,7 @@ var Features = (() => {
   function mount(root) {
     const s = document.createElement('section');
     s.className = 'landFeatures'; s.id = 'more';
-    s.innerHTML = `<h2 class="ftH">What else it does</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}`;
+    s.innerHTML = `<h2 class="ftH">Other things it does</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}`;
     root.appendChild(s);
     sayIt(s); page(s); receipts(s); podcast(s); more(s);
     arrive(s);

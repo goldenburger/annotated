@@ -1645,9 +1645,10 @@ body.embedded > .brand .wmPlane { display: none; }
 .feedHead .who .pdArrival { position: absolute; left: -96px; top: -14px; width: 120px; height: 70px; opacity: .8; }
 @media (max-width: 900px) { .feedHead .who .pdArrival { display: none; } }
 /* Loading: one small paper dart glides slowly across the top of the outline. */
-/* On the website's page outline it glides over the main column, not the header. */
-.skel:not(:has(.skelCol)), .skelCol { position: relative; overflow: hidden; container-type: inline-size; }
-.skel:not(:has(.skelCol))::before, .skelCol::before { content: ""; position: absolute; top: 0; left: 0; width: 22px; height: 21px; z-index: 1; pointer-events: none;
+/* On the website's page outline it glides over the main column, not the header. The extension's own pages draw
+   their outline as .bootMain before any script runs, and it lands there too (recording of 2026-09-25 at 21:59, 1:23). */
+.skel:not(:has(.skelCol)), .skelCol, .bootMain { position: relative; overflow: hidden; container-type: inline-size; }
+.skel:not(:has(.skelCol))::before, .skelCol::before, .bootMain::before { content: ""; position: absolute; top: 0; left: 0; width: 22px; height: 21px; z-index: 1; pointer-events: none;
   background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='14 14 100 96'%3E%3Cpath d='M108 20 L20 56 L55 68 Z' fill='%23FFFDF7' stroke='%23CFC7B2' stroke-width='3'/%3E%3Cpath d='M108 20 L55 68 L66 104 Z' fill='%23E6DFCC' stroke='%23CFC7B2' stroke-width='3'/%3E%3C/svg%3E");
   /* It flies nose first along its path and lands on the outline's top line, slides a little and stops there (David,
      2026-09-25: it slid straight across with its nose pointing up, "like it's strafing", and never landed). The
@@ -1655,7 +1656,7 @@ body.embedded > .brand .wmPlane { display: none; }
      that much. */
   offset-path: path("M -30 -18 C 40 -26, 110 6, 190 26 L 232 30");
   offset-rotate: auto 42deg; offset-distance: 100%; opacity: .95; }
-@media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before { animation: pdLand 1.9s cubic-bezier(.3, .1, .2, 1) .15s both; } }
+@media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before, .bootMain::before { animation: pdLand 1.9s cubic-bezier(.3, .1, .2, 1) .15s both; } }
 @keyframes pdLand { 0% { offset-distance: 0%; opacity: 0; } 12% { opacity: .95; } 78% { offset-distance: 86%; } 100% { offset-distance: 100%; opacity: .95; } }
 
 /* The loading outline's avatar is a light placeholder, not an empty circle drawn in ink (recording of 2026-09-25 at

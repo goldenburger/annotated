@@ -48,7 +48,8 @@ async def main():
     waiting = await pg.evaluate("document.querySelector('.ftChips').classList.contains('ftFlock')")
     await pg.evaluate("document.querySelector('.ftChips').scrollIntoView({ block: 'center' })")
     planes = 0
-    for _ in range(40):
+    # The flock waits its turn behind any example planes still arriving above it, so it is given ten seconds.
+    for _ in range(100):
       await asyncio.sleep(.1)
       planes = max(planes, await pg.evaluate("document.querySelectorAll('.pl-layer').length"))
     await asyncio.sleep(5)

@@ -302,13 +302,17 @@ var TryIt = (() => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     // force: asked for with Show me an example, so it plays whatever has happened before (David, 2026-09-25: the
     // example could only be seen once a visit, with nothing made yet, which was hard for anyone to get back to).
+    let hadYours = false;
+    try { const y0 = JSON.parse(localStorage.getItem('annotated-yours') || 'null'); hadYours = Array.isArray(y0) ? y0.length > 0 : !!y0; } catch {}
     async function demo(force = false) {
       // Someone with annotations of their own in Yours so far needs no showing (recording of 2026-09-24 at 20:19,
       // where it ran again above four of their own). Only that row counts: the brief's last take is kept after
       // the row is cleared, and counting it hid the example from someone with nothing to show (recording of
       // 2026-09-25 at 03:54).
       if (!force) try {
-        const y = JSON.parse(localStorage.getItem('annotated-yours') || 'null');
+        // What was in the row when the page opened counts too: emptied with Clear all before the example's turn
+        // came, it flew an Example into the row just cleared (recording of 2026-09-25 at 21:59, 0:16 to 0:24).
+        const y = hadYours || JSON.parse(localStorage.getItem('annotated-yours') || 'null');
         // Once a visit, too: with Yours so far empty it played on every load, twice in half a minute in the
         // recording of 2026-09-25 at 04:27. It comes back when the browser is next opened.
         if ((Array.isArray(y) ? y.length : y) || sessionStorage.getItem('annotated-example-shown')) { document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); return; }
