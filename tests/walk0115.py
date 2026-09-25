@@ -82,7 +82,7 @@ async def main():
     await pan.goto(f'chrome-extension://{extid}/sidepanel.html?tab={bid}'); await asyncio.sleep(2)
     u = await pan.evaluate(UNIT)
     print('1.', {k: u[k] for k in ('home', 'profile', 'side', 'homeFull', 'sideFull')})
-    if (u['home'] or '').strip() != 'Open Home as a full page' or (u['profile'] or '').strip() != 'Open your profile as a full page' or (u['side'] or '').strip() != 'Open your profile as a full page' or not u.get('homeFull') or not u.get('sideFull'):
+    if (u['home'] or '').strip() != 'Open the feed as a full page' or (u['profile'] or '').strip() != 'Open your profile as a full page' or (u['side'] or '').strip() != 'Open your profile as a full page' or not u.get('homeFull') or not u.get('sideFull'):
       errs.append(f'the full-page buttons are missing or wrong: {u}')
     print('4. live at load', u['liveAtLoad'], 'then', u['liveFollowed'], u['liveLabel'], '| video', u['vodFollowed'], u['vodOnce'], u['vodLabel'], '| touched', u['touched'])
     if u['liveFollowed'] != ['1:48:30.0', '1:49:00.0']: errs.append(f"a live stream's clip did not move to where it is watched: {u['liveFollowed']}")

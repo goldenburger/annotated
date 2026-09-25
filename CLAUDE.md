@@ -520,6 +520,21 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   Tests that serve an empty database must answer the existence check (`exists_reply` in `_env.py`), or their published
   records are taken for deleted online. The YouTube tab shows the clip's start frame from the sprite until the video
   plays (`.stScreen.live`), where it was a black box.
+- **The recording of 2026-09-25 at 06:58** (`tests/walk0658.py`, `tests/planespub.py`). The install button arrives by
+  plane for everyone, the extension installed or not (David's call); installed, it downloads the zip, the steps stay
+  hidden and "You're set" sits under it, naming "the annotated plane in your toolbar" (it said pen, and ran on into a
+  "What people are saying" link). Signed in, the home page's header has You (`navProfile`, `onProfile` from
+  `site.js`), and the Feed button lost its house, the logo being the home page. The logo on "/" scrolls to the top
+  rather than reloading and replaying every flight. `site.js` writes "?feed=" back as "?feed" after Google sign-in
+  (`tidy`). An empty feed or profile on the website offers "Get the extension to publish one" (`/install`), since
+  the home page's takes never reach either. The extension's full list is headed Feed, its tab "Feed | annotated",
+  and the panel's button reads "Open the feed as a full page". Help's headline is the website's. On an annotation
+  page from Publish the plane is a small card of the take and quote (`.annFly`, at most 380 pixels wide), where it
+  was the whole annotation, 964 pixels across; the card fades in under it, and the Published toast waits, since its
+  `riseIn` animation outranked `.pl-landing .banner`'s opacity. The panel's Home draws its start tools from this
+  computer at once (`drawBrowse({ quick })`, "Loading annotations…") and then the lists, where it sat blank for two
+  seconds; the account button stays out of sight (`acctPending`, three seconds at most) until the panel knows who
+  is signed in, where it said Sign in to someone signed in. The white frame at 2:16 was the launch's steam.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

@@ -70,7 +70,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       records = tabs[cur].records;
       social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); el.classList.add('busy'); load(); } };
     }
-    document.title = tag ? `${tag} | annotated` : person ? `${person.name} | annotated` : mode === 'profile' ? 'Your profile | annotated' : 'annotated';
+    document.title = tag ? `${tag} | annotated` : person ? `${person.name} | annotated` : mode === 'profile' ? 'Your profile | annotated' : 'Feed | annotated';
     el.className = '';   // also clears the busy mark a tab switch puts there
     AnnotationPage.renderFeed(el, {
       records, yours, tag, mode, person, social,

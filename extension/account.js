@@ -129,9 +129,14 @@ const Account = (() => {
     btn.type = 'button'; btn.className = 'acctBtn';
     brand.insertBefore(btn, brand.querySelector('.gearBtn') || brand.querySelector('.helpBtn') || brand.querySelector('.x') || null);
     btn.addEventListener('click', () => (me ? (pop ? close() : open()) : signIn()));
+    // The button waits, unseen but keeping its place, until the panel knows who is signed in. It said Sign in for a
+    // second to someone signed in (recording of 2026-09-25 at 06:58, 2:02). Three seconds at most.
+    btn.classList.add('acctPending');
+    const known = () => btn.classList.remove('acctPending');
+    setTimeout(known, 3000);
     draw();
-    Backend.profile().then((p) => { me = p; draw(); }).catch(() => {});
-    Backend.onChange((p) => { me = p; draw(); });
+    Backend.profile().then((p) => { me = p; draw(); known(); }).catch(known);
+    Backend.onChange((p) => { me = p; draw(); known(); });
   }
   return { mount, signIn, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
 })();

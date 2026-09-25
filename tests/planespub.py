@@ -17,6 +17,17 @@ STATE = """() => { const c = document.querySelector('#articleMode .pubcard');
   return { planes: document.querySelectorAll('.pl-layer').length, box: b.hidden ? 'gone' : getComputedStyle(b).visibility,
     card: !!c, cardHidden: !!(c && c.classList.contains('pl-hidden')), fresh: !!(c && c.classList.contains('fresh')) }; }"""
 
+LANDING = """(() => {
+  const b = document.querySelector('.banner');
+  let w = 0; document.querySelectorAll('.pl-layer *').forEach((x) => { const r = x.getBoundingClientRect(); w = Math.max(w, r.width, r.height); });
+  return { landing: !!document.querySelector('.pl-landing'), bannerOp: b ? Number(getComputedStyle(b).opacity) : null, w: Math.round(w) };
+})()"""
+AFTER = """(() => {
+  const c = document.querySelector('.annCard'), b = document.querySelector('.banner');
+  return { planes: document.querySelectorAll('.pl-layer').length, hidden: c.classList.contains('pl-hidden'), cardOp: Number(getComputedStyle(c).opacity),
+    bannerOp: b ? Number(getComputedStyle(b).opacity) : null, fly: !!document.querySelector('.annFly') };
+})()"""
+
 async def main():
   errs = []
   async with async_playwright() as p:
@@ -64,12 +75,22 @@ async def main():
     async with ctx.expect_page() as info:
       await pa.click('#articleMode .pubcard .view')
     page = await info.value
-    await page.wait_for_load_state(); await asyncio.sleep(.6)
+    await page.wait_for_load_state(); await asyncio.sleep(.3)
     arrive = await page.evaluate("({ planes: document.querySelectorAll('.pl-layer').length, card: !!document.querySelector('.annCard'), banner: (document.querySelector('.banner') || {}).textContent || null, fold: typeof Fold !== 'undefined' && Fold.on() })")
-    await asyncio.sleep(3)
-    after = await page.evaluate("({ planes: document.querySelectorAll('.pl-layer').length, hidden: document.querySelector('.annCard').classList.contains('pl-hidden') })")
-    print('2. the page from Publish:', arrive, after)
+    # The Published toast waits for the plane, and the plane is card sized rather than the whole annotation
+    # (recording of 2026-09-25 at 06:58, 2:57 and 2:58).
+    held, widest = [], 0
+    for _ in range(25):
+      r = await page.evaluate(LANDING)
+      if r['landing']: held.append(r['bannerOp'])
+      widest = max(widest, r['w']); await asyncio.sleep(.1)
+    await asyncio.sleep(2)
+    after = await page.evaluate(AFTER)
+    print('2. the page from Publish:', arrive, after, '| toast while landing', sorted(set(held)), '| widest piece', widest)
     if not arrive['planes'] or after['planes'] or after['hidden']: errs.append(f'the annotation did not land on its page: {arrive} {after}')
+    if any(o is not None and o > .05 for o in held): errs.append(f'the Published toast showed while the plane was landing: {held}')
+    if widest > 600: errs.append(f'the plane on the annotation page was {widest} pixels across (964 before the fix)')
+    if after['cardOp'] < .99 or after['fly'] or (after['bannerOp'] is not None and after['bannerOp'] < .99): errs.append(f'the card or the toast did not come in after the plane: {after}')
     await page.close()
 
     # 3.

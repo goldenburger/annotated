@@ -55,7 +55,7 @@ async def main():
     if not home['shown']: errs.append('Home did not open inside the panel')
     if home['title']!='Home': errs.append(f"the panel called it {home['title']!r}")
     if home['tabs']!=3: errs.append(f"Home showed {home['tabs']} tabs, wanted For you, Following and Everyone")
-    if home['full'].strip() != 'Open Home as a full page': errs.append(f"the way on is called {home['full']!r}")
+    if home['full'].strip() != 'Open the feed as a full page': errs.append(f"the way on is called {home['full']!r}")
     if home['del']: errs.append('Home offered to delete all your annotations, which is not what Home is')
     if ours(): errs.append(f'Home opened {len(ours())} tabs when it should have opened none')
 

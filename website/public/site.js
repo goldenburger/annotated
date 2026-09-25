@@ -44,6 +44,11 @@ function matchExtension(me) {
 (async () => {
   Prefs.init(Prefs.localBackend());
   const page = document.getElementById('page');
+  // Coming back from Google, the sign-in library takes its code out of the address and writes the rest back as
+  // "?feed=" (recording of 2026-09-25 at 06:58, 1:08). A flag with no value is written back as it was.
+  const tidy = () => { if (/[?&][\w-]+=(?=&|$)/.test(location.search)) history.replaceState(history.state, '', location.pathname + location.search.replace(/([?&][\w-]+)=(?=&|$)/g, '$1') + location.hash); };
+  tidy(); setTimeout(tidy, 1500);
+  Backend.client.auth.onAuthStateChange(() => setTimeout(tidy, 0));
   const parts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(location.search);
   // The front page waits for nothing on the network. Whether anyone is signed in is read from this browser,
@@ -60,7 +65,10 @@ function matchExtension(me) {
     {
       const signInNow = () => Backend.signIn().catch(() => {});
       const visitor = query.get('preview') === 'visitor';
-      const land = Landing.mount(page, { signedIn: !!session && !visitor, onSignIn: signInNow });
+      const meta = session ? (session.user.user_metadata || {}) : {};
+      const me = session ? { name: meta.full_name || meta.name || '', avatar: meta.avatar_url || meta.picture || '' } : null;
+      const toProfile = async () => { const p = await Backend.profile().catch(() => null); location.href = p && p.handle ? '/@' + p.handle : '/?feed'; };
+      const land = Landing.mount(page, { signedIn: !!session && !visitor, onSignIn: signInNow, me, onProfile: toProfile });
       document.title = 'annotated: say what you think about anything on the web';
       void land;
       const who = session ? { id: session.user.id, name: ((session.user.user_metadata || {}).full_name) || 'another account' } : null;

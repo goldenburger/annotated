@@ -1077,6 +1077,7 @@ body.embedded .phead, .ffBody > .panel .phead { margin-top: 0; }
 .avatar.hasImg img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 .acctBtn { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 999px; background: var(--sheet); color: var(--ink); font: 600 var(--t-xs)/1 var(--sans); cursor: pointer; margin-left: auto; }
 .acctBtn:hover { border-color: var(--ink-3); }
+.acctBtn.acctPending { visibility: hidden; }
 .acctBtn .gmark { width: 14px; height: 14px; }
 .acctBtn.signedIn { padding: 0; width: 28px; justify-content: center; overflow: hidden; border-radius: 50%; }
 .acctBtn.signedIn img { width: 100%; height: 100%; object-fit: cover; }

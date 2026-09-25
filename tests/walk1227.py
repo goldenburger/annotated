@@ -123,11 +123,11 @@ async def main():
     print('5. with no room above, the card:', low)
     if not all(low.values()): errs.append(f'the card with no room above sat wrong: {low}')
     await pg.evaluate("document.querySelector('.tiRedo').click()"); await asyncio.sleep(.8)
-    # 9 and 12. With the extension loaded, the front page says so, and neither offers to get it nor shows the
-    #    steps. (The steps and the hero's buttons are checked without the extension in homepage.py.)
+    # 9 and 12. With the extension loaded, the front page says so and hides the steps, and still offers the
+    #    extension, which arrives by plane for everyone (recording of 2026-09-25 at 06:58). (The steps and the hero's buttons are checked without the extension in homepage.py.)
     have = await pg.evaluate("({ get: !document.querySelector('.heroGetRow').hidden, steps: !document.querySelector('.landGet').hidden, have: !document.querySelector('.heroHave').hidden })")
     print('9, 12. with the extension loaded:', have)
-    if have != {'get': False, 'steps': False, 'have': True}: errs.append(f'with the extension the front page read {have}')
+    if have != {'get': True, 'steps': False, 'have': True}: errs.append(f'with the extension the front page read {have}')
     # 6.
     await pg.goto('https://annotated-app.netlify.app/?feed'); await pg.wait_for_selector('.rail'); await asyncio.sleep(2)
     fb = await pg.query_selector('.rail .followBtn')

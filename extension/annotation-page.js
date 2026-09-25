@@ -124,7 +124,7 @@ const AnnotationPage = (() => {
           // is what four clicks on it expected in the recording of 2026-09-24 at 21:03.
           : `<a class="wmBtn" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener" aria-label="annotated's home page" title="annotated's home page">${Brand.wordmark()}</a>`}
         ${siteNav ? `<nav class="sitenav" aria-label="Site">
-          <button type="button" class="navBtn navFeed" ${active === 'home' ? 'aria-current="page"' : ''}>${Brand.icon('home')} Feed</button>
+          <button type="button" class="navBtn navFeed" ${active === 'home' ? 'aria-current="page"' : ''}>Feed</button>
           <button type="button" class="navBtn navProfile" ${active === 'profile' ? 'aria-current="page"' : ''}>${av('xs')} You</button>
         </nav>` : ''}
       </header>
@@ -607,12 +607,31 @@ const AnnotationPage = (() => {
     // whether it was published or saved on this computer, which has no banner.
     // The rest of the page waits for the card, so comments and the rail do not sit under an empty space while
     // the plane comes down (recording of 2026-09-25 at 01:15, 2:10), and comes in once it has opened.
+    // The plane is a small card of the take and quote laid over the top of the annotation, not the annotation
+    // itself: a whole post's picture made a dart as tall as the window, which opened over the entire page
+    // (recording of 2026-09-25 at 06:58, 2:58). The full card fades in under it once it has opened.
     if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) {
       container.classList.add('pl-landing');
-      Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) })
-        .then(() => container.classList.remove('pl-landing'));
+      const card = q('.annCard'), b = Fold.pageBox(card);
+      const fly = document.createElement('div');
+      fly.className = 'flyCard annFly';
+      fly.innerHTML = '<p class="fcTake"></p><p class="fcQuote"></p><p class="fcSrc"></p>';
+      fly.querySelector('.fcTake').textContent = takeLine(take) || 'Your annotation';
+      fly.querySelector('.fcQuote').textContent = (item.quote || item.text || '').slice(0, 280);
+      let src = ''; try { src = titleOf(item) || ''; } catch { /* an item with no title */ }
+      fly.querySelector('.fcSrc').textContent = src;
+      fly.style.cssText = `position:absolute;left:${b.x}px;top:${b.y}px;width:${Math.min(b.w, 380)}px;`;
+      document.body.appendChild(fly);
+      let done = false;
+      const land = () => {
+        if (done) return; done = true;
+        container.classList.remove('pl-landing');
+        fly.classList.add('annFlyGone');
+        setTimeout(() => fly.remove(), 400);
+      };
+      Fold.arrive(fly, { z0: 220, T: 1100, openT: 900 }).then(land);
       // Never held for longer than the flight, whatever becomes of it.
-      setTimeout(() => container.classList.remove('pl-landing'), 3500);
+      setTimeout(land, 3500);
     }
     else if (showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
 
@@ -1012,7 +1031,7 @@ const AnnotationPage = (() => {
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div><button type="button" class="strong sm pSignIn">Sign in with Google</button>`
                  : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
-            : `<h1>${typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? 'Home' : 'Feed'}</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
+            : `<h1>Feed</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         <div class="feedBar">
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
@@ -1094,9 +1113,12 @@ const AnnotationPage = (() => {
           const why = tabs && tabs.current === 'following' ? (tabs.empty || 'Follow someone and their annotations show up here.')
             : tabs && tabs.empty && filter === 'all' ? tabs.empty
             : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter];
-          // On the website an empty feed leads somewhere: the home page, where anyone can make one in a minute.
+          // On the website an empty list leads to the extension, which is where annotations are published. It led to
+          // the home page, whose takes are demonstrations that never reach a feed or a profile (recording of
+          // 2026-09-25 at 06:58, 1:00 and 1:22). With the extension already installed there is nothing to offer.
           const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
-          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !person ? '<a class="ghost sm esMake" href="/">Make one on the home page</a>' : ''}</li>`;
+          const hasExt = document.documentElement.dataset.annotatedInstalled === '1';
+          return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })(); })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
       // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button
@@ -1191,7 +1213,9 @@ const AnnotationPage = (() => {
   // its source and the conversation live, and that page still shares the one annotated tab.
   // The full page of a list, named for what it opens. "See all annotations", a small grey link beside the
   // heading, was hunted for twice in the recording of 2026-09-25 at 01:15.
-  const fullLabel = (title) => (/profile/i.test(title) ? 'Open your profile as a full page' : `Open ${title} as a full page`);
+  // The full list is called Feed on the website and in the extension alike, so the panel's Home opens "the feed"
+  // (recording of 2026-09-25 at 06:58, 3:44: the extension's page said Home, the website's the same list Feed).
+  const fullLabel = (title) => (/profile/i.test(title) ? 'Open your profile as a full page' : /^home$/i.test(title) ? 'Open the feed as a full page' : `Open ${title} as a full page`);
   function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null }) {
     stopClock(container);
     // For you arrives ranked, so its order is kept. Everything else is newest first.

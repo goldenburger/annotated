@@ -210,7 +210,7 @@ async def main():
     pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await pg.wait_for_selector('.tryTabs'); await asyncio.sleep(.8)
     have = await pg.evaluate("({ get: !document.querySelector('.heroGetRow').hidden, steps: !document.querySelector('.landGet').hidden, have: !document.querySelector('.heroHave').hidden })")
     print('   with the extension:', have)
-    if have != {'get': False, 'steps': False, 'have': True}: errs.append(f'with the extension the page read {have}')
+    if have != {'get': True, 'steps': False, 'have': True}: errs.append(f'with the extension the page read {have}')
     await c.close()
 
     # 15, and the shared page.

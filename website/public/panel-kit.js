@@ -296,7 +296,7 @@ const PanelKit = (() => {
       w.className = 'welcome'; w.setAttribute('aria-labelledby', 'welcomeTitle');
       w.innerHTML = `
         <div class="wHero">${illo('article')}</div>
-        <h1 id="welcomeTitle">Say what you think about anything on the web</h1>
+        <h1 id="welcomeTitle">Say what you think about anything.</h1>
         <p class="wLead">annotated turns a passage, a clip, a podcast moment, or a post into a page with your take on top and the source underneath.</p>
         <ol class="wSteps">
           <li><span class="wIcon">${Brand.icon('highlighter')}</span><div><b>Capture</b><span>Select any words on a page, drag to pick up to 90 seconds of a video or podcast, or save a post.</span></div></li>

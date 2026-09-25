@@ -888,11 +888,16 @@ async function openBrowse(kind, { byHand = true } = {}) {
   // The list is drawn while it is still out of sight, and only then does the panel change over. Hiding
   // everything first and fetching afterwards left the panel empty for about a second every time Home or
   // your profile was pressed.
-  await drawBrowse();
+  // Home first drawn from this computer alone, the start tools and a line saying the lists are coming, since
+  // it waited on two requests to the database and the panel sat blank for two seconds as it opened beside our
+  // website (recording of 2026-09-25 at 06:58, 2:02 to 2:04). The full lists follow.
+  const quick = kind === 'home' && $('#browseMode').hidden;
+  await drawBrowse({ quick });
   if (browsing !== kind) return;
   for (const [, q] of panels) q.el.hidden = true;
   ['#videoMode', '#articleMode', '#postMode', '#podcastMode', '#annMode', '#empty'].forEach((s) => { $(s).hidden = true; });
   $('#browseMode').hidden = false;
+  if (quick) drawBrowse();
 }
 function closeBrowse() {
   browsing = null; browseFrom = null;
@@ -917,11 +922,12 @@ async function annotateNow(tid) {
     await new Promise((r) => setTimeout(r, 100));
   }
 }
-async function drawBrowse() {
+async function drawBrowse({ quick = false } = {}) {
   const kind = browsing;
-  const pruned = await Store.pruneGone(await Store.allMeta().catch(() => []));
+  const all = await Store.allMeta().catch(() => []);
+  const pruned = quick ? { records: all, dropped: 0 } : await Store.pruneGone(all);
   const local = pruned.records;
-  const me = await cachedProfile();
+  const me = quick ? await Promise.race([cachedProfile(), new Promise((r) => setTimeout(() => r(profileCache.who || null), 300))]) : await cachedProfile();
   // Yours, not this computer's. Another account's annotations share the store, and the list used to show
   // them, and offer to delete them, to whoever was signed in or to nobody at all.
   const yours = local.filter((r) => !r.author || (me && r.author.id === me.id));
@@ -936,16 +942,17 @@ async function drawBrowse() {
   if (kind === 'home') {
     title = 'Home';
     let shared = [];
-    try { shared = await Cloud.list({ limit: 60 }); } catch { /* signed out, or no connection */ }
+    if (!quick) try { shared = await Cloud.list({ limit: 60 }); } catch { /* signed out, or no connection */ }
     const seen = new Set(shared.map((r) => r.id));
     const merged = [...shared.map((r) => ({ ...r, mine: !!(me && r.author && r.author.id === me.id) })),
       ...local.filter((r) => !seen.has(r.id))];
     let soc = null;
-    try { soc = await Cloud.discovery(me, {}); } catch { /* the rails are not needed here */ }
+    if (!quick) try { soc = await Cloud.discovery(me, {}); } catch { /* the rails are not needed here */ }
     soc = soc || { followed: new Set(), people: [], trending: { sources: [], tags: [] } };
     const t = Cloud.homeTabs(merged, soc, me, merged.filter((r) => r.mine || !r.author));
     const cur = Cloud.startTab(t, browseTab, browsePressed);
     records = t[cur].records; note = t[cur].note || ''; emptyNote = t[cur].empty || '';
+    if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; }
     tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
       onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
   }

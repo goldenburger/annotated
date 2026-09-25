@@ -20,13 +20,27 @@ var Landing = (() => {
   const PREVIEW = new URLSearchParams(location.search).get('preview') === 'visitor';
   const installed = () => !PREVIEW && document.documentElement.dataset.annotatedInstalled === '1';
 
-  function header(root, { signedIn, onSignIn }) {
+  // Signed in, the header carries You, as every other page of the site does. It carried only Feed, so the
+  // home page was the one page with no way to your profile (recording of 2026-09-25 at 06:58, 1:14).
+  const escH = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function header(root, { signedIn, onSignIn, me = null, onProfile = null }) {
     const bar = document.createElement('header');
     bar.className = 'sitebar landBar';
+    const pic = me && /^https:\/\//.test(me.avatar || '') ? `<img src="${escH(me.avatar)}" alt="" referrerpolicy="no-referrer">` : escH(((me && me.name) || 'Y').trim().slice(0, 1).toUpperCase());
+    const you = `<button type="button" class="navBtn navProfile"><span class="avatar xs ${me && me.avatar ? 'hasImg' : ''}" aria-hidden="true">${pic}</span> You</button>`;
     bar.innerHTML = `<a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
-      <nav class="sitenav" aria-label="Site"><a class="navBtn" href="/?feed">Feed</a>${signedIn ? '' : '<button type="button" class="navBtn webSignIn">Sign in<span class="wideOnly"> with Google</span></button>'}</nav>`;
+      <nav class="sitenav" aria-label="Site"><a class="navBtn navFeed" href="/?feed">Feed</a>${signedIn ? you : '<button type="button" class="navBtn webSignIn">Sign in<span class="wideOnly"> with Google</span></button>'}</nav>`;
     const s = bar.querySelector('.webSignIn');
     if (s) { s.setAttribute('aria-label', 'Sign in with Google'); s.addEventListener('click', onSignIn); }
+    const y = bar.querySelector('.navProfile');
+    if (y && onProfile) y.addEventListener('click', onProfile);
+    // The logo on the home page itself goes to the top rather than loading the page again, which replayed the
+    // brief's flight and the install plane on every press (recording of 2026-09-25 at 06:58, 0:38 and 0:52).
+    bar.querySelector('.wmBtn').addEventListener('click', (e) => {
+      if (location.pathname !== '/' || /[?&](feed|tag)/.test(location.search)) return;
+      e.preventDefault();
+      scrollTo({ top: 0, behavior: still() ? 'auto' : 'smooth' });
+    });
     root.appendChild(bar);
   }
 
@@ -39,7 +53,7 @@ var Landing = (() => {
         <h1 class="heroH" aria-label="Say what you think about anything: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true">.</span></h1>
         <p class="heroSub">Highlight a sentence, clip a video or podcast, or quote a post. Add what you think. Share the link.</p>
         <p class="heroDo heroGetRow"><a class="primary heroGet" href="#get">Get the Chrome extension</a><a class="link heroLook" href="/?feed">Look around first</a></p>
-        <p class="heroHave" hidden>You're set. Go to any article, video or post and press the pen in your toolbar. <a class="link" href="/?feed">What people are saying</a></p>
+        <p class="heroHave" hidden>You're set. Go to any article, video or post and press the annotated plane in your toolbar.</p>
       </div>
       <div class="heroTry">
         <div class="tryTabs" role="tablist" aria-label="Try it on">${TABS.map((t, i) => `<button type="button" role="tab" class="tryTab" id="tab-${t.kind}" aria-controls="panel-${t.kind}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-i="${i}">${icon(t.icon)}<span>${t.label}</span></button>`).join('')}</div>
@@ -374,13 +388,17 @@ var Landing = (() => {
     const fresh = new URLSearchParams(location.search).has('installed');
     const apply = () => {
       if (!installed()) return;
-      root.querySelectorAll('.heroGetRow, .landGet').forEach((e) => { e.hidden = true; });
+      // The install button stays, and still arrives by plane: someone with annotated may want the link for a
+      // friend or another computer (David, 2026-09-25). It downloads the extension, since the steps under it hide.
+      root.querySelectorAll('.landGet').forEach((e) => { e.hidden = true; });
+      const get = root.querySelector('.heroGet');
+      if (get && !get.hasAttribute('download')) { get.href = '/annotated-extension.zip'; get.setAttribute('download', ''); }
       const have = root.querySelector('.heroHave'); if (!have) return;
       have.hidden = false;
       if (fresh && !have.dataset.fresh) {
         // Opened by the extension right after it was installed.
         have.dataset.fresh = '1';
-        have.innerHTML = `<b>You're set.</b> Pin annotated from the puzzle piece in your toolbar, then go to any article, video or post and press the pen. <a class="link" href="/?feed">What people are saying</a>`;
+        have.innerHTML = `<b>You're set.</b> Pin annotated from the puzzle piece in your toolbar, then go to any article, video or post and press the annotated plane.`;
       }
     };
     apply();
@@ -415,11 +433,11 @@ var Landing = (() => {
     foot.appendChild(b);
   }
 
-  function mount(root, { signedIn = false, onSignIn = () => {} } = {}) {
+  function mount(root, { signedIn = false, onSignIn = () => {}, me = null, onProfile = null } = {}) {
     planesSwitch();
     root.className = 'land';
     root.innerHTML = '';
-    header(root, { signedIn, onSignIn });
+    header(root, { signedIn, onSignIn, me, onProfile });
     const main = document.createElement('main'); main.className = 'landMain'; root.appendChild(main);
     // Yours so far sits right under the try-it, so a take lands where it can be seen, and getting the extension
     // comes after (audit of 2026-09-24: on a laptop the row was below the fold and the planes flew off screen).
@@ -452,7 +470,7 @@ var Landing = (() => {
     root.appendChild(bar);
     const main = document.createElement('main'); main.className = 'landMain installMain'; root.appendChild(main);
     const have = document.createElement('p'); have.className = 'heroHave installHave'; have.hidden = true;
-    have.innerHTML = "You're set. Go to any article, video or post and press the pen in your toolbar. <a class='link' href='/?feed'>What people are saying</a>";
+    have.innerHTML = "You're set. Go to any article, video or post and press the annotated plane in your toolbar.<br><a class='link' href='/?feed'>See the feed</a>";
     main.appendChild(have);
     install(main);
     main.insertAdjacentHTML('beforeend', '<p class="note installAfter">Sign in with Google from the panel to publish annotations everyone can see.</p>');

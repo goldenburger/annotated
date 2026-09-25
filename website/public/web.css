@@ -416,6 +416,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .landHero .heroSub { max-width: 40ch; }
 .landHero .heroHave { max-width: 42ch; margin: 0; font: var(--t-m)/1.55 var(--sans); color: var(--ink-2); }
 .landHero .heroHave[hidden], .heroGetRow[hidden], .landGet[hidden], .landLatest[hidden] { display: none; }
+.landHero .heroGetRow:not([hidden]) + .heroHave { margin-top: 14px; }
 .heroDo .link { text-decoration: underline; }
 /* The paper is always paper: its own light ink in either theme, so dark mode never turns its words pale. */
 .heroTry { --ink: #1C2433; --ink-2: #3A3F4A; --ink-3: #5B616E; --rule: #E1DCCB; --sheet: #FFFFFF; --paper: #FFFDF7; --newsprint: #F2EEE2; }
