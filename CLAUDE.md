@@ -465,6 +465,10 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   "Get the extension to do this on any page" once under the row and not on every card (`.llGet`, hidden when
   installed), the example post is laid out like a post on X (`.stX`), and the GitHub link reads "See the code on
   GitHub".
+  The Post on X tab then became a real post, at David's choice: Elon Musk's of September 24, 2026
+  (https://x.com/elonmusk/status/2103160462472892536), word for word as X's public embed gives it, with his name,
+  handle, date and a link to it, and no view, like or repost numbers, since the real ones are not known here.
+  The video and podcast tabs keep the NASA media: a CBS interview or an All-In episode could not be hosted.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

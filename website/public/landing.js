@@ -329,7 +329,7 @@ var Landing = (() => {
     });
     document.addEventListener('annotated-scene-made', (e) => {
       const d = e.detail || {};
-      const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'An example post on X', article: 'An example article' }[d.kind] || d.source;
+      const src = { video: 'NASA, To the Moon and Back: The Journey of Artemis I', audio: 'NASA, Houston We Have a Podcast', post: 'Elon Musk on X', article: 'An example article' }[d.kind] || d.source;
       add({ kind: d.kind, take: d.take, quote: d.quote || '', what: d.what, source: src, thumb: d.thumb, wave: d.wave, a: d.a, z: d.z }, d.card);
     });
     return { fill() {} };

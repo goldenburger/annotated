@@ -91,7 +91,7 @@ async def main():
     if await pg.evaluate("!document.querySelector('.st-audio .stMedia').paused"): errs.append('the moment went on playing after it was clipped')
 
     # A passage, and a post.
-    for k, a, z, want in [('post', 'support tickets', 'weekend', 'support tickets doubled over the weekend')]:
+    for k, a, z, want in [('post', 'Bringing', 'difficult', 'Bringing massive compute online rapidly is incredibly difficult')]:
       await tab(k); await asyncio.sleep(.4)
       el = await pg.query_selector(f'.st-{k}'); await el.scroll_into_view_if_needed(); await asyncio.sleep(.3)
       await pg.evaluate(SEL, [k, a, z]); await asyncio.sleep(.6)
@@ -111,7 +111,7 @@ async def main():
     await pg.fill('.st-post textarea', 'All of it.'); await pg.keyboard.press('Enter'); await asyncio.sleep(.4)
     whole = await pg.evaluate("(document.querySelector('.st-post .stCardWhat') || {}).textContent || ''")
     print('post, the whole of it:', repr(whole))
-    if 'We shipped the redesign on Friday.' not in whole: errs.append(f'Use the whole post quoted {whole!r}')
+    if 'We will keep accelerating.' not in whole: errs.append(f'Use the whole post quoted {whole!r}')
     print('errors:', errs)
     await ctx.close()
 

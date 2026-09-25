@@ -613,3 +613,13 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stX .xActs span { display: inline-flex; align-items: center; gap: 5px; }
 .sceneTry .stX .xActs svg { width: 18px; height: 18px; }
 .sceneTry .stX .xActs .xEnd { gap: 14px; }
+.sceneTry .stX a.xMark { display: block; }
+.sceneTry .stX .xTime a { color: inherit; text-decoration: none; }
+.sceneTry .stX .xTime a:hover { text-decoration: underline; }
+.sceneTry .stX .stPostText { margin: 0 0 8px; }
+.sceneTry .stX .stPostText p { margin: 0 0 7px; font-size: 14.5px; line-height: 1.38; }
+.sceneTry .stX .stPostText p:last-child { margin-bottom: 0; }
+.sceneTry .stX .xHead { margin-bottom: 4px; }
+.sceneTry .stX .stAv { width: 36px; height: 36px; }
+.sceneTry .stX .xTime { padding-bottom: 8px; font-size: 13.5px; }
+.sceneTry .stX .xActs { padding-top: 6px; }
