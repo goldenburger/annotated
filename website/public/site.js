@@ -93,7 +93,8 @@ function matchExtension(me) {
   const discover = (opts = {}) => Cloud.discovery(me, { signIn, onPerson: (h) => { location.href = '/@' + h; }, ...opts }).catch(() => null);
   const youOf = (soc, n) => (me && soc && soc.youCounts ? { annotations: n, ...soc.youCounts } : null);
   const nav = {
-    onHome: () => { location.href = '/?feed'; },
+    // The logo is the home page and Feed is the feed (recording of 2026-09-25 at 05:47).
+    onHome: () => { location.href = '/'; },
     onAll: () => { location.href = '/?feed'; },
     onProfile: () => { if (me && me.handle) location.href = '/@' + me.handle; else signIn(); },
     onTag: (t) => { location.href = '/?tag=' + encodeURIComponent(t); },

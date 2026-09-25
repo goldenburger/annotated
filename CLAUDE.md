@@ -508,6 +508,8 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   "/" used to be the feed, so help's "Open annotated's home page" landed on an empty feed and the example was one small
   "Try it" line away (`slimLine`, no longer called). The try-it has "Show me an example" (`.tiShowMe`, `demo(true)`),
   which plays it whatever has happened before; on its own it still plays once a visit, with Yours so far empty.
+  After the recording at 05:47: on the website the logo is the home page and the nav's button is Feed (`.navFeed`,
+  `onFeed`), where the button was called Home and opened the feed, so Home on the feed went nowhere.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

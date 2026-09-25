@@ -115,7 +115,7 @@ const AnnotationPage = (() => {
   // siteNav is off inside the extension, where the panel beside the page already carries Home and your
   // profile and a second pair of them a few centimetres away is just two of everything. The wordmark still
   // goes home, so the page is never a dead end. On the website there is no panel, so the nav stays.
-  function shell(container, { active, onHome, onProfile, siteNav = true }) {
+  function shell(container, { active, onHome, onFeed = null, onProfile, siteNav = true }) {
     container.classList.add('site');
     container.innerHTML = `
       <header class="sitebar">
@@ -124,12 +124,15 @@ const AnnotationPage = (() => {
           // is what four clicks on it expected in the recording of 2026-09-24 at 21:03.
           : `<a class="wmBtn" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener" aria-label="annotated's home page" title="annotated's home page">${Brand.wordmark()}</a>`}
         ${siteNav ? `<nav class="sitenav" aria-label="Site">
-          <button type="button" class="navBtn navHome" ${active === 'home' ? 'aria-current="page"' : ''}>${Brand.icon('home')} Home</button>
+          <button type="button" class="navBtn navFeed" ${active === 'home' ? 'aria-current="page"' : ''}>${Brand.icon('home')} Feed</button>
           <button type="button" class="navBtn navProfile" ${active === 'profile' ? 'aria-current="page"' : ''}>${av('xs')} You</button>
         </nav>` : ''}
       </header>
       <div class="sitegrid"><div class="sitemain"></div><aside class="rail" aria-label="More"></aside></div>`;
+    // On the website the logo is the home page and Feed is the feed. The nav's button was called Home and opened
+    // the feed, so pressing Home on the feed went nowhere (recording of 2026-09-25 at 05:47, 0:32).
     container.querySelectorAll('.navHome').forEach((b) => b.addEventListener('click', () => onHome && onHome()));
+    container.querySelectorAll('.navFeed').forEach((b) => b.addEventListener('click', () => (onFeed || onHome) && (onFeed || onHome)()));
     const you = container.querySelector('.navProfile');
     if (you) you.addEventListener('click', () => onProfile && onProfile());
     return { main: container.querySelector('.sitemain'), rail: container.querySelector('.rail') };
@@ -417,7 +420,7 @@ const AnnotationPage = (() => {
         <span class="scard"><span class="skind">${kindIcon(item)} ${esc(item.meta.site)}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
       ${cardClose}`;
 
-    const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
+    const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onFeed: hooks.onAll, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
     main.classList.add('ann', 'loading');
     main.innerHTML = `
       <div class="loadmsg" role="status" aria-label="Loading the annotation">
@@ -984,7 +987,7 @@ const AnnotationPage = (() => {
   function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null }) {
     stopClock(container);
     let filter = 'all', sort = 'new';
-    const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onProfile: onProfile || onAll, siteNav });
+    const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
     main.classList.add('ann', 'feed');
