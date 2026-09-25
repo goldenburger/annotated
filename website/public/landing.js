@@ -21,7 +21,7 @@ var Landing = (() => {
     const bar = document.createElement('header');
     bar.className = 'sitebar landBar';
     bar.innerHTML = `<a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
-      <nav class="sitenav" aria-label="Site">${signedIn ? '<a class="navBtn" href="/">Your feed</a>' : '<button type="button" class="navBtn webSignIn">Sign in<span class="wideOnly"> with Google</span></button>'}</nav>`;
+      <nav class="sitenav" aria-label="Site"><a class="navBtn" href="/?feed">Feed</a>${signedIn ? '' : '<button type="button" class="navBtn webSignIn">Sign in<span class="wideOnly"> with Google</span></button>'}</nav>`;
     const s = bar.querySelector('.webSignIn');
     if (s) { s.setAttribute('aria-label', 'Sign in with Google'); s.addEventListener('click', onSignIn); }
     root.appendChild(bar);
@@ -32,11 +32,11 @@ var Landing = (() => {
     el.className = 'hero landHero'; el.id = 'try';
     el.innerHTML = `
       <div class="heroCopy">
-        <p class="heroKicker">A Chrome sidebar for the open web</p>
+        <p class="heroKicker">For Chrome</p>
         <h1 class="heroH" aria-label="Say what you think about anything: a passage, a clip, a podcast, or a post on X.">Say what you think about <mark class="heroMark" aria-hidden="true">anything</mark><span class="heroTail" aria-hidden="true">.</span></h1>
-        <p class="heroSub">Your take on top, the source underneath, always linked back to where it came from.</p>
+        <p class="heroSub">Highlight a sentence, clip a video or podcast, or quote a post. Add what you think. Share the link.</p>
         <p class="heroDo heroGetRow"><a class="primary heroGet" href="#get">Get the Chrome extension</a><a class="link heroLook" href="/?feed">Look around first</a></p>
-        <p class="heroHave" hidden>annotated is installed. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a></p>
+        <p class="heroHave" hidden>You're set. Go to any article, video or post and press the pen in your toolbar. <a class="link" href="/?feed">What people are saying</a></p>
       </div>
       <div class="heroTry">
         <div class="tryTabs" role="tablist" aria-label="Try it on">${TABS.map((t, i) => `<button type="button" role="tab" class="tryTab" id="tab-${t.kind}" aria-controls="panel-${t.kind}" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-i="${i}">${icon(t.icon)}<span>${t.label}</span></button>`).join('')}</div>
@@ -142,19 +142,26 @@ var Landing = (() => {
   const readYours = () => { try { return JSON.parse(localStorage.getItem(YOURS) || 'null'); } catch { return null; } };
   const ago = (at) => { const m = Math.floor((Date.now() - at) / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.floor(m / 60)} h ago` : 'earlier'; };
   // A clip on a card: muted, inline, playing from its start to its end and round again while the card is in sight.
-  function loopClip(frame, src, a, z) {
+  // `from`: where the first play starts, the brightest frame of the clip, since the launch clip opens on night
+  // and the card showed a black square for its first seconds (recording of 2026-09-25 at 03:54, 1:06 and 1:28).
+  function loopClip(frame, src, a, z, from = a) {
     const v = document.createElement('video');
     v.className = 'yClip'; v.muted = true; v.playsInline = true; v.preload = 'none';
     v.setAttribute('muted', ''); v.setAttribute('aria-hidden', 'true');
     // Only the start in the address: with the end in it too, the browser pauses there instead of going round.
-    v.src = `${src}#t=${a}`;
+    v.src = `${src}#t=${from}`;
     frame.appendChild(v);
     const round = () => { if (v.currentTime >= z - .05 || v.currentTime < a - .5) v.currentTime = a; };
     v.addEventListener('timeupdate', round);
     v.addEventListener('ended', () => { v.currentTime = a; v.play().catch(() => {}); });
+    // The still frame shows until the video is really playing, and again while it jumps back to the start or
+    // waits for data. Revealed early it showed black in Edge and white in Firefox (recording of 2026-09-25 at 04:48).
+    const hide = () => frame.classList.remove('playing');
     v.addEventListener('playing', () => frame.classList.add('playing'));
+    v.addEventListener('seeked', () => { if (!v.paused) frame.classList.add('playing'); });
+    ['seeking', 'waiting', 'pause', 'emptied'].forEach((n) => v.addEventListener(n, hide));
     if (still()) return;
-    const go = () => { if (v.readyState < 1) { v.addEventListener('loadedmetadata', () => { v.currentTime = a; v.play().catch(() => {}); }, { once: true }); v.load(); } else v.play().catch(() => {}); };
+    const go = () => { if (v.readyState < 1) { v.addEventListener('loadedmetadata', () => { v.currentTime = from; v.play().catch(() => {}); }, { once: true }); v.load(); } else v.play().catch(() => {}); };
     if ('IntersectionObserver' in window) new IntersectionObserver((es) => es.forEach((x) => (x.isIntersecting ? go() : v.pause())), { threshold: .4 }).observe(frame);
     else go();
   }
@@ -204,7 +211,7 @@ var Landing = (() => {
     li.innerHTML = `<a class="card mf nothumb" href="${y.example ? '#try' : '#get'}" aria-label="${y.example ? 'An example annotation' : 'Your annotation, only on this computer'}. ${get}.">
       <span class="cbody"><span class="cmeta">You <span class="dotsep"></span></span>
       <span class="ctake"></span><span class="yMedia"></span>
-      <span class="csource"><span><span class="cst"></span><span class="csn"></span></span></span>
+      <span class="csource">${icon({ video: 'clip', audio: 'podcast', post: 'post' }[y.kind] || 'article')}<span><span class="cst"></span><span class="csn"></span></span></span>
       ${y.example ? `<span class="yGet">${get}</span>` : ''}</span></a>
       <button type="button" class="yDel" aria-label="Remove this one" title="Remove">×</button>`;
     li.dataset.at = String(y.at || '');
@@ -239,7 +246,7 @@ var Landing = (() => {
         const hit = /(\d+:\d{2}) to (\d+:\d{2})/.exec(y.what || '');
         if (hit) { a = sec(hit[1]); z = sec(hit[2]); }
       }
-      if (z > a) loopClip(e, '/media/artemis-i.mp4', a, z);
+      if (z > a) loopClip(e, '/media/artemis-i.mp4', a, z, Math.min(z - 1, Math.max(a, t.idx * 2)));
     } else if (Array.isArray(y.wave)) {
       const e = document.createElement('span'); e.className = 'yWave';
       y.wave.slice(0, 40).forEach((v) => { const i = document.createElement('i'); i.style.height = Math.round(Math.max(.1, Math.min(1, +v || 0)) * 100) + '%'; e.appendChild(i); });
@@ -258,7 +265,7 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. Make one above.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
@@ -271,10 +278,20 @@ var Landing = (() => {
       while (row.children.length > 4) row.lastElementChild.remove();
       row.style.setProperty('--n', Math.max(1, row.children.length));
       box.hidden = !row.children.length;
+      // While Undo is offered over an emptied row, the row says so rather than sitting blank under its heading
+      // (recording of 2026-09-25 at 03:14, 2:26 to 2:34).
+      const empty = box.querySelector('.llEmpty');
+      if (empty) empty.hidden = !!row.children.length;
     };
     list().forEach((y) => row.appendChild(yoursCard(y)));
     tidy();
     document.addEventListener('annotated-installed', tidy);
+    // Another tab's takes and removals reach this one. A front page left open showed only what was made in it,
+    // one card where there were four (recording of 2026-09-25 at 03:54, 3:02).
+    addEventListener('storage', (e) => {
+      if (e.key !== YOURS || row.querySelector('.pl-hidden')) return;
+      row.innerHTML = ''; list().forEach((y) => row.appendChild(yoursCard(y))); tidy();
+    });
     // Removing: one card by its ×, or all of them. Undo puts them back for six seconds.
     const undoBar = box.querySelector('.llUndo');
     let undoTimer = 0, lastGone = null;
@@ -287,6 +304,7 @@ var Landing = (() => {
       redraw();
       undoBar.querySelector('span').textContent = said;
       undoBar.hidden = false; box.hidden = false;
+      box.querySelector('.llEmpty').hidden = !!row.children.length;
       clearTimeout(undoTimer);
       undoTimer = setTimeout(() => { undoBar.hidden = true; lastGone = null; tidy(); }, 6000);
     };
@@ -359,7 +377,7 @@ var Landing = (() => {
       if (fresh && !have.dataset.fresh) {
         // Opened by the extension right after it was installed.
         have.dataset.fresh = '1';
-        have.innerHTML = `<b>annotated is installed.</b> Pin it from the puzzle piece in the toolbar so the pen is always there, then open any article, video, podcast or post and press it. <a class="link" href="/?feed">See what people are annotating</a>`;
+        have.innerHTML = `<b>You're set.</b> Pin annotated from the puzzle piece in your toolbar, then go to any article, video or post and press the pen. <a class="link" href="/?feed">What people are saying</a>`;
       }
     };
     apply();
@@ -431,7 +449,7 @@ var Landing = (() => {
     root.appendChild(bar);
     const main = document.createElement('main'); main.className = 'landMain installMain'; root.appendChild(main);
     const have = document.createElement('p'); have.className = 'heroHave installHave'; have.hidden = true;
-    have.innerHTML = 'annotated is installed. Open any article, video, podcast or post and press the pen. <a class="link" href="/?feed">See what people are annotating</a>';
+    have.innerHTML = "You're set. Go to any article, video or post and press the pen in your toolbar. <a class='link' href='/?feed'>What people are saying</a>";
     main.appendChild(have);
     install(main);
     main.insertAdjacentHTML('beforeend', '<p class="note installAfter">Sign in with Google from the panel to publish annotations everyone can see.</p>');

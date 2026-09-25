@@ -40,7 +40,7 @@ async def main():
     now = await pg.evaluate("""() => ({ url: location.search, have: (document.querySelector('.heroHave:not([hidden])') || {}).textContent || null,
       steps: !!document.querySelector('.landGet:not([hidden])') })""")
     print('2. the front page tab after installing:', now)
-    if now['url'] != '?installed' or not now['have'] or not now['have'].startswith('annotated is installed. Pin it') or now['steps']:
+    if now['url'] != '?installed' or not now['have'] or not now['have'].startswith("You're set. Pin annotated") or now['steps']:
       errs.append(f'the front page tab did not move to its installed state: {now}')
     # 3.
     await pg.evaluate("""() => { localStorage.setItem('annotated-tryit', JSON.stringify({ quote: 'must link back', take: 'Brief take.', at: 123 }));

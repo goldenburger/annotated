@@ -96,7 +96,7 @@ async def main():
     y = await pg.evaluate("JSON.parse(localStorage.getItem('annotated-yours'))")
     clip = [x for x in y if x.get('kind') == 'video'][0]
     bright = json.loads((PUB / 'media' / 'artemis-i-frames.json').read_text())['bright']
-    lo, hi = 177 // 2, 199 // 2
+    lo, hi = 164 // 2, 186 // 2
     best = max(range(lo, hi + 1), key=lambda i: bright[i])
     print('13. the clip card uses frame', clip['thumb']['idx'], '| the brightest in the clip is', best)
     if clip['thumb']['idx'] != best: errs.append(f"the clip card does not use the brightest frame: {clip['thumb']['idx']} not {best}")

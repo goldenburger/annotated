@@ -1,7 +1,7 @@
 # The recording of 2026-09-24 at 23:56.
 #   1. The panel's help link to the home page goes to the tab already on it (?installed included), not a new one.
 #   2. An empty Your profile in the panel says what to do.
-#   3. Installed, the front page says "annotated is installed.", not "You have annotated."
+#   3. Installed, the front page says "You're set." (it said "You have annotated.", then "annotated is installed.")
 #   4. A card clicked while the try-it is in sight does not scroll the page, and clicking a moment's waveform plays it.
 #   5. A take is held for 0.6 seconds (two read as a delay, 2026-09-25), out of the row with no empty slot.
 #   6. The fresh brief is back within about three seconds of folding away.
@@ -44,7 +44,7 @@ async def site_part(p, errs):
   await pg.evaluate("document.documentElement.dataset.annotatedInstalled = '1'; document.dispatchEvent(new CustomEvent('annotated-installed'))"); await asyncio.sleep(1.2)
   have = await pg.evaluate("[...document.querySelectorAll('.heroHave')].filter((x) => !x.hidden).map((x) => x.textContent.trim().slice(0, 24))")
   print('3. the installed line:', have)
-  if not have or not all(h.startswith('annotated is installed') for h in have): errs.append(f'the installed line reads {have}')
+  if not have or not all(h.startswith("You're set") for h in have): errs.append(f'the installed line reads {have}')
   # 7.
   words = await pg.evaluate("[...document.querySelectorAll('.llRow .yours')].map((li) => ({ quote: !!li.querySelector('.yQuote'), csn: li.querySelector('.csn').textContent }))")
   print('7. the cards:', words)
@@ -69,6 +69,13 @@ async def site_part(p, errs):
   print('8. Undo after removing a card:', und, 'row top before', top0)
   if not und['shown'] or not und['inHead'] or abs(und['top'] - top0) > 1: errs.append(f'Undo moved the row or is not in the heading: {und} vs {top0}')
   await pg.click('.llUndoBtn'); await asyncio.sleep(.3)
+  # Recording of 2026-09-25 at 03:14: Clear all leaves a line in the emptied row while Undo is up.
+  await pg.click('.llClear'); await asyncio.sleep(.3)
+  cl = await pg.evaluate("({ empty: (document.querySelector('.llEmpty:not([hidden])') || {}).textContent || null, undo: !document.querySelector('.llUndo').hidden })")
+  print('   after Clear all:', cl)
+  if cl != {'empty': 'All cleared. Make one above.', 'undo': True}: errs.append(f'the emptied row says nothing: {cl}')
+  await pg.click('.llUndoBtn'); await asyncio.sleep(.3)
+  if await pg.evaluate("!!document.querySelector('.llEmpty:not([hidden])')"): errs.append('the empty line stayed after Undo')
   # 5 and 6.
   await pg.goto(URL + '?planes'); await asyncio.sleep(4.5)
   await pg.evaluate("document.dispatchEvent(new CustomEvent('annotated-tryit-touched'))"); await asyncio.sleep(.3)

@@ -53,7 +53,7 @@ var TryIt = (() => {
         <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>
         <span class="tiPen" aria-hidden="true" hidden>${PEN}</span>
       </div>
-      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
+      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><span class="tiLinks"><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="link tiShowMe">Show me an example</button></span><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
       <form class="tiTake" hidden>
         <label class="tiLabel" for="tiInput">Your take</label>
         <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
@@ -227,6 +227,13 @@ var TryIt = (() => {
       const r = ArticleCore.findText(text, 'All clipped content, text, audio, or video, must link back to its original source URL.');
       if (r) take(r);
     });
+    q('.tiShowMe').addEventListener('click', () => {
+      if (demoing) return;
+      quiet();
+      if (marks.length) { reset(); clear(); }
+      clearTimeout(demoTimer);
+      setTimeout(() => demo(true), 250);
+    });
     q('.tiUse').addEventListener('mousedown', (e) => e.preventDefault());
     q('.tiUse').addEventListener('click', () => {
       const s = getSelection();
@@ -276,24 +283,31 @@ var TryIt = (() => {
 
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-    async function demo() {
-      // Someone who has made one already needs no showing (recording of 2026-09-24 at 20:19, where it ran again
-      // above four of their own).
-      try {
+    // force: asked for with Show me an example, so it plays whatever has happened before (David, 2026-09-25: the
+    // example could only be seen once a visit, with nothing made yet, which was hard for anyone to get back to).
+    async function demo(force = false) {
+      // Someone with annotations of their own in Yours so far needs no showing (recording of 2026-09-24 at 20:19,
+      // where it ran again above four of their own). Only that row counts: the brief's last take is kept after
+      // the row is cleared, and counting it hid the example from someone with nothing to show (recording of
+      // 2026-09-25 at 03:54).
+      if (!force) try {
         const y = JSON.parse(localStorage.getItem('annotated-yours') || 'null');
-        if ((Array.isArray(y) ? y.length : y) || localStorage.getItem(KEY)) { document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); return; }
+        // Once a visit, too: with Yours so far empty it played on every load, twice in half a minute in the
+        // recording of 2026-09-25 at 04:27. It comes back when the browser is next opened.
+        if ((Array.isArray(y) ? y.length : y) || sessionStorage.getItem('annotated-example-shown')) { document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); return; }
+        sessionStorage.setItem('annotated-example-shown', '1');
       } catch { /* no storage: show it */ }
       // Not on the heels of an arrival: while the page's opening motion is still playing, and for two seconds
       // after it, the example waits (planes-waiting and data-plane-landed are set by the experiment in
       // experiments/planes.js, and without it neither is ever set).
       const landed = +document.documentElement.dataset.planeLanded || 0;
-      if (document.documentElement.classList.contains('planes-waiting')) {
+      if (!force && document.documentElement.classList.contains('planes-waiting')) {
         document.addEventListener('annotated-plane-landed', () => { clearTimeout(demoTimer); if (!touched) demoTimer = setTimeout(demo, 2000); }, { once: true });
         return;
       }
-      if (landed && Date.now() - landed < 2000) { demoTimer = setTimeout(demo, 2000 - (Date.now() - landed)); return; }
+      if (!force && landed && Date.now() - landed < 2000) { demoTimer = setTimeout(demo, 2000 - (Date.now() - landed)); return; }
       const skip = () => document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
-      if (touched || still() || marks.length) return skip();
+      if (!force && (touched || still() || marks.length)) return skip();
       const r = ArticleCore.findText(text, DEMO.phrase);
       if (!r) return skip();
       demoing = true;

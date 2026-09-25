@@ -134,7 +134,7 @@ async def main():
     await news.goto(f'chrome-extension://{extid}/feed.html#profile'); await asyncio.sleep(2.4)
     side = await pan.evaluate("""() => ({ mirror: !!document.querySelector('.annside.mirror'),
       list: !!document.querySelector('.sideList'),
-      openProfile: !!document.querySelector('.sideFeed'),
+      openProfile: !!document.querySelector('.sideFeedBtn'),
       says: (document.querySelector('.mirrorWhat') || {}).textContent || '',
       back: !!document.querySelector('.sideBack') })""")
     print('beside your own profile the panel shows:', side)

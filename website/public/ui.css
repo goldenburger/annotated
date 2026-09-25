@@ -1565,3 +1565,11 @@ body.embedded > .brand .wmPlane { display: none; }
 .annside.mirror .mirrorStart { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
 /* "Publishing…" where the take was, while its plane flies off (panel-kit.js sendOff). */
 .flyNote { margin: 0; z-index: 5; text-align: center; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-3); pointer-events: none; }
+/* A picture still loading shows a light placeholder, not a black box (recording of 2026-09-25 at 04:27, 0:26).
+   A clip keeps its dark frame, which is what a video looks like before it plays. */
+.cthumb { background: var(--paper, #F2EEE2); }
+.cthumb.cprev, .cthumb.caudio { background: #000; }
+/* Your own profile's foot: Delete all and Sign out, after your annotations (annotation-page.js). */
+.profileFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); }
+.profileFoot:empty { display: none; }
+.profileFoot .delAll { margin: 0; }

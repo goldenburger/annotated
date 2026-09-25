@@ -104,6 +104,16 @@ async def main():
     after_tab = await pan.evaluate("document.body.classList.contains('welcoming')")
     print('3. help open', before, '| after Home', after_home, '| after another tab', after_tab)
     if not before or after_home or after_tab: errs.append(f'help did not close: {before}, {after_home}, {after_tab}')
+    # Recording of 2026-09-25 at 03:14: one way to the full page, and Delete all only with something to delete.
+    dup = await pan.evaluate("""() => { const d = document.createElement('div'); document.body.appendChild(d);
+      AnnotationPage.renderBrowse(d, { title: 'Home', records: [], onOpen() {}, onFull() {} });
+      const r = { small: d.querySelectorAll('.browseFull, .sideFeed').length, button: !!d.querySelector('.browseFullBtn') }; d.remove(); return r; }""")
+    print('   links to the full page:', dup)
+    if dup != {'small': 0, 'button': True}: errs.append(f'the full page is offered twice, or not at all: {dup}')
+    # Recording of 2026-09-25 at 04:27: our site's long title reads as the home page in the way back.
+    name = await pan.evaluate("cleanTitle('annotated: say what you think about anything on the web')")
+    print('   the way back to our site is called:', repr(name))
+    if name != "annotated's home page": errs.append(f'our site is called {name!r} in the way back')
     # 7.
     note = await pan.evaluate("""async () => {
       localStorage.setItem('annotated-planes', 'on');

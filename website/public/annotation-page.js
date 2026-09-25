@@ -1008,8 +1008,7 @@ const AnnotationPage = (() => {
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div><button type="button" class="strong sm pSignIn">Sign in with Google</button>`
                  : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
-               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>
-               ${onDeleteAll && !person && records.length ? delAllBox(records) : ''}`
+               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
             : `<h1>${typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id ? 'Home' : 'Feed'}</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         <div class="feedBar">
@@ -1095,7 +1094,10 @@ const AnnotationPage = (() => {
           // On the website an empty feed leads somewhere: the home page, where anyone can make one in a minute.
           const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
           return `<li class="emptyState"><p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !person ? '<a class="ghost sm esMake" href="/">Make one on the home page</a>' : ''}</li>`;
-        })(); })()}</ul>`;
+        })(); })()}</ul>
+        ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
+      // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button
+      // led the page, above your annotations (recording of 2026-09-25 at 04:48).
       const ownProfile = mode === 'profile' && !person;
       const inExt = typeof chrome !== 'undefined' && !!(chrome.runtime && chrome.runtime.id);
       const youCard = ownProfile ? ''
@@ -1194,8 +1196,7 @@ const AnnotationPage = (() => {
     // The way back says where it goes, like the one beside the feed. An arrow on its own left people guessing.
     container.innerHTML = `<div class="annside browse">
       ${onBack ? `<button type="button" class="ghost sm browseBack" title="${esc(backTo)}">${Brand.icon('arrowLeft')}<span>${esc(backTo)}</span></button>` : ''}
-      <div class="browseHead"><h2>${esc(title)}</h2>
-        ${onFull ? '<button type="button" class="link browseFull">See all annotations</button>' : ''}</div>
+      <div class="browseHead"><h2>${esc(title)}</h2></div>
       ${tabs ? `<div class="seg browseTabs" role="radiogroup" aria-label="Which annotations">${tabs.options.map(([k, l]) =>
         `<label><input type="radio" name="browseTab" value="${esc(k)}" ${tabs.current === k ? 'checked' : ''}><span>${esc(l)}</span></label>`).join('')}</div>` : ''}
       ${note ? `<p class="note browseNote">${esc(note)}</p>` : ''}
@@ -1204,7 +1205,7 @@ const AnnotationPage = (() => {
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
         </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
-      ${onFull && list.length ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
+      ${onFull ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
     </div>`;
     wireDelAll(container, onDeleteAll);
@@ -1212,7 +1213,9 @@ const AnnotationPage = (() => {
     if (bk) bk.addEventListener('click', () => onBack());
     const act = container.querySelector('.browseAct');
     if (act) act.addEventListener('click', () => action.onClick());
-    container.querySelectorAll('.browseFull, .browseFullBtn').forEach((b) => b.addEventListener('click', () => onFull()));
+    // One way to the full page, under the list. A small "See all annotations" at the top did the same thing
+    // under another name (recording of 2026-09-25 at 03:14).
+    container.querySelectorAll('.browseFullBtn').forEach((b) => b.addEventListener('click', () => onFull()));
     if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
   }
@@ -1260,7 +1263,7 @@ const AnnotationPage = (() => {
           ${onPublishNow ? '<p class="row"><button type="button" class="strong sm sidePub">Publish it now</button></p>' : ''}`}
         ${onDelete && canDelete ? '<p class="sideDel"><button type="button" class="link sideDelBtn">Delete this annotation</button></p>' : ''}
       </section>` : ''}
-      <div class="sideListHead"><h2>Your annotations</h2><button type="button" class="link sideFeed">Open your profile</button></div>
+      <div class="sideListHead"><h2>Your annotations</h2></div>
       <ul class="sideList">${list.map((r) => {
         const now = current && r.id === current.id;
         return `<li><button type="button" data-id="${esc(r.id)}" ${now ? 'aria-current="page"' : ''}>
@@ -1281,7 +1284,7 @@ const AnnotationPage = (() => {
       try { await navigator.clipboard.writeText(permalinkOf(current.id)); lab.textContent = 'Link copied'; } catch { lab.textContent = 'Copy failed'; }
       setTimeout(() => { lab.textContent = 'Copy link'; }, 2000);
     });
-    container.querySelectorAll('.sideFeed, .sideFeedBtn').forEach((b) => b.addEventListener('click', onFeed));
+    container.querySelectorAll('.sideFeedBtn').forEach((b) => b.addEventListener('click', onFeed));
     const sd = container.querySelector('.sideDelBtn');
     if (sd) sd.addEventListener('click', () => {
       const p = sd.parentElement;

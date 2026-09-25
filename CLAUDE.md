@@ -348,8 +348,8 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   under copyright in the US, credited on the page and linked, with nothing implying NASA endorses annotated. The
   video is "To the Moon and Back: The Journey of Artemis I" (Johnson Space Center, images.nasa.gov, 5:47). It is
   NASA's 64 MB "small" rendition, 640 by 360, re-encoded with ffmpeg (x264 crf 26, 700 kbps cap, AAC 96 kbps,
-  faststart) to 19.4 MB, which replaced the blurry 320 by 180 mobile file on 2026-09-24. The clip starts on
-  liftoff, 2:57 to 3:19. The audio is Houston We Have
+  faststart) to 19.4 MB, which replaced the blurry 320 by 180 mobile file on 2026-09-24. The clip is
+  2:44 to 3:06 (it was 2:57 to 3:19, which ran into black frames). The audio is Houston We Have
   a Podcast, "So You Want to be an Astronaut?" (11:04), re-encoded with ffmpeg to 64 kbps mono (5.3 MB from 27 MB),
   and the moment runs 1:16 to 1:38, from one pause to the next. The filmstrip is a sprite of the video's own
   frames, one every two seconds (`artemis-i-frames.jpg`, `fps=1/2,scale=96:54,tile=12x15`), cut to fill each tile,
@@ -360,8 +360,7 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
 - **The front page, rebuilt 2026-09-23 afternoon** (`website/public/landing.js`, `tests/homepage.py`). It is drawn
   at once, before the database is asked anything: `site.js` reads the session from this browser and, for a
   visitor, mounts `Landing` and only then asks for the latest annotations. It used to wait on the profile and
-  the whole feed, a blank page for a second and for good with the database unreachable. Signed in, "/" is the
-  feed, with a slim "Try annotated on this page" line (`slimTry`) to `/?try`. `/?feed` is the feed for anyone.
+  the whole feed, a blank page for a second and for good with the database unreachable. "/" is the home page for everyone since 2026-09-25 (it was the feed when signed in). `/?feed` is the feed.
   The hero is the kicker, the headline, one line and two buttons, with a four-tab try-it (Article is `TryIt`,
   the brief; YouTube clip, Podcast and Post on X are `SceneTry` on the same paper). A tab sets the headline's
   word, and the headline only starts changing after the example has played (`annotated-tryit-demo-done`), so
@@ -469,6 +468,46 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (https://x.com/elonmusk/status/2103160462472892536), word for word as X's public embed gives it, with his name,
   handle, date and a link to it, and no view, like or repost numbers, since the real ones are not known here.
   The video and podcast tabs keep the NASA media: a CBS interview or an All-In episode could not be hosted.
+- **The recording of 2026-09-25 at 03:14** (`tests/acctmenu.py`, `tests/walk0115.py`, `tests/walk2356.py`). The
+  account menu offers Delete all only when you have something to delete (`hasAny` in `Account.setActions`), since
+  with nothing it opened a profile saying only that. The small "See all annotations" and "Open your profile" links
+  are gone, the full-width buttons under the lists being the one way to the full page. After Clear all on the
+  front page, the emptied row says "All cleared. Make one above." while Undo is offered (`.llEmpty`). The
+  headline showing "a passage" at 0:12 was the Article tab already chosen in that tab, not a flicker.
+- **The recording of 2026-09-25 at 03:54** (`tests/walk0354.py`). The plane's shadow blur is kept at zero or above
+  (`fold.js`), since Chrome listed dozens of "Invalid keyframe value for property filter: blur(-0.2px)". A website
+  tab notices a sign-in or sign-out in another tab and reloads when next looked at (`storage` on `annotated-auth` in
+  `site.js`), and a front page picks up Yours so far from other tabs (`storage` on `annotated-yours`). On an
+  annotation page your card counts your annotations (it said 0). The feed asks for its list and who you are while
+  the page's code loads. The example plays whenever Yours so far is empty (the brief's last take no longer counts).
+  Yours so far is drawn like the feed's cards: one hairline frame, the take as the headline, the quote as marked
+  words, the source as one line with its icon, the × on hover. A clip card starts on its brightest frame. The hero
+  reads "For Chrome" and "Highlight a sentence, clip a video or podcast, or quote a post. Add what you think. Share
+  the link." (David's pick), and the installed line "You're set." The install button arrives as a plane after the
+  brief lands and unfolds into the button.
+  **One account on both, without sharing a session.** `article.js` tells our site who the extension is signed in as
+  (`data-annotated-user-id`, `-name`, `-email`, event `annotated-user`), never a token: two clients refreshing one
+  Supabase session would present a rotated refresh token and get the session revoked for both. Signed out, the site's
+  buttons read "Sign in as <first name>" and Google opens with that account picked (`login_hint`); signed in as
+  someone else, `.acctMismatch` offers "Use <name> here". The site's count fix and the account line were checked
+  with stand-ins, not against a real second account.
+- **The recording of 2026-09-25 at 04:27** (local copy against the live site). The install button's plane sets off
+  1.3 s in, while the brief is still arriving, instead of after it lands. The example plays once a browser visit
+  (`annotated-example-shown` in sessionStorage). The way back names our site "annotated's home page" (`cleanTitle`).
+  A feed picture still loading shows a light placeholder rather than a black box, clips keeping their dark frame.
+  Beside the local copy (127.0.0.1:8812) the panel takes the page for a podcast and the hero still offers the
+  install steps: both are local only, the extension recognising only annotated-app.netlify.app.
+- **The recording of 2026-09-25 at 04:48** (Edge, Chrome and Firefox against the local copy). The YouTube tab's clip is
+  2:44 to 3:06, ignition and liftoff, lit throughout (it ran into the black night after 3:08), and a clip card keeps
+  its still frame until the video is really playing and whenever it seeks or waits (it flashed black in Edge and white
+  in Firefox). A clip or podcast tab shrinks as soon as it has reset, where it held its full height for the whole
+  flight. The website draws its outline for every page, the feed included, before the page's code loads. Your own
+  profile ends with Delete all and Sign out (`.profileFoot`), where they led the page above your annotations.
+- **The recording of 2026-09-25 at 05:34.** "/" is the home page for everyone, signed in or not; the feed is at
+  `/?feed`, a Feed link in the header (`landing.js`), and the feed's own Home and "See annotations" go there. Signed in,
+  "/" used to be the feed, so help's "Open annotated's home page" landed on an empty feed and the example was one small
+  "Try it" line away (`slimLine`, no longer called). The try-it has "Show me an example" (`.tiShowMe`, `demo(true)`),
+  which plays it whatever has happened before; on its own it still plays once a visit, with Yours so far empty.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is
@@ -849,3 +888,8 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - Buzzsprout works. Its earlier refusal was the HeadlessChrome user agent rather than byte ranges, which is why
   `fphosts.py` now sets `REAL_UA` from `tests/_env.py`.
 - Demo: pick strong examples (Jason: "examples matter"), a meaningful paragraph, a good clip, a real podcast moment.
+- Not submitted yet (as of 2026-09-25). The form is at https://annotated.lovable.app/enter: your name (required), X
+  handle, site link, and a demo video link (required), and submissions are public. By submitting you confirm the
+  build follows the spec. The other entries are listed at https://annotated.lovable.app/entries; the closest in
+  September were Alan Shiflett's (annotated.bytetalk.ai) and Peter Mumford's (annotated.petermumford.com), both
+  with lived-in feeds, which is where annotated is weakest.

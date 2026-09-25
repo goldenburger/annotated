@@ -623,3 +623,25 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stX .stAv { width: 36px; height: 36px; }
 .sceneTry .stX .xTime { padding-bottom: 8px; font-size: 13.5px; }
 .sceneTry .stX .xActs { padding-top: 6px; }
+.landLatest .llEmpty { margin: 4px 0 0; padding: 22px 16px; border: 1px dashed #E1DCCB; border-radius: 12px; text-align: center; font: 500 14px/1.4 var(--sans); color: #5B616E; }
+.landLatest .llEmpty[hidden] { display: none; }
+/* Yours so far, drawn like the feed's own cards (David, 2026-09-25: it looked amateur). One hairline frame, the
+   take as the headline, the quote as marked words with no box of its own, and the source as one quiet line with
+   its icon. The yellow outline, the tinted quote box and the bordered source box are gone. */
+.llRow .yours .card { border: 1px solid #E4E1D6; border-radius: 12px; background: #fff; padding: 14px 16px 12px; box-shadow: 0 1px 2px rgba(22, 24, 29, .04); transition: box-shadow .2s ease, border-color .2s ease; }
+.llRow .yours .card:hover { border-color: #D6D1C1; box-shadow: 0 6px 18px rgba(22, 24, 29, .07); }
+.llRow .yours.example .card { border-style: dashed; box-shadow: none; }
+.llRow .yours .cmeta { font: 500 12px/1.3 var(--sans); color: #6B7180; }
+.llRow .yours .ctake { margin: 6px 0 10px; font: 600 17px/1.35 var(--serif); color: #16181D; }
+.llRow .yours .yQuote { margin: 0 0 12px; padding: 0; border: 0; border-radius: 0; background: none; font: 400 15px/1.55 var(--serif); }
+.llRow .yours .yThumb, .llRow .yours .yWave { margin: 0 0 12px; border-radius: 8px; }
+.llRow .yours .csource { margin-top: auto; padding: 10px 0 0; border: 0; border-top: 1px solid #EFECE3; border-radius: 0; background: none; gap: 8px; align-items: flex-start; }
+.llRow .yours .csource svg { width: 15px; height: 15px; margin-top: 2px; color: #6B7180; flex: none; }
+.llRow .yours .cst { font: 600 13px/1.3 var(--sans); color: #16181D; }
+.llRow .yours .csn { font: 400 12.5px/1.35 var(--sans); color: #6B7180; }
+.llRow .yours .yDel { opacity: 0; }
+.llRow .yours:hover .yDel, .llRow .yours .yDel:focus-visible { opacity: 1; }
+.acctMismatch { margin: 0; padding: 9px 16px; background: #FFF6CC; border-bottom: 1px solid #F2DE8A; text-align: center; font: 500 13.5px/1.4 var(--sans); color: #16181D; }
+.acctMismatch .amSwitch { font: inherit; font-weight: 600; margin-left: 6px; }
+.tiBar .tiLinks { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
+.sitenav .navBtn + .navBtn { margin-left: 6px; }

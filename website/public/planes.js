@@ -102,9 +102,13 @@
     // The try-it keeps its height until the fresh brief is down, so nothing below it jumps when it resets.
     const panel = origin.closest('.tryPanel');
     if (panel) { panel.style.transition = ''; panel.style.minHeight = panel.offsetHeight + 'px'; }
+    let released = false;
     const release = () => {
-      if (!panel) return;
-      panel.style.transition = 'min-height .45s ease';
+      if (!panel || released) return;
+      released = true;
+      // A clip or a moment has no paper to bring back, so its tab shrinks as soon as it has reset. Held for the
+      // whole flight it left a tall empty space under the trimmer (recording of 2026-09-25 at 04:48, 0:42).
+      panel.style.transition = `min-height ${paper ? .45 : .25}s ease`;
       requestAnimationFrame(() => { panel.style.minHeight = '0px'; });
       setTimeout(() => { panel.style.transition = ''; panel.style.minHeight = ''; }, 500);
     };
@@ -132,7 +136,7 @@
       await plane.open(paper ? 900 : 800, true);
       if (!flying.has(t)) return;
       // The tab resets while it is out of sight, so the fresh brief can follow the plane out at once.
-      bringBack();
+      bringBack().then(() => { if (!paper) release(); });
       const len = plane.Lw * plane.s0;
       const start = plane.centre, h = dir(plane.phi);
       let target = null;
@@ -234,7 +238,31 @@
       // Only the cards there on arrival fly in. Redrawn later (a removal, an Undo) they used to fly in again.
       document.addEventListener('annotated-plane-landed', () => setTimeout(() => watch.disconnect(), 300), { once: true });
       grab();
-      setTimeout(() => briefIn(paper, true), 120);
+      // The install button arrives as a plane of its own once the brief is down, and unfolds into the button
+      // (David, 2026-09-25). With the extension installed the button is hidden, has no size, and nothing flies.
+      const get = document.querySelector('.heroGet');
+      if (get && get.offsetWidth) get.classList.add('pl-hidden');
+      // A click, a key or a scroll finishes the opening at once, and the button is then simply there.
+      let hurried = false;
+      const hurry = () => { hurried = true; };
+      ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((e) => addEventListener(e, hurry, { capture: true, once: true }));
+      // The check waits a turn: a click finishes the brief's flight in fold.js's own listener, before this one hears it.
+      // It sets off while the brief is still coming in, so it lands a second or two in. Waiting for the brief to
+      // land first left "Look around first" alone beside an empty gap for five seconds (recording of
+      // 2026-09-25 at 04:27, 0:04 to 0:09).
+      let done = false;
+      const settle = () => { if (done) return; done = true; ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((e) => removeEventListener(e, hurry, { capture: true })); };
+      const launch = () => {
+        if (!get || done) return;
+        settle();
+        if (hurried || !get.offsetWidth) { get.classList.remove('pl-hidden'); return; }
+        Fold.arrive(get, { z0: 120, T: 900, openT: 800, s0: .6 });
+      };
+      setTimeout(launch, 1300);
+      // The check waits a turn: a click finishes the brief's flight in fold.js's own listener, before this one hears it.
+      setTimeout(() => briefIn(paper, true).then(() => new Promise((r) => setTimeout(r, 0))).then(() => {
+        if (!done && get && hurried) { settle(); get.classList.remove('pl-hidden'); }
+      }), 120);
     } else root.classList.remove('planes-waiting');
     return true;
   };

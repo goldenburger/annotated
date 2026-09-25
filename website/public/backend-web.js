@@ -8,9 +8,14 @@ const Backend = (() => {
   const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { storageKey: 'annotated-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
   });
-  async function signIn() {
+  // The account the extension is signed in as, when it is installed and tells this page (article.js). Signing in
+  // then goes to Google with that account already picked.
+  const extUser = () => { const d = document.documentElement.dataset; return d.annotatedUserId ? { id: d.annotatedUserId, name: d.annotatedUserName || '', email: d.annotatedUserEmail || '' } : null; };
+  async function signIn({ hint = null } = {}) {
     const back = location.origin + location.pathname + location.search;
-    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back, queryParams: { prompt: 'select_account' } } });
+    const email = hint || (extUser() && extUser().email) || '';
+    const queryParams = email ? { login_hint: email } : { prompt: 'select_account' };
+    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back, queryParams } });
     if (error) throw error;
   }
   async function signOut() { await client.auth.signOut(); }
@@ -25,5 +30,5 @@ const Backend = (() => {
     try { localStorage.setItem(LAST, u.id); } catch { /* nothing to remember with */ }
     return { id: u.id, name: (data && data.display_name) || meta.full_name || meta.name || 'You', handle: (data && data.handle) || '', avatar: (data && data.avatar_url) || meta.avatar_url || meta.picture || '' };
   }
-  return { client, signIn, signOut, profile, lastId, url: SUPABASE_URL };
+  return { client, signIn, signOut, profile, lastId, extUser, url: SUPABASE_URL };
 })();

@@ -186,13 +186,15 @@ async def main():
     if ink['word'] != 'rgb(28, 36, 51)' or ink['times'] != 'rgb(28, 36, 51)': errs.append(f'dark mode made the words pale: {ink}')
     await c.close()
 
-    # 2. Signed in: the feed, with the slim line. With the extension: no Get.
+    # 2. Signed in: the home page too (recording of 2026-09-25 at 05:34), with Feed in the header, and the feed at /?feed.
     c = await ctx_with(db)
     await c.add_init_script(f"try {{ localStorage.setItem('annotated-auth', {json.dumps(json.dumps(SESSION))}); }} catch (e) {{}}")
     pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/'); await asyncio.sleep(3)
-    signed = await pg.evaluate("({ landing: !!document.querySelector('.landHero'), feed: !!document.querySelector('.sitegrid .cards'), slim: !!document.querySelector('.slimTry a[href=\"/?try\"]') })")
+    signed = await pg.evaluate("({ landing: !!document.querySelector('.landHero'), feedLink: !!document.querySelector('.sitenav a[href=\"/?feed\"]') })")
+    await pg.goto('https://annotated-app.netlify.app/?feed'); await asyncio.sleep(3)
+    signed['feed'] = await pg.evaluate("!!document.querySelector('.sitegrid .cards')")
     print('2. signed in:', signed)
-    if signed != {'landing': False, 'feed': True, 'slim': True}: errs.append(f'signed in the front page read {signed}')
+    if signed != {'landing': True, 'feedLink': True, 'feed': True}: errs.append(f'signed in the front page read {signed}')
     await c.close()
     c = await ctx_with(db)
     await c.add_init_script("document.addEventListener('DOMContentLoaded', () => { document.documentElement.dataset.annotatedInstalled = '1'; })")

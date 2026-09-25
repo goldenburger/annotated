@@ -139,10 +139,11 @@ async def main():
     print('9. tooltips:', tips)
     if len(tips) != 2 or tips[0] is not None or not tips[1]: errs.append(f'the tooltips were {tips}')
     await bp.evaluate("Store.allMeta().then((r) => Promise.all(r.map((x) => Store.del(x.id))))"); await asyncio.sleep(.5)
-    await bp.click('.acctBtn'); await asyncio.sleep(.5); await bp.click('.acctDelAll'); await asyncio.sleep(1.5)
-    said = await bp.evaluate("(document.querySelector('#browseMode .browseEmpty .note') || {}).textContent || ''")
-    print('6. Delete all with nothing to delete says:', repr(said))
-    if said != 'You have no annotations to delete.': errs.append(f'Delete all with nothing said {said!r}')
+    # Since the recording of 2026-09-25 at 03:14, Delete all is not offered with nothing to delete.
+    await bp.click('.acctBtn'); await asyncio.sleep(.8)
+    offered = await bp.evaluate("(() => { const b = document.querySelector('.acctDelAll'); return !!b && !b.hidden; })()")
+    print('6. Delete all offered with nothing to delete:', offered)
+    if offered: errs.append('Delete all was offered with nothing to delete')
     print('errors:', errs)
     await ctx.close()
 

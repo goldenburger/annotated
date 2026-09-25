@@ -43,10 +43,14 @@ const Account = (() => {
            <p class="note acctHMsg" role="status"></p></form>
          <div class="acctFoot">
            <button type="button" class="ghost sm acctOut">Sign out</button>
-           ${actions.onDeleteAll ? '<button type="button" class="link danger acctDelAll">Delete all my annotations</button>' : ''}
+           ${actions.onDeleteAll ? `<button type="button" class="link danger acctDelAll"${actions.hasAny ? ' hidden' : ''}>Delete all my annotations</button>` : ''}
          </div>`
       : `<p class="err">${esc(errText || '')}</p><button type="button" class="ghost sm acctIn">${G} Try again</button>`;
     document.body.appendChild(pop);
+    // Offered only with something to delete. With nothing it opened a profile that said only that there was
+    // nothing to delete (recording of 2026-09-25 at 03:14, 1:55).
+    const delAll = pop.querySelector('.acctDelAll');
+    if (delAll && actions.hasAny) actions.hasAny().then((n) => { if (n) delAll.hidden = false; }).catch(() => {});
     const r = btn.getBoundingClientRect();
     pop.style.top = (r.bottom + 6) + 'px';
     pop.style.left = Math.max(8, Math.min(window.innerWidth - 268, r.right - 260)) + 'px';

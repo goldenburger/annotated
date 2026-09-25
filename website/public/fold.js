@@ -234,7 +234,7 @@ var Fold = (() => {
       const x = r.x - plane.centre.x, y = r.y - plane.centre.y;
       frames.push({ offset: r.u, transform: `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, ${r.z.toFixed(1)}px) rotateZ(${r.h.toFixed(2)}deg) rotateX(${bank.toFixed(2)}deg) rotateY(${pitch.toFixed(2)}deg) rotateZ(${-plane.phi}deg)` });
       const sh = 1 + r.z / 1600;
-      shadows.push({ offset: r.u, opacity: clamp(.34 - r.z / 1300, .08, .34), filter: `blur(${(1.5 + r.z / 45).toFixed(1)}px)`,
+      shadows.push({ offset: r.u, opacity: clamp(.34 - r.z / 1300, .08, .34), filter: `blur(${Math.max(0, 1.5 + r.z / 45).toFixed(1)}px)`,
         transform: `translate(${(x + r.z * .3).toFixed(1)}px, ${(y + r.z * .45).toFixed(1)}px) rotate(${(r.h - plane.phi).toFixed(2)}deg) scale(${(plane.s0 * sh).toFixed(3)})` });
     });
     const f = plane.carrier.animate(frames, { duration: T, easing: 'linear', fill: 'forwards' });

@@ -14,7 +14,7 @@ SESSION = {'access_token': 'header.e30.sig', 'refresh_token': 'r', 'token_type':
 PROFILE = [{'id': UID, 'handle': 'robotaxi', 'display_name': 'Robo Taxi', 'avatar_url': ''}]
 READ = """() => { const p = document.querySelector('.acctPop'); if (!p) return null; const t = (s) => ((p.querySelector(s) || {}).textContent || '').trim();
   return { what: t('.acctHRule'), link: p.querySelector('.acctHLink').hidden ? '' : t('.acctHLink'), rule: t('.acctHRule'), ruleBad: !!p.querySelector('.acctHRule.bad'), msg: t('.acctHMsg'),
-           saveOff: p.querySelector('.acctHSave').disabled, profile: !!p.querySelector('.acctProfile'), delAll: !!p.querySelector('.acctDelAll') }; }"""
+           saveOff: p.querySelector('.acctHSave').disabled, profile: !!p.querySelector('.acctProfile'), delAll: !!p.querySelector('.acctDelAll:not([hidden])') }; }"""
 
 async def main():
   errs = []
@@ -33,6 +33,12 @@ async def main():
     pg = await ctx.new_page(); await pg.set_viewport_size({'width': 420, 'height': 900})
     pg.on('pageerror', lambda e: errs.append('PANEL ' + str(e)))
     await pg.goto(f'chrome-extension://{extid}/sidepanel.html?tab={tid}'); await asyncio.sleep(2.5)
+    # With nothing of yours, Delete all is not offered (recording of 2026-09-25 at 03:14).
+    await pg.click('.acctBtn'); await asyncio.sleep(.6)
+    none = await pg.evaluate(READ)
+    print('with nothing to delete, Delete all offered:', none and none['delAll'])
+    if not none or none['delAll']: errs.append('Delete all was offered with nothing to delete')
+    await pg.keyboard.press('Escape'); await asyncio.sleep(.3)
     # Something of yours on this computer, so Delete all has something to count.
     await pg.evaluate("Store.put('mine-1', { item: { kind: 'post', text: 'p', author: 'A', handle: '@a', url: 'https://x.com/a/status/1' }, take: { text: 'mine' }, created: Date.now() })")
 

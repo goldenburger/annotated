@@ -42,7 +42,7 @@ async def main():
     # Home and your profile read inside the panel. Neither opens a tab.
     def ours():
         return [t.url for t in ctx.pages if '/feed.html' in t.url or '/annotation.html' in t.url]
-    state = "() => { const b = document.getElementById('browseMode'); return { shown: !b.hidden, "             "title: (b.querySelector('h2') || {}).textContent || '', tabs: b.querySelectorAll('.browseTabs input').length, "             "full: (b.querySelector('.browseFull') || {}).textContent || '', "             "del: !!b.querySelector('.delAllOpen'), "             "items: b.querySelectorAll('.sideList li button').length }; }"
+    state = "() => { const b = document.getElementById('browseMode'); return { shown: !b.hidden, "             "title: (b.querySelector('h2') || {}).textContent || '', tabs: b.querySelectorAll('.browseTabs input').length, "             "full: (b.querySelector('.browseFullBtn') || {}).textContent || '', "             "del: !!b.querySelector('.delAllOpen'), "             "items: b.querySelectorAll('.sideList li button').length }; }"
     # A few of your own, so there is something to list and something to delete.
     await pan.evaluate("""async () => {
       for (let i = 1; i <= 3; i++) await Store.put('nav' + i, { id: 'nav' + i, created: Date.now() - i * 60000,
@@ -55,7 +55,7 @@ async def main():
     if not home['shown']: errs.append('Home did not open inside the panel')
     if home['title']!='Home': errs.append(f"the panel called it {home['title']!r}")
     if home['tabs']!=3: errs.append(f"Home showed {home['tabs']} tabs, wanted For you, Following and Everyone")
-    if home['full'] != 'See all annotations': errs.append(f"the way on is called {home['full']!r}")
+    if home['full'].strip() != 'Open Home as a full page': errs.append(f"the way on is called {home['full']!r}")
     if home['del']: errs.append('Home offered to delete all your annotations, which is not what Home is')
     if ours(): errs.append(f'Home opened {len(ours())} tabs when it should have opened none')
 
@@ -76,7 +76,7 @@ async def main():
 
     # The full page, and an annotation, share the one annotated tab.
     await pan.click('.homeBtn'); await pan.wait_for_selector('#browseMode h2',timeout=15000); await asyncio.sleep(.5)
-    await pan.click('.browseFull'); await asyncio.sleep(1.2)
+    await pan.click('.browseFullBtn'); await asyncio.sleep(1.2)
     await pan.bring_to_front()
     await pan.evaluate("() => openExtPage('annotation.html#nothing')"); await asyncio.sleep(1.2)
     end = ours()

@@ -116,6 +116,10 @@ Prefs.init(Prefs.chromeBackend()).then(async () => {
   Account.mount(document.body);
   Account.setActions({
     onProfile: () => openBrowse('profile'),
+    hasAny: async () => {
+      const [local, me] = await Promise.all([Store.allMeta().catch(() => []), cachedProfile()]);
+      return local.some((r) => !r.author || (me && r.author.id === me.id));
+    },
     onDeleteAll: async () => {
       await openBrowse('profile');
       const b = $('#browseMode .delAllOpen');
@@ -123,8 +127,7 @@ Prefs.init(Prefs.chromeBackend()).then(async () => {
       else {
         // Nothing to delete. The empty list used to say only "Capture something and it shows up", which
         // said nothing about the button that had just been pressed.
-        const n = $('#browseMode .browseEmpty .note');
-        if (n) n.textContent = 'You have no annotations to delete.';
+        // The profile's own empty text stands, which says how to make one.
       }
     },
   });
@@ -988,7 +991,12 @@ async function drawBrowse() {
 // The last tab that had something to annotate, so the panel beside annotated's own pages can offer the
 // way back to what you were reading.
 let lastSourceTab = null, openingHost = '';
-const cleanTitle = (t) => String(t || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X|annotated)$/, '').replace(/\s+\/\s+X$/, '').trim();
+// Our own site's pages carry long titles made for search results, "annotated: say what you think about anything on
+// the web", which the way back used to show word for word (recording of 2026-09-25 at 04:27).
+const cleanTitle = (t) => {
+  const s = String(t || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s+[-|·–]\s+(YouTube|X|annotated)$/, '').replace(/\s+\/\s+X$/, '').trim();
+  return /^annotated\s*:/i.test(s) ? "annotated's home page" : s;
+};
 // A tab with nothing to annotate and no page of ours: a new tab, a blank page, a browser page.
 const bareTab = (url) => !isWeb(url) && !String(url || '').startsWith(chrome.runtime.getURL(''));
 function show(tid, msg, title) {

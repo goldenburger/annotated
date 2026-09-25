@@ -336,7 +336,9 @@ var SceneTry = (() => {
       html: `<div class="stPaper"><p class="stKicker">Example article</p><div data-annotated-self><p class="stH">Council backs a six-month overnight bus trial</p>
         <p>The council voted 7 to 2 to run buses through the night on three routes. Supporters pointed to a survey in which six in ten night-shift workers said they had missed a shift for lack of a ride home.</p></div></div>` }),
     // Liftoff, from ignition to the rocket climbing clear of its cloud.
-    video: (root) => trimmer(root, { kind: 'video', duration: 347, start: 177, end: 199, kindIcon: 'clip',
+    // Ignition and liftoff, 2:44 to 3:06, lit the whole way. The clip used to run to 3:19, into the night after
+    // the rocket had gone, and its card went black every loop (recording of 2026-09-25 at 04:48).
+    video: (root) => trimmer(root, { kind: 'video', duration: 347, start: 164, end: 186, kindIcon: 'clip',
       source: 'NASA, To the Moon and Back: The Journey of Artemis I (5:47)',
       media: { src: '/media/artemis-i.mp4', sprite: { src: '/media/artemis-i-frames.jpg', bright: '/media/artemis-i-frames.json', every: 2, cols: 12, w: 96, h: 54, count: 174 },
         credit: { text: 'To the Moon and Back: The Journey of Artemis I', site: 'NASA, public domain', href: 'https://images.nasa.gov/details/jsc2022m000294_TheJourneyofArtemisI' } } }),

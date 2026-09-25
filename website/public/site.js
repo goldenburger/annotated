@@ -10,6 +10,37 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
     const el = document.createElement('script'); el.src = src + (SITE_V ? '?v=' + SITE_V : '');
     el.onload = res; el.onerror = res; document.head.appendChild(el);
   })), Promise.resolve());
+// Signing in or out in another tab reaches this one. A tab opened before a sign-in went on offering Sign in with
+// Google, and one opened before a sign-out went on showing the account (recording of 2026-09-25 at 03:54, 2:50).
+// The change arrives while this tab is in the background, so it is drawn again when it is next looked at, and at
+// once if it is in front, which only happens when two windows are side by side.
+addEventListener('storage', (e) => {
+  if (e.key !== 'annotated-auth') return;
+  const had = !!e.oldValue, has = !!e.newValue;
+  if (had === has) return;
+  if (document.visibilityState === 'visible') location.reload();
+  else document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') location.reload(); }, { once: true });
+});
+// One account on both. Signed out here, the sign-in buttons name the account the extension uses. Signed in here
+// as someone else, a line says so and offers to switch (recording of 2026-09-25 at 03:54).
+const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
+function matchExtension(me) {
+  const ext = Backend.extUser && Backend.extUser();
+  document.querySelectorAll('.webSignIn').forEach((b) => {
+    if (!b.dataset.plain) b.dataset.plain = b.innerHTML;
+    b.innerHTML = ext && ext.name ? `Sign in as ${firstName(ext.name)}` : b.dataset.plain;
+    b.setAttribute('aria-label', ext && ext.name ? `Sign in with Google as ${ext.name}` : 'Sign in with Google');
+  });
+  const old = document.querySelector('.acctMismatch'); if (old) old.remove();
+  if (!me || !ext || ext.id === me.id) return;
+  const bar = document.createElement('p');
+  bar.className = 'acctMismatch'; bar.setAttribute('role', 'status');
+  bar.innerHTML = '<span></span> <button type="button" class="link amSwitch"></button>';
+  bar.querySelector('span').textContent = `You're signed in here as ${me.name}, and in the extension as ${ext.name || ext.email}.`;
+  bar.querySelector('.amSwitch').textContent = `Use ${firstName(ext.name) || ext.email} here`;
+  bar.querySelector('.amSwitch').addEventListener('click', async () => { await Backend.signOut().catch(() => {}); Backend.signIn({ hint: ext.email }).catch(() => {}); });
+  document.body.prepend(bar);
+}
 (async () => {
   Prefs.init(Prefs.localBackend());
   const page = document.getElementById('page');
@@ -23,25 +54,34 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
   if (frontPage && typeof Landing !== 'undefined') {
     let session = null;
     try { session = (await Backend.client.auth.getSession()).data.session; } catch { /* no storage */ }
-    if (!session || query.has('try') || query.has('installed')) {
+    // The home page for everyone, signed in or not. Signed in it used to be the feed, so "Open annotated's home
+    // page" landed on an empty feed and the example was one small link away (recording of 2026-09-25 at 05:34).
+    // The feed is at /?feed, a link in the header.
+    {
       const signInNow = () => Backend.signIn().catch(() => {});
       const land = Landing.mount(page, { signedIn: !!session, onSignIn: signInNow });
       document.title = 'annotated: say what you think about anything on the web';
       void land;
+      const who = session ? { id: session.user.id, name: ((session.user.user_metadata || {}).full_name) || 'another account' } : null;
+      matchExtension(who);
+      document.addEventListener('annotated-user', () => matchExtension(who));
       return;
     }
   }
+  // The feed's list and who you are are asked for while the page's code loads, not one after another. The feed
+  // sat blank for two to four seconds (recording of 2026-09-25 at 03:54, 1:30 and 2:06).
+  let earlyList = !parts.length && !query.has('tag') ? Cloud.list({ limit: 100 }).catch(() => []) : null;
+  const meP = Backend.profile().catch(() => null);
+  // An annotation, a profile or the feed takes a moment to arrive, so its outline is drawn at once, before the
+  // page's code has even loaded, rather than a blank page with only the footer (the feed showed that for one to
+  // two seconds in the recording of 2026-09-25 at 04:48).
+  page.innerHTML = `<div class="skel" aria-busy="true" aria-label="Loading">
+    <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a></header>
+    <div class="skelBody"><div class="skelCol"><i class="sk1"></i><i class="sk2"></i><i class="sk3"></i><i class="sk4"></i><i class="sk5"></i></div>
+    <div class="skelRail"><i></i><i></i></div></div></div>`;
   await loadReading();
-  // An annotation or a profile takes a moment to arrive, so its outline is drawn at once rather than a blank
-  // page with only the footer, which is what opening one from the front page used to show for a second or more.
-  if (parts.length) {
-    page.innerHTML = `<div class="skel" aria-busy="true" aria-label="Loading">
-      <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a></header>
-      <div class="skelBody"><div class="skelCol"><i class="sk1"></i><i class="sk2"></i><i class="sk3"></i><i class="sk4"></i><i class="sk5"></i></div>
-      <div class="skelRail"><i></i><i></i></div></div></div>`;
-  }
   let me = null;
-  try { me = await Backend.profile(); AnnotationPage.setMe(me); } catch {}
+  try { me = await meP; AnnotationPage.setMe(me); } catch {}
   const handleOf = new Map();
   const linkFor = (id) => `/@${handleOf.get(id) || 'annotated'}/${encodeURIComponent(id)}`;
   const remember = (records) => records.forEach((r) => handleOf.set(r.id, (r.author && r.author.handle) || 'annotated'));
@@ -53,8 +93,8 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
   const discover = (opts = {}) => Cloud.discovery(me, { signIn, onPerson: (h) => { location.href = '/@' + h; }, ...opts }).catch(() => null);
   const youOf = (soc, n) => (me && soc && soc.youCounts ? { annotations: n, ...soc.youCounts } : null);
   const nav = {
-    onHome: () => { location.href = '/'; },
-    onAll: () => { location.href = '/'; },
+    onHome: () => { location.href = '/?feed'; },
+    onAll: () => { location.href = '/?feed'; },
     onProfile: () => { if (me && me.handle) location.href = '/@' + me.handle; else signIn(); },
     onTag: (t) => { location.href = '/?tag=' + encodeURIComponent(t); },
     onOpen: (id) => { location.href = linkFor(id); },
@@ -77,7 +117,8 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
 
   async function home(tag) {
     let all = [];
-    try { all = await Cloud.list({ limit: 100 }); } catch {}
+    const first = !tag && earlyList; earlyList = null;   // only the first drawing uses it; a tab switch asks again
+    try { all = (first ? await first : await Cloud.list({ limit: 100 })) || []; } catch {}
     all.forEach((r) => { r.mine = !!(me && r.author && r.author.id === me.id); });
     remember(all);
     const soc = await discover();
@@ -95,7 +136,6 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
     AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn });
     headerAccount();
     // Signed in, the front page is the feed, with the try-it one line away.
-    if (!tag && me && typeof Landing !== 'undefined') Landing.slimLine(page);
   }
 
   async function profile(handle) {
@@ -126,7 +166,7 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
       const out = document.createElement('button');
       out.type = 'button'; out.className = 'link webSignOut'; out.textContent = 'Sign out';
       out.addEventListener('click', async () => { await Backend.signOut(); location.reload(); });
-      const head = page.querySelector('.feedHead'); if (head) head.appendChild(out);
+      const foot = page.querySelector('.profileFoot') || page.querySelector('.feedHead'); if (foot) foot.appendChild(out);
     }
   }
 
@@ -142,8 +182,9 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
     if (Cloud.markOpened) Cloud.markOpened(id);
     const title = AnnotationPage.titleOf(rec.item);
     document.title = `${rec.take.text || title} | annotated`;
-    const soc = await discover();
-    const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, 0) } : null;
+    // Your own card counts your annotations. It said 0 beside one of your own (recording of 2026-09-25 at 03:54).
+    const [soc, yours] = await Promise.all([discover(), mine ? records : me ? Cloud.list({ authorId: me.id, limit: 100 }).catch(() => []) : []]);
+    const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, yours.length) } : null;
     const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in with Google to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
@@ -198,11 +239,13 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
     document.title = 'Not found | annotated';
     page.className = 'ann';
     AnnotationPage.stopClock(page);
-    page.innerHTML = '<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p class="esWhy"></p><p><a href="/">See annotations</a></p></div>';
+    page.innerHTML = '<div class="emptyState shellEmpty"><p class="esTitle">Not found</p><p class="esWhy"></p><p><a href="/?feed">See annotations</a></p></div>';
     page.querySelector('.esWhy').textContent = msg;
   }
 
   if (parts[0] && parts[0].startsWith('@') && parts[1]) await annotation(parts[1]);
   else if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1));
   else await home(query.get('tag'));
+  matchExtension(me);
+  document.addEventListener('annotated-user', () => matchExtension(me));
 })();

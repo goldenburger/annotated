@@ -43,6 +43,22 @@
   if (location.origin === 'https://annotated-app.netlify.app') {
     document.documentElement.dataset.annotatedInstalled = '1';
     document.dispatchEvent(new CustomEvent('annotated-installed'));
+    // Who the extension is signed in as, so our own site can offer the same account (recording of 2026-09-25 at
+    // 03:54, where the extension, the site and Chrome were on three different accounts). Only the name, the email
+    // and the id are handed over, never a token: sharing one session between two clients would have both
+    // refreshing it, and Supabase revokes a session whose old refresh token comes back.
+    const tellUser = (raw) => {
+      let u = null;
+      try { const s = typeof raw === 'string' ? JSON.parse(raw) : raw; u = s && s.user; } catch { u = null; }
+      const d = document.documentElement.dataset, meta = (u && u.user_metadata) || {};
+      if (u && u.id) { d.annotatedUserId = u.id; d.annotatedUserName = meta.full_name || meta.name || ''; d.annotatedUserEmail = u.email || ''; }
+      else { delete d.annotatedUserId; delete d.annotatedUserName; delete d.annotatedUserEmail; }
+      document.dispatchEvent(new CustomEvent('annotated-user'));
+    };
+    try {
+      chrome.storage.local.get('annotated-auth').then((o) => tellUser(o['annotated-auth'])).catch(() => {});
+      chrome.storage.onChanged.addListener((ch, a) => { if (a === 'local' && ch['annotated-auth']) tellUser(ch['annotated-auth'].newValue); });
+    } catch { /* the extension went away */ }
   }
   // The Annotate button beside selected text can be turned off under Display.
   let pageButton = true;
