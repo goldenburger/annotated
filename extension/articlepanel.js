@@ -18,7 +18,7 @@ const ArticlePanel = (() => {
   function create(root, ad, opts = {}) {
     const log = opts.log || (() => {});
     root.innerHTML = `
-      ${PanelKit.phead(opts.xHost ? 'post' : opts.ytHost ? 'clip' : 'article', 'aTitle', 'ameta')}
+      ${PanelKit.phead(opts.xHost ? 'post' : opts.ytHost ? 'video' : 'article', 'aTitle', 'ameta')}
       <section class="passage">
         <div class="emptyState selHint">
           ${PanelKit.illo('article')}

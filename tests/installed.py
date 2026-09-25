@@ -5,7 +5,7 @@
 #      what to do next, with the steps put away. A front page that is itself in front is left alone.
 #   3. A take on the brief is a demonstration: it is never handed to the extension, stays in Yours so far, and a
 #      handover left by an older version is cleared when the panel opens.
-#   4. The cards in Yours so far say what is true: every one is a demonstration of what the extension does.
+#   4. Yours so far says once, under the row, what the extension does, and not while it is installed.
 import asyncio, pathlib, mimetypes, json
 from playwright.async_api import async_playwright
 from _env import *
@@ -63,9 +63,11 @@ async def main():
     await pg.evaluate("""() => localStorage.setItem('annotated-yours', JSON.stringify([{ kind: 'article', take: 'Brief take.', quote: 'x', source: 'The annotated.com brief', tryitAt: 9, at: Date.now() },
       { kind: 'post', take: 'Post take.', quote: 'y', source: 'An example post on X', at: Date.now() }]))""")
     await pg.reload(); await asyncio.sleep(1.5)
-    words = await pg.evaluate("[...document.querySelectorAll('.llRow .yours')].map((li) => [li.querySelector('.ctake').textContent, li.querySelector('.yGet').textContent])")
-    print('4. what the cards offer:', words)
-    if words != [['Brief take.', 'Get the extension to do this on any page'], ['Post take.', 'Get the extension to do this on any page']]: errs.append(f'the cards offer the wrong thing: {words}')
+    # Said once under the row, not on every card (David, 2026-09-25), and hidden once the extension is here.
+    words = await pg.evaluate("""() => ({ onCards: document.querySelectorAll('.llRow .yours .yGet').length,
+      once: [...document.querySelectorAll('.llGet')].map((x) => [x.textContent, x.hidden]) })""")
+    print('4. what the row offers:', words)
+    if words != {'onCards': 0, 'once': [['Get the extension to do this on any page', True]]}: errs.append(f'the row offers the wrong thing: {words}')
     print('errors:', errs)
     await ctx.close()
 

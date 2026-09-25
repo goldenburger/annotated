@@ -1558,3 +1558,10 @@ body.embedded > .brand .wmPlane { display: none; }
 /* A narrow panel: the paste row keeps its Open button inside the panel. */
 .pasteForm { width: 100%; box-sizing: border-box; }
 .pasteForm .row > button { flex: 0 0 auto; }
+/* The way to a list's full page, under the list (annotation-page.js fullRow). */
+.fullRow { margin: 12px 0 0; }
+.fullRow .fullBtn { width: 100%; justify-content: center; gap: 6px; }
+.fullRow .fullBtn svg { width: 14px; height: 14px; }
+.annside.mirror .mirrorStart { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
+/* "Publishing…" where the take was, while its plane flies off (panel-kit.js sendOff). */
+.flyNote { margin: 0; z-index: 5; text-align: center; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-3); pointer-events: none; }

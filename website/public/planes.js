@@ -167,7 +167,8 @@
   }
 
   // Your latest annotation is drawn in Latest the moment it is made (landing.js). It stays hidden while what it
-  // was made from is shown for two seconds (four felt stuck, recording of 2026-09-24 at 23:56), with a line saying where it is going, and then flies there.
+  // was made from is shown for 0.6 seconds, only long enough for the card to rise: four seconds and then two
+  // both read as a delay between pressing Make the annotation and the fold (David, 2026-09-25), with a line saying where it is going, and then flies there.
   // Anything done in that tab meanwhile, or another tab chosen, keeps it where it is and shows the card at once.
   function onYours(e) {
     const { card, fresh, origin, kind, example } = e.detail || {};
@@ -208,7 +209,7 @@
       held(false);
       if (!origin.isConnected || (panel && panel.hidden) || !inView(origin, .5)) { cancelled = true; card.classList.remove('pl-hidden'); if (next) next.classList.remove('pl-going'); if (hint && said) hint.textContent = said; return; }
       send(origin, card, { paper, scene });
-    }, 2000);
+    }, 600);
   }
 
   const start = () => {

@@ -69,13 +69,19 @@ const PanelKit = (() => {
       el = card;
     }
     source.style.visibility = 'hidden';
+    // Where the take was, a line saying what is happening until the card arrives. The space was left blank
+    // for a second or two (recording of 2026-09-25 at 01:15, 3:25 to 3:27).
+    const at = Fold.pageBox(source), note = document.createElement('p');
+    note.className = 'flyNote'; note.setAttribute('role', 'status'); note.textContent = 'Publishing…';
+    note.style.cssText = `position:absolute;left:${at.x}px;top:${at.y + 8}px;width:${at.w}px;`;
+    document.body.appendChild(note);
     const gone = Fold.away(el);
     if (card) card.remove();
-    inFlight = { gone, source };
+    inFlight = { gone, source, note };
   }
   function grounded() {
     if (!inFlight) return;
-    inFlight.gone.cancel(); inFlight.source.style.visibility = ''; inFlight = null;
+    inFlight.gone.cancel(); inFlight.source.style.visibility = ''; inFlight.note.remove(); inFlight = null;
   }
   // onUndo: offered for UNDO_MS right after publishing, and gone once anything else on the card is pressed. It
   // deletes what was just made and puts the take back where it was, so a slip can be fixed and published again.
@@ -83,6 +89,7 @@ const PanelKit = (() => {
   function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null, offline = false, onUndo = null }) {
     const later = local && id && publishLater;
     const out = typeof document !== 'undefined' && document.body.classList.contains('signedOut');
+    if (typeof document !== 'undefined' && !inFlight) document.querySelectorAll('.flyNote').forEach((n) => n.remove());
     container.innerHTML = `
       <div class="pubcard fresh" role="status">
         <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div>${onUndo ? '<button type="button" class="link pubUndo">Undo</button>' : ''}</div>
@@ -148,8 +155,11 @@ const PanelKit = (() => {
     container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     if (inFlight) {
       // Shown once the plane has gone, with its check, as it would have been had there been no plane.
-      const { gone, source } = inFlight; inFlight = null;
+      const { gone, source, note } = inFlight; inFlight = null;
       source.style.visibility = '';
+      // The line stays until the card takes its place.
+      gone.then(() => note.remove());
+      setTimeout(() => note.remove(), 3000);
       const card = container.querySelector('.pubcard');
       card.classList.remove('fresh'); card.classList.add('pl-hidden');
       gone.then(() => { if (!card.isConnected) return; card.classList.remove('pl-hidden'); void card.offsetWidth; card.classList.add('fresh'); });

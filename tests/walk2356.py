@@ -3,7 +3,7 @@
 #   2. An empty Your profile in the panel says what to do.
 #   3. Installed, the front page says "annotated is installed.", not "You have annotated."
 #   4. A card clicked while the try-it is in sight does not scroll the page, and clicking a moment's waveform plays it.
-#   5. A take is held for two seconds, out of the row (no empty slot), and the brief is back soon after it leaves.
+#   5. A take is held for 0.6 seconds (two read as a delay, 2026-09-25), out of the row with no empty slot.
 #   6. The fresh brief is back within about three seconds of folding away.
 #   7. A passage's and a post's card show their words large and inked.
 #   8. Undo sits in the row's heading, so removing a card does not move the row.
@@ -80,12 +80,12 @@ async def site_part(p, errs):
       return { held: !!li && li.classList.contains('pl-held'), slot: !!li && getComputedStyle(li).display !== 'none' && li.firstElementChild.classList.contains('pl-hidden'), paper: !!paper && !paper.classList.contains('pl-hidden') }; })()""")
     log.append((round(time.time() - t0, 1), s)); await asyncio.sleep(.1)
   held_until = max([t for t, s in log if s['held']], default=0)
-  slot_early = [t for t, s in log if s['slot'] and t < 1.8]
+  slot_early = [t for t, s in log if s['slot'] and t < .4]
   gone = [t for t, s in log if not s['paper']]
   gap = (gone[-1] - gone[0]) if gone else 0
-  print(f'5. held out of the row until {held_until}s, an empty slot shown before 1.8s at {slot_early[:3]}')
+  print(f'5. held out of the row until {held_until}s, an empty slot shown before 0.4s at {slot_early[:3]}')
   print(f'6. the brief was away from {gone[0] if gone else None}s for {round(gap, 1)}s')
-  if not (1.5 <= held_until <= 2.6): errs.append(f'the take was held for {held_until}s, not about two')
+  if held_until > 1.2: errs.append(f'the take was held for {held_until}s, not about 0.6')
   if slot_early: errs.append('the row showed an empty slot while the take was still up')
   if not gone: errs.append('the brief never folded away')
   elif gap > 3.2: errs.append(f'the brief was away for {gap}s')

@@ -602,7 +602,15 @@ const AnnotationPage = (() => {
     // It plays once. Removing the class afterwards stops it replaying when the page is shown again.
     // Arriving from Publish, it lands: as a paper plane (fold.js) when they are on, or with the rise-in. It lands
     // whether it was published or saved on this computer, which has no banner.
-    if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) });
+    // The rest of the page waits for the card, so comments and the rail do not sit under an empty space while
+    // the plane comes down (recording of 2026-09-25 at 01:15, 2:10), and comes in once it has opened.
+    if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) {
+      container.classList.add('pl-landing');
+      Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) })
+        .then(() => container.classList.remove('pl-landing'));
+      // Never held for longer than the flight, whatever becomes of it.
+      setTimeout(() => container.classList.remove('pl-landing'), 3500);
+    }
     else if (showBanner) { q('.annCard').classList.add('fresh'); setTimeout(() => { const c = q('.annCard'); if (c) c.classList.remove('fresh'); }, 2200); }
 
     if (hooks.onBack) q('.back').addEventListener('click', hooks.onBack);
@@ -1176,6 +1184,9 @@ const AnnotationPage = (() => {
   // The panel's own Home and profile. A menu shows you its contents where you are, so these read inside the
   // panel rather than taking a tab. Opening one annotation is a page, because that is where its comments,
   // its source and the conversation live, and that page still shares the one annotated tab.
+  // The full page of a list, named for what it opens. "See all annotations", a small grey link beside the
+  // heading, was hunted for twice in the recording of 2026-09-25 at 01:15.
+  const fullLabel = (title) => (/profile/i.test(title) ? 'Open your profile as a full page' : `Open ${title} as a full page`);
   function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null }) {
     stopClock(container);
     // For you arrives ranked, so its order is kept. Everything else is newest first.
@@ -1193,6 +1204,7 @@ const AnnotationPage = (() => {
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
         </button></li>`).join('') : `<li class="browseEmpty"><p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
+      ${onFull && list.length ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}
     </div>`;
     wireDelAll(container, onDeleteAll);
@@ -1200,8 +1212,7 @@ const AnnotationPage = (() => {
     if (bk) bk.addEventListener('click', () => onBack());
     const act = container.querySelector('.browseAct');
     if (act) act.addEventListener('click', () => action.onClick());
-    const full = container.querySelector('.browseFull');
-    if (full) full.addEventListener('click', () => onFull());
+    container.querySelectorAll('.browseFull, .browseFullBtn').forEach((b) => b.addEventListener('click', () => onFull()));
     if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
   }
@@ -1257,7 +1268,7 @@ const AnnotationPage = (() => {
           <span class="rlText"><span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
           ${now ? '<span class="nowBadge">Viewing</span>' : ''}</button></li>`;
       }).join('')}</ul>
-      ${list.length ? '' : '<p class="note sideNone">You have no annotations yet. Capture something on a page and it shows up here.</p>'}
+      ${list.length ? `<p class="fullRow"><button type="button" class="ghost fullBtn sideFeedBtn">Open your profile as a full page ${Brand.icon('external')}</button></p>` : '<p class="note sideNone">You have no annotations yet. Capture something on a page and it shows up here.</p>'}
     </div>`;
     const pub = container.querySelector('.sidePub');
     if (pub) pub.addEventListener('click', async () => {
@@ -1270,7 +1281,7 @@ const AnnotationPage = (() => {
       try { await navigator.clipboard.writeText(permalinkOf(current.id)); lab.textContent = 'Link copied'; } catch { lab.textContent = 'Copy failed'; }
       setTimeout(() => { lab.textContent = 'Copy link'; }, 2000);
     });
-    container.querySelector('.sideFeed').addEventListener('click', onFeed);
+    container.querySelectorAll('.sideFeed, .sideFeedBtn').forEach((b) => b.addEventListener('click', onFeed));
     const sd = container.querySelector('.sideDelBtn');
     if (sd) sd.addEventListener('click', () => {
       const p = sd.parentElement;

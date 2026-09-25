@@ -100,6 +100,12 @@ const VideoPanel = (() => {
       return Math.min(info.duration, clamp(len * 3, 10, 180));
     }
     const reduced = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Anything done to the range by hand stops it following the player.
+    root.addEventListener('pointerdown', (e) => { if (e.target.closest && e.target.closest('.track, .overview, .setStart, .setEnd, .nudge')) userSet = true; }, true);
+    root.addEventListener('keydown', (e) => { if (e.target.closest && e.target.closest('.hStart, .hEnd, .rStart, .rEnd')) userSet = true; }, true);
+    // Buttons can be pressed from the keyboard too, and typed times arrive as a change.
+    root.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('.setStart, .setEnd, .nudge, .overview')) userSet = true; }, true);
+    root.addEventListener('change', (e) => { if (e.target.closest && e.target.closest('.rStart, .rEnd')) userSet = true; }, true);
     function recenter(force = false, instant = false) {
       const D = info.duration, want = wantedLen();
       let len = view.len;
@@ -160,10 +166,21 @@ const VideoPanel = (() => {
       }
     }
 
-    function initSelection() {
+    // Until the range is touched, it goes where the player is. The panel is often made before the player has
+    // moved, and a live stream then offered its first thirty seconds, 0:00 to 0:30 of a 1:49:07 stream in the
+    // recording of 2026-09-25 at 01:15. A live stream's clip ends where you are, since what is next has not
+    // happened yet.
+    let userSet = false, followed = false;
+    // Where the range goes for where the player is now.
+    function wanted() {
       const D = info.duration;
       let s = Math.floor(info.currentTime), e = Math.min(D, s + DEFAULT_LEN);
+      if (info.live && info.currentTime >= DEFAULT_LEN) { e = Math.min(D, Math.floor(info.currentTime)); s = Math.max(0, e - DEFAULT_LEN); }
       if (e - s < MIN) s = Math.max(0, e - DEFAULT_LEN);
+      return { s, e };
+    }
+    function initSelection() {
+      const { s, e } = wanted();
       sel = { start: s, end: e };
       view = { start: 0, len: Math.min(info.duration, 60) };
       recenter(true, true);
@@ -240,6 +257,7 @@ const VideoPanel = (() => {
     function previewSeek(t) { const now = performance.now(); if (now - lastSeek < 120) return; lastSeek = now; ad.seek(t); }
     function beginDrag(kind, ev) {
       if (capturing || !sel) return;
+      clearTimeout(zoomLater); zoomLater = 0;
       ev.preventDefault();
       lastX = ev.clientX;
       drag = { kind, x0: ev.clientX, s0: sel.start, e0: sel.end, w: q('.track').clientWidth };
@@ -281,7 +299,16 @@ const VideoPanel = (() => {
       previewSeek(drag.kind === 'end' ? sel.end : sel.start);
       drawTicks(); render();
     }
-    function endDrag() { if (!drag) return; drag = null; delete q('.track').dataset.drag; stopEdge(); recenter(); drawTicks(); render(); }
+    // Letting go does not rescale at once. The track changed scale under the pointer, so a second grab at the
+    // same spot caught a different time and the handle seemed to run away (recording of 2026-09-25 at 01:15,
+    // 3:09 to 3:11). It rescales once the pointer leaves the track, or after a second and a half.
+    let zoomLater = 0;
+    const zoomNow = () => { clearTimeout(zoomLater); zoomLater = 0; if (!drag) { recenter(); drawTicks(); render(); } };
+    function endDrag() {
+      if (!drag) return; drag = null; delete q('.track').dataset.drag; stopEdge(); drawTicks(); render();
+      clearTimeout(zoomLater); zoomLater = setTimeout(zoomNow, 1500);
+    }
+    q('.track').addEventListener('pointerleave', () => { if (zoomLater && !drag) zoomNow(); });
     for (const [c, kind] of [['.hStart', 'start'], ['.hEnd', 'end'], ['.range', 'range']]) {
       const el = q(c);
       el.addEventListener('pointerdown', (e) => beginDrag(kind, e));
@@ -652,6 +679,7 @@ const VideoPanel = (() => {
         const key = info.videoId || info.url;
         if (key !== lastVideoId) {
           lastVideoId = key;
+          userSet = false; followed = false;
           initSelection();
           if (!capturing) clearResult();
           q('.vTitle').textContent = info.title;
@@ -687,6 +715,13 @@ const VideoPanel = (() => {
             recenter(true, true);
           }
         }
+        // Once the player has moved from where the range was set, and nobody has touched the range, the range
+        // goes to it. Only once, so a clip being watched through does not creep along with it.
+        if (sel && !userSet && !followed && !capturing && !result && isFinite(info.currentTime) && isFinite(info.duration)) {
+          if (Math.abs(wanted().s - sel.start) > 4) { followed = true; initSelection(); }
+        }
+        const ov = q('.ovLabel');
+        if (ov && !isAudio) { const l = info.live ? 'Stream so far' : 'Whole video'; if (ov.textContent !== l) ov.textContent = l; }
         // Titles and channels can arrive after the video does. Keep the header current.
         if (info.title && q('.vTitle').textContent !== info.title) q('.vTitle').textContent = info.title;
         if (!isAudio) { const mt = info.channel ? `${info.channel} on YouTube` : 'YouTube'; if (q('.vMeta').textContent !== mt) q('.vMeta').textContent = mt; }

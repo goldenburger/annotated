@@ -313,6 +313,18 @@ var SceneTry = (() => {
     draw();
   }
 
+  // The action row under the example post: replies, reposts, likes, views, bookmark and share, drawn here.
+  const XI = {
+    reply: '<path d="M4.5 11a7 7 0 0 1 7-7h1a7 7 0 0 1 0 14h-2.2L6 21v-4.1A7 7 0 0 1 4.5 11z"/>',
+    repost: '<path d="M7 6l-3 3 3 3M4 9h11a4 4 0 0 1 4 4v1M17 18l3-3-3-3M20 15H9a4 4 0 0 1-4-4v-1"/>',
+    like: '<path d="M12 20s-7-4.4-8.6-9A4.6 4.6 0 0 1 12 7.3 4.6 4.6 0 0 1 20.6 11C19 15.6 12 20 12 20z"/>',
+    views: '<path d="M5 20V12M10 20V6M15 20v-9M20 20V9"/>',
+    save: '<path d="M6.5 4h11v16l-5.5-4-5.5 4z"/>',
+    share: '<path d="M12 15V4M8 8l4-4 4 4M5 13v6h14v-6"/>',
+  };
+  const xi = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${XI[k]}</svg>`;
+  const XACTS = `<span>${xi('reply')}38</span><span>${xi('repost')}112</span><span>${xi('like')}1.2K</span><span>${xi('views')}12K</span><span class="xEnd">${xi('save')}${xi('share')}</span>`;
+
   const SCENES = {
     article: (root) => words(root, { kind: 'article', source: 'An example article', kindIcon: 'article', forMe: 'The council voted 7 to 2 to run buses through the night on three routes.',
       html: `<div class="stPaper"><p class="stKicker">Example article</p><div data-annotated-self><p class="stH">Council backs a six-month overnight bus trial</p>
@@ -328,8 +340,14 @@ var SceneTry = (() => {
       media: { src: '/media/astronaut.mp3', peaks: '/media/astronaut-peaks.json',
         credit: { text: 'Houston We Have a Podcast: So You Want to be an Astronaut?', site: 'NASA, public domain', href: 'https://www.nasa.gov/podcasts/houston-we-have-a-podcast/so-you-want-to-be-an-astronaut/' } } }),
     post: (root) => words(root, { kind: 'post', source: 'An example post on X', kindIcon: 'post', whole: 'Use the whole post', forMe: 'Sign-ups are up 40 percent, and support tickets doubled over the weekend.',
-      html: `<div class="stPost"><p class="stPostWho"><span class="stAv" aria-hidden="true"></span><b>Example post</b> <span>@example</span></p>
-        <div data-annotated-self><p class="stPostText">We shipped the redesign on Friday. Sign-ups are up 40 percent, and support tickets doubled over the weekend.</p></div></div>` }),
+      // Laid out like a post on X (David, 2026-09-25): the account row with the X mark, the words, the time and
+      // views, and the row of replies, reposts, likes and views. The account is made up and says so.
+      html: `<div class="stPost stX"><div class="xHead"><span class="stAv" aria-hidden="true">E</span>
+          <span class="xWho"><b>Example post</b><span class="xHandle">@example</span></span>
+          <span class="xMark" aria-hidden="true">${typeof Brand !== 'undefined' ? Brand.icon('x') : ''}</span></div>
+        <div data-annotated-self><p class="stPostText">We shipped the redesign on Friday. Sign-ups are up 40 percent, and support tickets doubled over the weekend.</p></div>
+        <p class="xTime">9:41 AM · Sep 26, 2026 · <b>12.4K</b> Views</p>
+        <div class="xActs" aria-hidden="true">${XACTS}</div></div>` }),
   };
 
   function mount(art, kind) {

@@ -804,6 +804,7 @@ document.addEventListener('click', async (e) => {
   const a = e.target.closest && e.target.closest('a.wSite');
   if (!a) return;
   e.preventDefault();
+  leaveHelp();
   const home = new URL(a.href);
   const tabs = await chrome.tabs.query({ url: home.origin + '/*' }).catch(() => []);
   const open = tabs.find((x) => { try { return new URL(x.url).pathname === '/'; } catch { return false; } });
@@ -855,7 +856,15 @@ let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = n
 // Beside annotated's own page, Home and Your profile move that page, which is already the full version of
 // them. Drawing the list in the panel first showed it for a second before the panel put back its line about
 // the page beside it, and offered "Back to annotated" from annotated (recording of 2026-09-24 at 19:34).
+// The help screen goes when you move on: Home, Your profile, the home page link or another tab. It used to
+// stay over everything, and in the recording of 2026-09-25 at 01:15 it sat there for a minute and a half.
+function leaveHelp() {
+  if (!document.body.classList.contains('welcoming')) return;
+  try { localStorage.setItem('annotated-welcome-seen', '1'); } catch { /* nowhere to keep it */ }
+  PanelKit.closeWelcome();
+}
 async function homeOrPage(kind) {
+  leaveHelp();
   const t = await activeTabNow().catch(() => null);
   if (t && t.url && t.url.startsWith(chrome.runtime.getURL('')) && OWN_PAGE.test(t.url)) {
     return openExtPage(kind === 'profile' ? 'feed.html#profile' : 'feed.html');
@@ -1231,9 +1240,9 @@ async function refresh() {
       // shows the feed. With nowhere to go back to, the start page stays, so the panel is never a dead end.
       // An empty page beside it (nothing of yours yet, or all deleted) keeps the start page too, since the page
       // then has nothing to offer (recording of 2026-09-24 at 20:19, a panel with one line in it).
-      const pageEmpty = mirrors && AnnotationPage.mineCount(records, who && who.id) === 0;
-      if (ms && (!back || pageEmpty)) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
-      else if (ms) ms.remove();
+      // The start tools stay in every case now: with only the way back and a line, the panel beside the full
+      // Home or profile was mostly white space, with no next step (recording of 2026-09-25 at 01:15).
+      if (ms) { ms.className = 'mirrorStart startBlock esAction'; ms.innerHTML = startHtml(); wireStart(ms, true); }
       const mirror = $('#annMode .annside.mirror');
       if (mirror) {
         mirror.dataset.sig = sig;
@@ -1269,7 +1278,12 @@ chrome.runtime.onMessage.addListener((m, sender) => {
       .catch(() => p.api.engine({ type: 'capture-error', error: 'The recording could not be read.' }));
   } else if (m.type === 'capture-progress' || m.type === 'capture-error') p.api.engine(m);
 });
-chrome.tabs.onActivated.addListener(() => refresh());
+chrome.tabs.onActivated.addListener(() => {
+  // Another tab closes help that was opened by hand. The first welcome stays until it is answered.
+  let seen = false; try { seen = localStorage.getItem('annotated-welcome-seen') === '1'; } catch { /* no storage */ }
+  if (seen) leaveHelp();
+  refresh();
+});
 chrome.tabs.onUpdated.addListener((id, change) => { if (change.url) refresh(); });
 chrome.tabs.onRemoved.addListener((id) => {
   drop(id);

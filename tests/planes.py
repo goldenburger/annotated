@@ -2,7 +2,7 @@
 #   1. With ?planes a plane flies in while the brief is held back: a dart folded from a copy of the brief, ten pieces
 #      of paper each with a blank back (.pl-sheet), carrying no ids and no try-it mark. It lands, opens, and goes,
 #      and the real brief is showing and works: Mark a sentence for me inks it and a take makes the card.
-#   1b. Made, the take waits two seconds with a line saying it is going to Latest, and its card in Latest stays
+#   1b. Made, the take waits 0.6 seconds with a line saying it is going to Latest, and its card in Latest stays
 #      hidden meanwhile. Then the marked sheet folds back into a plane and flies down (Latest, holding only yours
 #      here, is out of sight), a fresh brief drops in, the try-it is clean and says "Yours is below. See
 #      it", and See it scrolls there, where the card lands.
@@ -57,7 +57,8 @@ async def main():
     if s['plane'] or s['sheet'] or s['waiting'] or s['shown'] != '1': errs.append(f'the landing did not finish: {s}')
     await pg.click('.tiForMe'); await asyncio.sleep(1.5)
     marks = await pg.evaluate("document.querySelectorAll('.tiText mark.annotated-hl').length")
-    await pg.fill('#tiInput', 'A take after the landing.'); await pg.keyboard.press('Enter'); await asyncio.sleep(1)
+    # The take folds 0.6 s after it is made, so what it shows meanwhile is read at once.
+    await pg.fill('#tiInput', 'A take after the landing.'); await pg.keyboard.press('Enter'); await asyncio.sleep(.25)
     take = await pg.evaluate("(document.querySelector('.tiLift:not([hidden]) .tiTakeOut') || {}).textContent || null")
     print('   marks', marks, '| card take', take)
     if not marks: errs.append('Mark a sentence for me inked nothing after the landing')

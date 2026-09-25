@@ -594,3 +594,22 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .llRow .yours .yQuote > span { display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .llRow .yours .yQuote > span > span { background: linear-gradient(transparent 20%, rgba(255, 225, 74, .8) 20%, rgba(255, 225, 74, .8) 88%, transparent 88%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .llRow .yours .yWave { cursor: pointer; }
+.landLatest .llGet { margin: 14px 0 0; font: 600 13px/1.4 var(--sans); }
+.landLatest .llGet[hidden] { display: none; }
+.landLatest .llGet a { color: #16181D; text-decoration-color: #F2C600; text-underline-offset: 3px; }
+/* The example post, laid out like a post on X (scenetry.js). */
+.sceneTry .stPost.stX { padding: 14px 16px 8px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0F1419; }
+.sceneTry .stX .xHead { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; }
+.sceneTry .stX .stAv { width: 40px; height: 40px; flex: none; display: grid; place-items: center; background: #1C2433; color: #fff; font: 700 16px/1 inherit; font-family: inherit; }
+.sceneTry .stX .xWho { display: flex; flex-direction: column; gap: 2px; min-width: 0; line-height: 1.2; }
+.sceneTry .stX .xWho b { font-size: 15px; font-weight: 700; color: #0F1419; }
+.sceneTry .stX .xHandle { font-size: 14px; color: #536471; }
+.sceneTry .stX .xMark { margin-left: auto; color: #0F1419; }
+.sceneTry .stX .xMark svg { width: 18px; height: 18px; display: block; }
+.sceneTry .stX [data-annotated-self] p { margin: 0 0 10px; font: 400 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #0F1419; }
+.sceneTry .stX .xTime { margin: 0; padding: 0 0 10px; border-bottom: 1px solid #EFF3F4; font-size: 14px; color: #536471; }
+.sceneTry .stX .xTime b { color: #0F1419; font-weight: 700; }
+.sceneTry .stX .xActs { display: flex; align-items: center; justify-content: space-between; padding: 8px 2px 2px; font-size: 13px; color: #536471; }
+.sceneTry .stX .xActs span { display: inline-flex; align-items: center; gap: 5px; }
+.sceneTry .stX .xActs svg { width: 18px; height: 18px; }
+.sceneTry .stX .xActs .xEnd { gap: 14px; }

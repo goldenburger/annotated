@@ -15,7 +15,9 @@
     const domTitle = (h?.textContent || '').trim();
     const fresh = tabTitle && tabTitle !== 'YouTube' && domTitle !== tabTitle;
     return { videoId, url: location.href, title: fresh ? tabTitle : (domTitle || tabTitle),
-      channel: fresh ? '' : (ch?.textContent || '').trim(), thumb: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '' };
+      channel: fresh ? '' : (ch?.textContent || '').trim(), thumb: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
+      // A live stream: YouTube marks the time display, and the length it reports is only the stream so far.
+      live: !!document.querySelector('.ytp-time-display.ytp-live') };
   };
   const toDataUrl = (blob) => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(blob); });
   const send = async (m) => {

@@ -14,19 +14,31 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   let tab = Cloud.savedTab(), pressed = false;
 
   const load = async () => {
-    await readMe();
     const h = location.hash;
     const m = h.match(/tag=([^&]+)/), u = h.match(/user=([^&]+)/);
     const tag = m ? decodeURIComponent(m[1]) : null;
     const userId = u ? decodeURIComponent(u[1]) : null;
     const mode = h.startsWith('#profile') || userId ? 'profile' : 'home';
+    // Asked for together. One after another (who you are, then this computer's copies, then the shared list,
+    // then the rail) kept Home blank for about three seconds (recording of 2026-09-25 at 01:15, 2:36).
+    // Only your own profile has to wait for who you are before it can ask for the list.
+    const meP = readMe();
+    const localP = Store.allMeta().catch(() => []);
+    const listFor = (authorId) => Cloud.list({ authorId, limit: 100 }).catch(() => []);
+    const early = mode === 'home' ? listFor(null) : userId ? listFor(userId) : null;
+    await meP;
     const authorId = userId || (mode === 'profile' && me ? me.id : null);
+    const person0 = userId && !(me && userId === me.id) ? userId : null;
+    const socP = Cloud.discovery(me, {
+      personId: person0,
+      signIn,
+      onPerson: (handle) => { Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.hash = 'user=' + encodeURIComponent(data.id); }); },
+    });
     // Light copies: cards need no clips or full screenshots. A clip is loaded only when you press play.
-    const local = await Store.allMeta().catch(() => []);
-    let shared = [];
+    const local = await localP;
     // Signed out, "your profile" is only what is saved on this computer.
     const skipShared = mode === 'profile' && !authorId;
-    try { if (!skipShared) shared = await Cloud.list({ authorId: mode === 'profile' ? authorId : null, limit: 100 }); } catch {}
+    const shared = skipShared ? [] : await (early || listFor(authorId));
     // One card per annotation. A shared one saved here keeps its local file for instant playback.
     const byId = new Map(local.map((r) => [r.id, r]));
     const merged = shared.map((r) => {
@@ -42,13 +54,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const notOthers = (r) => !(r.author && r.author.id && (!me || r.author.id !== me.id));
     const localOnly = local.filter((r) => !sharedIds.has(r.id) && (mode === 'home' || (mineOnly && notOthers(r))));
     let records = [...merged, ...localOnly];
-    const person = userId && !(me && userId === me.id) ? (shared[0] && shared[0].author) || { id: userId, name: 'Someone', handle: '' } : null;
+    const person = person0 ? (shared[0] && shared[0].author) || { id: userId, name: 'Someone', handle: '' } : null;
 
-    const soc = await Cloud.discovery(me, {
-      personId: person ? person.id : null,
-      signIn,
-      onPerson: (handle) => { Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.hash = 'user=' + encodeURIComponent(data.id); }); },
-    });
+    const soc = await socP;
     // On your own profile this card sits beside a list of everything you have, so it counts the same things.
     // On Home it counts what you published, because that is what everyone else can see.
     const youCount = mineOnly ? records.length : records.filter((r) => r.mine).length;

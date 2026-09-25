@@ -434,7 +434,7 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`annotated-open-kind`), since its install link went nowhere. The foot of the home page has "Turn paper planes
   off/on" (`annotated-planes-off` in localStorage, honoured by `planes.js` and `Fold.on()`), and the panel's
   setting is called "Paper plane animations".
-- **The recording of 2026-09-24 at 23:56** (`tests/walk2356.py`). The help screen's "Open annotated's home page"
+- **The recording of 2026-09-24 at 23:56** (`tests/walk2356.py`, the hold since cut to 0.6 s). The help screen's "Open annotated's home page"
   goes to a tab already on the home page, whatever its query (`a.wSite`, handled in `sidepanel.js`). An empty
   Your profile says to select words or clip something. Installed, the front page says "annotated is
   installed." (it said "You have annotated."). A card in Yours so far scrolls to the try-it only when it is out
@@ -448,6 +448,23 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   delete buttons. They ask for a second press ("Press again to confirm") instead, because headless Edge reports
   a plainly visible frame as covered, and real Chrome may on some pages. `publish_now` in `_env.py` presses twice
   when asked, and `ext_float.py` checks the wording.
+- **The recording of 2026-09-25 at 01:15** (`tests/walk0115.py`). Under the panel's Home and Your profile lists, and
+  under Your annotations beside an annotation, a full-width button opens the full page ("Open Home as a full
+  page", "Open your profile as a full page"), since the small "See all annotations" link was hard to find. Beside
+  the full Home or profile page the panel keeps its start tools under the way back, where it was one line and
+  white space. Help closes on Home, Your profile, the home page link, or another tab once it has been seen
+  (`leaveHelp`). The clip follows the player once, until the range is touched (`wanted`, `userSet`, `followed` in
+  `videopanel.js`), so a live stream no longer offers 0:00 to 0:30 of a two hour stream; a live clip ends where
+  you are, and the bar reads "Stream so far" (`live` from `content.js`, `.ytp-time-display.ytp-live`, assumed from
+  YouTube's page, not checked on a real live stream). Letting go of a handle rescales the trimmer only when the
+  pointer leaves the track or after 1.5 s. The YouTube heading has its icon (`phead('video')`, it asked for
+  'clip'). "Publishing…" stands where the take was while its plane flies (`.flyNote`). An annotation page from
+  Publish holds its comments, rail and banner until the card's plane has opened (`pl-landing`). The extension's
+  Home page asks for who you are, the local copies, the list and the rail together (`feed.js`).
+  On the website: a take folds 0.6 s after Make the annotation (two seconds read as a delay), Yours so far says
+  "Get the extension to do this on any page" once under the row and not on every card (`.llGet`, hidden when
+  installed), the example post is laid out like a post on X (`.stX`), and the GitHub link reads "See the code on
+  GitHub".
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

@@ -119,7 +119,7 @@ var Landing = (() => {
         <li><b>Turn on Developer mode</b><span>Paste <code>chrome://extensions</code> into the address bar <button type="button" class="link giCopy">Copy it</button> and flip the switch at the top right.</span></li>
         <li><b>Load it</b><span>Load unpacked, choose the folder, and pin annotated from the puzzle piece.</span></li>
       </ol>
-      <p class="giDo"><a class="primary" href="/annotated-extension.zip" download>Download the extension</a><a class="link" href="https://github.com/goldenburger/annotated" target="_blank" rel="noopener">Open source on GitHub</a></p>`;
+      <p class="giDo"><a class="primary" href="/annotated-extension.zip" download>Download the extension</a><a class="link" href="https://github.com/goldenburger/annotated" target="_blank" rel="noopener">See the code on GitHub</a></p>`;
     root.appendChild(box);
     const cp = box.querySelector('.giCopy');
     cp.addEventListener('click', async () => {
@@ -205,7 +205,7 @@ var Landing = (() => {
       <span class="cbody"><span class="cmeta">You <span class="dotsep"></span></span>
       <span class="ctake"></span><span class="yMedia"></span>
       <span class="csource"><span><span class="cst"></span><span class="csn"></span></span></span>
-      <span class="yGet">${get}</span></span></a>
+      ${y.example ? `<span class="yGet">${get}</span>` : ''}</span></a>
       <button type="button" class="yDel" aria-label="Remove this one" title="Remove">×</button>`;
     li.dataset.at = String(y.at || '');
     li.firstElementChild.addEventListener('click', (e) => {
@@ -258,18 +258,23 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
     const save = (arr) => { try { localStorage.setItem(YOURS, JSON.stringify(arr.slice(0, 4))); } catch { /* private window */ } };
     const tidy = () => {
+      // Said once under the row, where every card used to say it (David, 2026-09-25), and not at all once
+      // the extension is installed, or when the only card is the example, which has its own line.
+      const get = box.querySelector('.llGet');
+      if (get) get.hidden = installed() || !row.querySelector('.yours:not(.example)');
       while (row.children.length > 4) row.lastElementChild.remove();
       row.style.setProperty('--n', Math.max(1, row.children.length));
       box.hidden = !row.children.length;
     };
     list().forEach((y) => row.appendChild(yoursCard(y)));
     tidy();
+    document.addEventListener('annotated-installed', tidy);
     // Removing: one card by its ×, or all of them. Undo puts them back for six seconds.
     const undoBar = box.querySelector('.llUndo');
     let undoTimer = 0, lastGone = null;
