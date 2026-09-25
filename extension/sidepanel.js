@@ -229,10 +229,12 @@ const OWN_PAGE = /\/(annotation|feed)\.html/;
 async function openFull(kind, me) {
   const tabs = await chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).catch(() => []);
   const want = (u) => { try { const x = new URL(u); return kind === 'home' ? x.pathname === '/' && x.searchParams.has('feed') : !!(me && me.handle) && x.pathname === '/@' + me.handle; } catch { return false; } };
-  const open = tabs.find((x) => want(x.url));
+  // One in this window first, so a second copy is not opened beside the first (recording of 2026-09-25 at 19:26).
+  const front = await activeTabNow().catch(() => null);
+  const open = tabs.find((x) => want(x.url) && front && x.windowId === front.windowId) || tabs.find((x) => want(x.url));
   // Beside our website, that tab goes to the website's own full page, rather than the extension opening its copy
   // in a new tab (recording of 2026-09-25 at 15:38, 3:44).
-  const here = await activeTabNow().catch(() => null);
+  const here = front;
   if (!open && here && /^https:\/\/annotated-app\.netlify\.app\//.test(here.url || '') && (kind === 'home' || (me && me.handle))) {
     return chrome.tabs.update(here.id, { url: 'https://annotated-app.netlify.app/' + (kind === 'home' ? '?feed' : '@' + me.handle) });
   }
@@ -243,20 +245,29 @@ async function openFull(kind, me) {
   }
   return openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile');
 }
+// Our pages open in the window you are looking at. A tab of ours in another window is reused only to switch to a
+// page it already shows, and then that window comes forward. View page used to move the Feed tab in a second
+// window to the new annotation and leave that window behind, so every press seemed to do nothing (recording of
+// 2026-09-25 at 19:26, 3:51 to 4:29).
 async function openExtPage(path, beforeLoad = null) {
   const url = chrome.runtime.getURL(path);
   const tabs = await chrome.tabs.query({});
-  const same = tabs.find((t) => t.url === url);
-  if (same) return chrome.tabs.update(same.id, { active: true });
+  const front = await activeTabNow().catch(() => null);
+  const winId = front ? front.windowId : (await chrome.windows.getCurrent().catch(() => null) || {}).id;
+  const show = async (t, props = {}) => {
+    const done = await chrome.tabs.update(t.id, { ...props, active: true });
+    if (t.windowId != null && t.windowId !== winId) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+    return done;
+  };
+  const same = tabs.find((t) => t.url === url && t.windowId === winId) || tabs.find((t) => t.url === url);
+  if (same) return show(same);
   if (beforeLoad) await beforeLoad();
   if (OWN_PAGE.test(url)) {
     const base = chrome.runtime.getURL('');
-    const mine = tabs.filter((t) => t.url && t.url.startsWith(base) && OWN_PAGE.test(t.url));
-    const here = await chrome.windows.getCurrent().catch(() => null);
-    const reuse = (here && mine.find((t) => t.windowId === here.id)) || mine[0];
-    if (reuse) return chrome.tabs.update(reuse.id, { url, active: true });
+    const reuse = tabs.find((t) => t.windowId === winId && t.url && t.url.startsWith(base) && OWN_PAGE.test(t.url));
+    if (reuse) return show(reuse, { url });
   }
-  return chrome.tabs.create({ url });
+  return chrome.tabs.create(winId != null ? { url, windowId: winId } : { url });
 }
 // From the published card the page behind you is the one you annotated, so the page is told so. From the
 // duplicate warning ("View it") you published nothing just now, and the page is told nothing.

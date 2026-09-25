@@ -109,15 +109,19 @@ async def main():
     src=await ap.get_attribute('.shot','src'); open('e_shot.jpg','wb').write(base64.b64decode(src.split(',')[1]))
     print('placeholder:', await ap.get_attribute('#articleMode .takeInput','placeholder'))
     await ap.fill('#articleMode .takeInput','The 61 percent figure comes from a survey handed out by employers.')
-    # annotated's pages share one tab, so the second annotation moves the tab the first one opened rather
-    # than opening another beside it.
+    # annotated's pages share one tab in the window you are in. Here each page sits in a window of its own, and a
+    # tab of ours in another window is no longer taken over (recording of 2026-09-25 at 19:26, where that left the
+    # annotation behind another window), so the second annotation opens in the page's own window.
     was = ann.url
+    known = set(id(x) for x in ctx.pages)
     await ap.evaluate("() => Prefs.set('afterPublish','page')"); await publish_now(ap, '#articleMode .publish')
-    ann2 = ann
+    ann2 = None
     for _ in range(80):
-        if ann2.url != was: break
+        fresh = [x for x in ctx.pages if 'annotation.html#' in x.url and (id(x) not in known or x.url != was)]
+        if fresh: ann2 = fresh[-1]; break
         await asyncio.sleep(.25)
-    if ann2.url == was: raise AssertionError('the annotated tab never moved to the second annotation')
+    if not ann2: raise AssertionError('the second annotation never opened')
+    if ann.url != was: raise AssertionError('the first annotation, in another window, was taken over')
     await ann2.wait_for_selector('.ann:not(.loading)',timeout=10000)
     await ann2.screenshot(path='e_ann_article.png', full_page=True)
     print('article page order:', await ann2.evaluate("[...document.querySelector('.media').children].map(e=>e.className)"), '| screenshot shows:', await ann2.is_visible('.pageShot img'), await ann2.eval_on_selector('.pageShot img','i=>i.naturalWidth'))

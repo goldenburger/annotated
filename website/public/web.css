@@ -40,7 +40,7 @@
 .heroMark::before { content: ""; position: absolute; z-index: -1; left: -5px; right: -7px; top: -1px; bottom: -4px;
   background-image: linear-gradient(103deg, #F2C600 0 6%, #FFE14A 14% 88%, #FFEE9E 100%);
   border-radius: 4px 12px 5px 13px; transform-origin: left center; transform: scaleX(0);
-  animation: heroSweep 820ms linear 500ms both; }
+  animation: heroSweep 560ms cubic-bezier(.3, .7, .3, 1) 0ms both; }
 @keyframes heroSweep { from { transform: scaleX(0) } to { transform: scaleX(1) } }
 
 /* ===== The loop: a passage, the pen, and the page it becomes ===== */

@@ -1262,9 +1262,12 @@ const AnnotationPage = (() => {
     // under another name (recording of 2026-09-25 at 03:14).
     // It says it heard you at once, since the page it opens can take a moment.
     container.querySelectorAll('.browseFullBtn').forEach((b) => b.addEventListener('click', () => {
+      // Back as soon as the page has opened. A fixed second and a half kept it saying Opening after the page was
+      // already there (recording of 2026-09-25 at 19:26, 3:09).
       const was = b.innerHTML; b.textContent = 'Opening…'; b.disabled = true;
-      setTimeout(() => { if (b.isConnected) { b.innerHTML = was; b.disabled = false; } }, 1500);
-      onFull();
+      const back = () => { if (b.isConnected) { b.innerHTML = was; b.disabled = false; } };
+      const t = setTimeout(back, 3000);
+      Promise.resolve(onFull()).catch(() => {}).finally(() => { clearTimeout(t); setTimeout(back, 150); });
     }));
     if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));

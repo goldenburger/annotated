@@ -965,6 +965,13 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   little chance), using `approach`, `dist` and `swoop` added to `Fold.arrive`; the row of chips arrives as a flock
   of three small planes whose chips then pop in one by one. They fly only once the page is scrolled, and not with
   ?noplanes, on a phone or a touch screen, as on the rest of the front page.
+- **The recording of 2026-09-25 at 19:26** (`tests/walk1926.py`). View page did nothing, ten presses: `openExtPage`
+  reused annotated's Feed tab in a second window (opened at 0:07) and moved it to the annotation without bringing
+  that window forward. Our pages now open in the window you are in (the panel's tab's window): a tab of ours there
+  is reused, one showing the very page elsewhere is switched to with its window brought forward, and otherwise a
+  new tab opens in this window. `openFull` prefers a website tab in this window too. The examples' planes start no
+  higher than 190 and at a smaller scale, since at 420 the steep drop was twice its card's size. The headline's pen
+  starts at once (0.56 s). "Open the feed as a full page" stops saying Opening as soon as the page has opened.
 - **Paper in the interface** (2.33.18, `tests/paperdeco.py` part 5, David's ask to integrate it subtly). A dashed trail
   ending in a tiny dart under the Feed heading and "What else it does" (`PaperDeco.rule`); the main card on an
   annotation's page has its top right corner folded down (`.annBody .annCard::after`); a small dart glides across

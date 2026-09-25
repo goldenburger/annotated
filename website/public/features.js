@@ -275,11 +275,14 @@ var Features = (() => {
     // swing in from the right, a steep drop from high up, a long S from the far left. A little is left to chance on
     // every visit, and the row of smaller features closes the section in its own way (see chips).
     const jitter = () => (Math.random() - .5) * 24;
+    // Height is what makes a plane look big as it falls, so every path starts low enough that the plane is never
+    // much larger than the card it becomes; the steep drop reads through its speed and angle, not its height. At
+    // 420 it was twice the card's size (recording of 2026-09-25 at 19:26, 1:09 and 2:12).
     const STYLES = [
-      { approach: 0, dist: 300, swoop: .15, z0: 220, T: 1100 },
-      { approach: 75, dist: 460, swoop: -.45, z0: 260, T: 1300 },
-      { approach: -55, dist: 260, swoop: .05, z0: 420, T: 900 },
-      { approach: 140, dist: 560, swoop: .38, z0: 240, T: 1500 },
+      { approach: 0, dist: 300, swoop: .15, z0: 180, T: 1100 },
+      { approach: 75, dist: 440, swoop: -.45, z0: 170, T: 1300 },
+      { approach: -55, dist: 240, swoop: .05, z0: 190, T: 800 },
+      { approach: 140, dist: 520, swoop: .38, z0: 160, T: 1500 },
     ];
     demos.forEach((d) => d.classList.add('pl-hidden', 'ftWaiting'));
     let queue = Promise.resolve();
@@ -289,7 +292,7 @@ var Features = (() => {
         d.classList.remove('ftWaiting');
         const w = Math.max(1, d.offsetWidth), st = STYLES[demos.indexOf(d) % STYLES.length];
         let over = false; const end = () => { if (over) return; over = true; d.classList.remove('pl-hidden'); done(); };
-        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(200 / w, .2, .45) }).then(end);
+        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(170 / w, .18, .36) }).then(end);
         // Never held longer than the flight, whatever becomes of it.
         setTimeout(end, 3500);
       }));
