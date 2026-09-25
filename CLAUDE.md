@@ -965,6 +965,17 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   little chance), using `approach`, `dist` and `swoop` added to `Fold.arrive`; the row of chips arrives as a flock
   of three small planes whose chips then pop in one by one. They fly only once the page is scrolled, and not with
   ?noplanes, on a phone or a touch screen, as on the rest of the front page.
+- **The recording of 2026-09-25 at 21:28** (`tests/walk2128.py`). The loading outline's dart flies nose first along a
+  path (`offset-path` with `offset-rotate: auto 42deg`, since the drawing's nose sits 42 degrees above its travel),
+  glides down, lands on the outline's top bar and stays (`pdLand`, once), where it slid sideways across and off,
+  "like it's strafing". A plane grows only as it opens (`grow` in `fold.js`; the sheet eases with its halves): every
+  style measured at most 0.13 of the way to full size while its halves were still more than 60 degrees from open,
+  where classic reached 0.8, flutter 0.91 and cascade 1, a closed dart as big as the card. The empty feed's "Get the
+  extension to publish one" hides as soon as the page carries the extension's mark (a CSS rule on
+  `data-annotated-installed`). The paper was redrawn at David's word that it looked like a word processor's icons
+  and footballs: hand-drawn edges, curled corners, soft shadows, written lines and a rough highlighter stroke; the
+  stack has a paper clip; the crumpled balls are made fresh from a seed, with uneven facets, a few creases and scraps
+  of the page's writing.
 - **The recording of 2026-09-25 at 20:19** (`tests/walk2019b.py`). The decorations come in many versions
   (`paperdeco.js`): the dart, a glider, a half folded sheet, a dart landed nose first, three crumpled balls, a stack
   of sheets, a torn strip, a sheet folded in half, and four trails (loop, arc, zigzag, and one that missed and ends in

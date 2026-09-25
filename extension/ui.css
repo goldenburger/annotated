@@ -1647,12 +1647,40 @@ body.embedded > .brand .wmPlane { display: none; }
 /* Loading: one small paper dart glides slowly across the top of the outline. */
 /* On the website's page outline it glides over the main column, not the header. */
 .skel:not(:has(.skelCol)), .skelCol { position: relative; overflow: hidden; container-type: inline-size; }
-.skel:not(:has(.skelCol))::before, .skelCol::before { content: ""; position: absolute; top: 10px; left: 0; width: 22px; height: 21px; z-index: 1; pointer-events: none;
+.skel:not(:has(.skelCol))::before, .skelCol::before { content: ""; position: absolute; top: 0; left: 0; width: 22px; height: 21px; z-index: 1; pointer-events: none;
   background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='14 14 100 96'%3E%3Cpath d='M108 20 L20 56 L55 68 Z' fill='%23FFFDF7' stroke='%23CFC7B2' stroke-width='3'/%3E%3Cpath d='M108 20 L55 68 L66 104 Z' fill='%23E6DFCC' stroke='%23CFC7B2' stroke-width='3'/%3E%3C/svg%3E");
-  opacity: .9; transform: translateX(24px); }
-@media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before { animation: pdGlide 2.6s cubic-bezier(.45, .05, .35, 1) infinite; } }
-@keyframes pdGlide { 0% { transform: translate(-30px, 8px) rotate(6deg); opacity: 0; } 12% { opacity: .9; } 88% { opacity: .9; } 100% { transform: translate(calc(100cqw + 30px), -2px) rotate(-4deg); opacity: 0; } }
+  /* It flies nose first along its path and lands on the outline's top line, slides a little and stops there (David,
+     2026-09-25: it slid straight across with its nose pointing up, "like it's strafing", and never landed). The
+     drawing's nose points up and to the right, 42 degrees above its travel, so the path's own heading is turned by
+     that much. */
+  offset-path: path("M -30 -18 C 40 -26, 110 6, 190 26 L 232 30");
+  offset-rotate: auto 42deg; offset-distance: 100%; opacity: .95; }
+@media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before { animation: pdLand 1.9s cubic-bezier(.3, .1, .2, 1) .15s both; } }
+@keyframes pdLand { 0% { offset-distance: 0%; opacity: 0; } 12% { opacity: .95; } 78% { offset-distance: 86%; } 100% { offset-distance: 100%; opacity: .95; } }
 
 /* The loading outline's avatar is a light placeholder, not an empty circle drawn in ink (recording of 2026-09-25 at
    20:19, 0:51.5). */
 .skel .avatar:empty { background: var(--newsprint); }
+/* Paper that looks like paper (paperdeco.js): soft shadows, edges drawn lightly, writing and a highlighter stroke. */
+.paperDeco .pdShadowSoft { fill: var(--pd-shadow); opacity: 1.6; }
+.paperDeco .pdEdgeSoft { fill: none; stroke: var(--pd-edge); stroke-width: .8; stroke-linejoin: round; opacity: .85; }
+.paperDeco .pdInk { fill: none; stroke: var(--pd-line); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.paperDeco .pdHi { fill: none; stroke: var(--pd-mark); stroke-width: 6.5; stroke-linecap: round; opacity: .62; mix-blend-mode: multiply; }
+.paperDeco .pdCurlUnder { fill: var(--pd-shadow); opacity: .9; }
+.paperDeco .pdFlapShadow { fill: var(--pd-shadow); opacity: 1.4; }
+.paperDeco .pdCrease2 { fill: none; stroke: var(--pd-edge); stroke-width: .7; stroke-linecap: round; opacity: .7; }
+.paperDeco .pdCreaseLit { fill: none; stroke: #fff; stroke-width: .9; stroke-linecap: round; opacity: .75; }
+.paperDeco .pdCrumpShade { fill: var(--pd-keel); opacity: .45; }
+.paperDeco g[clip-path] .pdCrease2 { stroke-width: .55; opacity: .8; }
+.paperDeco g[clip-path] .pdInk { stroke-width: .9; opacity: .7; }
+.paperDeco g[clip-path] .pdHi { stroke-width: 4; opacity: .5; }
+.paperDeco .pdPaper2 { fill: var(--pd-face); }
+.paperDeco .pdClip { fill: none; stroke: #9AA0AA; stroke-width: 1.6; stroke-linecap: round; }
+.paperDeco .pdTornFibre { fill: none; stroke: var(--pd-edge); stroke-width: .6; stroke-dasharray: 1 2; opacity: .8; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .paperDeco .pdCreaseLit { stroke: #3A3F4A; } :root:not([data-theme="light"]) .paperDeco .pdHi { mix-blend-mode: normal; opacity: .45; } }
+:root[data-theme="dark"] .paperDeco .pdCreaseLit { stroke: #3A3F4A; } :root[data-theme="dark"] .paperDeco .pdHi { mix-blend-mode: normal; opacity: .45; }
+
+.paperDeco .pdFacet { fill: var(--pd-keel); }
+/* With the extension installed, the empty feed does not offer it. The page is marked a moment after it draws, so
+   this follows the mark rather than being decided once (recording of 2026-09-25 at 21:28, 0:45 and 0:51). */
+html[data-annotated-installed="1"] .esMake { display: none !important; }

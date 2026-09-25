@@ -158,6 +158,7 @@ var Fold = (() => {
     layer.append(fshadow, under, carrier);
 
     const s0 = opts.s0 || clamp(190 / Lw, .2, .6);
+    const grow = (k) => (s0 + (1 - s0) * k).toFixed(4);
     const shadeOf = (g) => g.querySelectorAll(':scope > .pl-leaf > .pl-shade');
     const k2 = (o, t) => Object.assign({ offset: o }, t);
     // The opening, closed at the start and open at the end, in the reverse of the folding: wings and halves
@@ -168,7 +169,9 @@ var Fold = (() => {
     // Held shut until t0, turned open by t1 with a little give past flat.
     const turn = (ax, ay, shut, t0, t1) => [k2(0, rot(ax, ay, shut)), k2(t0, rot(ax, ay, shut)), k2(t0 + (t1 - t0) * .8, rot(ax, ay, -shut * .022)), k2(t1, rot(ax, ay, 0)), k2(1, rot(ax, ay, 0))];
     const steps = [
-      [sheet, [k2(0, { transform: `scale3d(${s0},${s0},${s0})` }), k2(.4, { transform: 'scale3d(1,1,1)' }), k2(1, { transform: 'scale3d(1,1,1)' })], 'ease-out'],
+      // It grows as it opens, never ahead of it. Growing with ease-out made it most of its full size while still a
+      // closed dart, a dart as big as the card (recording of 2026-09-25 at 21:28, 0:14, 1:38, 2:29, 2:34).
+      [sheet, [k2(0, { transform: `scale3d(${s0},${s0},${s0})` }), k2(.2, { transform: `scale3d(${grow(.22)},${grow(.22)},${grow(.22)})` }), k2(.4, { transform: 'scale3d(1,1,1)' }), k2(1, { transform: 'scale3d(1,1,1)' })], 'ease-in-out'],
       // The flat sheet's shadow only once the sheet is nearly flat, since it is the shape of the whole page.
       [under, [k2(0, { opacity: 0 }), k2(.6, { opacity: 0 }), k2(1, { opacity: 1 })], 'ease-in'],
     ];
@@ -209,10 +212,12 @@ var Fold = (() => {
       flutter: { f: (o) => .3 + .7 * o, t: 1.3 },
       spin: { f: (o) => o, t: 1.15 },
     };
+    // Each style's sheet grows only as fast as its halves open: flutter's open from .3 to .58, spin's from 0 to .4.
+    const sc = (k, r) => `scale3d(${grow(k)},${grow(k)},${grow(k)}) rotate(${r}deg)`;
     const sheetKf = {
-      flutter: [k2(0, { transform: `scale3d(${s0},${s0},${s0}) rotate(0deg)` }), k2(.08, { transform: `scale3d(${s0},${s0},${s0}) rotate(8deg)` }), k2(.16, { transform: `scale3d(${s0},${s0},${s0}) rotate(-7deg)` }),
-        k2(.24, { transform: `scale3d(${s0},${s0},${s0}) rotate(4deg)` }), k2(.3, { transform: `scale3d(${s0},${s0},${s0}) rotate(0deg)` }), k2(.62, { transform: 'scale3d(1,1,1) rotate(0deg)' }), k2(1, { transform: 'scale3d(1,1,1) rotate(0deg)' })],
-      spin: [k2(0, { transform: `scale3d(${s0},${s0},${s0}) rotate(-200deg)` }), k2(.5, { transform: 'scale3d(1,1,1) rotate(0deg)' }), k2(1, { transform: 'scale3d(1,1,1) rotate(0deg)' })],
+      flutter: [k2(0, { transform: sc(0, 0) }), k2(.08, { transform: sc(0, 8) }), k2(.16, { transform: sc(0, -7) }),
+        k2(.24, { transform: sc(0, 4) }), k2(.3, { transform: sc(0, 0) }), k2(.44, { transform: sc(.22, 0) }), k2(.6, { transform: sc(1, 0) }), k2(1, { transform: sc(1, 0) })],
+      spin: [k2(0, { transform: sc(0, -200) }), k2(.2, { transform: sc(.22, -90) }), k2(.42, { transform: sc(1, 0) }), k2(1, { transform: sc(1, 0) })],
     };
     const open = (T, reverse = false, style = 'classic') => {
       const st = (!reverse && STYLE[style]) || STYLE.classic;

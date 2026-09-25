@@ -14,23 +14,6 @@ var PaperDeco = (() => {
     ${marked ? '<path class="pdMark" d="M48 55 L86 40"/>' : ''}
     <path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/>
   </g>`;
-  // A sheet crumpled into a ball, a few facets and creases.
-  const ball = (x, y, s = 1) => `<g transform="translate(${x} ${y}) scale(${s})">
-    <ellipse class="pdShadow" cx="25" cy="46" rx="23" ry="5"/>
-    <path class="pdFace" d="M8 19 L13 9 L22 4 L33 6 L41 10 L47 20 L46 31 L40 40 L30 45 L18 44 L9 37 L5 28 Z"/>
-    <path class="pdKeel" d="M13 9 L21 18 L8 19 Z M47 20 L37 23 L46 31 Z M18 44 L24 33 L30 45 Z M5 28 L14 29 L9 37 Z"/>
-    <path class="pdEdge" d="M8 19 L13 9 L22 4 L33 6 L41 10 L47 20 L46 31 L40 40 L30 45 L18 44 L9 37 L5 28 Z M13 9 L21 18 L8 19 M21 18 L33 6 M21 18 L27 25 L37 23 L47 20 M37 23 L46 31 M27 25 L24 33 L30 45 M24 33 L18 44 M24 33 L14 29 L5 28 M14 29 L9 37 M27 25 L14 29"/>
-  </g>`;
-  // A sheet with its top corner folded down, the first fold of a dart, print on it and one line marked.
-  const sheet = (x, y, rot = -6, s = 1) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">
-    <rect class="pdShadow" x="6" y="8" width="118" height="152" rx="2"/>
-    <path class="pdFace" d="M0 0 L78 0 L120 42 L120 150 L0 150 Z"/>
-    <path class="pdLine" d="M14 22 L64 22 M14 34 L70 34 M14 58 L104 58 M14 70 L98 70 M14 82 L104 82 M14 94 L86 94 M14 118 L100 118 M14 130 L70 130"/>
-    <path class="pdMark" d="M14 70 L98 70"/>
-    <path class="pdFold" d="M78 0 L120 42 L78 42 Z"/>
-    <path class="pdCrease" d="M78 0 L120 42"/>
-    <path class="pdEdge" d="M0 0 L78 0 L120 42 L120 150 L0 150 Z M78 0 L78 42 L120 42"/>
-  </g>`;
   // A plane in the air at the end of a dashed trail that loops once.
   const trail = (w = 220, h = 90) => `<path class="pdTrail" d="M4 ${h - 10} C ${w * .25} ${h - 4}, ${w * .32} ${h * .35}, ${w * .5} ${h * .5} S ${w * .62} ${h * .95}, ${w * .7} ${h * .6} S ${w * .82} 10, ${w - 30} 16"/>
     <g transform="translate(${w - 44} -8) rotate(8) scale(.34)"><path class="pdFace" d="M108 20 L20 56 L55 68 Z"/><path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`;
@@ -51,35 +34,155 @@ var PaperDeco = (() => {
     <path class="pdFar" d="M116 30 L8 8 L60 36 Z"/><path class="pdFace" d="M116 30 L4 52 L60 38 Z"/><path class="pdKeel" d="M116 30 L60 38 L52 54 Z"/>
     <path class="pdLine" d="M30 46 L78 38"/>${marked ? '<path class="pdMark" d="M34 44 L80 36"/>' : ''}
     <path class="pdEdge" d="M116 30 L4 52 L60 38 Z M116 30 L8 8 L60 36 M60 38 L52 54 L116 30"/>`);
-  // Half folded: a sheet with both top corners brought in to a point, the first two folds of a dart.
-  const halfFold = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<rect class="pdShadow" x="6" y="10" width="84" height="110" rx="2"/>
-    <path class="pdFace" d="M0 42 L42 0 L84 42 L84 116 L0 116 Z"/><path class="pdLine" d="M12 66 L72 66 M12 78 L66 78 M12 90 L72 90 M12 102 L50 102"/>
-    <path class="pdMark" d="M12 78 L66 78"/><path class="pdFold" d="M0 42 L42 0 L42 42 Z M84 42 L42 0 L42 42 Z"/>
-    <path class="pdCrease" d="M42 0 L42 116"/><path class="pdEdge" d="M0 42 L42 0 L84 42 L84 116 L0 116 Z M0 42 L84 42"/>`);
+  // ---- Paper that looks like paper (David, 2026-09-25: the sheets looked like a word processor's icons and the
+  // balls like footballs). Hand-made rather than ruled: edges that are never quite straight, a curled corner,
+  // shading that runs along a fold, lines written rather than ruled, a highlighter stroke with rough ends, and
+  // crumpled sheets whose outline and creases are made fresh each time.
+  let uidN = 0;
+  const uid = (p) => `${p}${++uidN}${Math.floor(Math.random() * 1e4)}`;
+  // A small seeded random, so one drawing's pieces agree with each other.
+  const rng = (seed) => { let s = (seed % 2147483646) + 1; return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; };
+  const f1 = (v) => (Math.round(v * 10) / 10).toString();
+  // A line of writing: a run of small waves, a word at a time, with gaps between the words.
+  const scrib = (x, y, len, r) => {
+    let d = '', cx = x;
+    while (cx < x + len - 4) {
+      const word = Math.min(x + len - cx, 8 + r() * 16);
+      d += `M${f1(cx)} ${f1(y + (r() - .5) * .8)}`;
+      for (let w = 0; w < word; w += 3.2) d += ` q1.6 ${f1(-1.3 - r() * .9)} 3.2 0`;
+      cx += word + 3 + r() * 3;
+    }
+    return d;
+  };
+  // A highlighter stroke: wide, slightly slanted, with rough ends, laid over its line.
+  const marker = (x, y, len, r) => `<path class="pdHi" d="M${f1(x - 2)} ${f1(y + .6)} q${f1(len * .5)} ${f1(-1.6 - r())} ${f1(len + 3)} ${f1(-.6 + r())}"/>`;
+  // An edge that is not quite ruled: a straight run from a to b, bowed a little.
+  const bow = (a, b, amt) => { const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy) || 1; return ` Q${f1(mx - dy / L * amt)} ${f1(my + dx / L * amt)} ${f1(b[0])} ${f1(b[1])}`; };
+  const shape = (pts, r, amt = 1.2) => `M${f1(pts[0][0])} ${f1(pts[0][1])}` + pts.map((p, i) => bow(p, pts[(i + 1) % pts.length], (r() - .5) * 2 * amt)).join('') + ' Z';
+  // A soft shadow under anything, the same filter everywhere.
+  const soft = (id) => `<filter id="${id}" x="-20%" y="-20%" width="140%" height="160%"><feGaussianBlur stdDeviation="2.4"/></filter>`;
+  // A gradient from paper to its shaded side.
+  const grad = (id, x1, y1, x2, y2, a = 'var(--pd-face)', b = 'var(--pd-far)') => `<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"><stop offset="0" style="stop-color:${a}"/><stop offset="1" style="stop-color:${b}"/></linearGradient>`;
+
+  // A page with its bottom right corner curling up, written on, one line marked.
+  const page = (w, h, r, { lines = 6, mark = 2, curl = 18, id }) => {
+    const c = curl;
+    const outline = shape([[0, 0], [w, 1], [w - 1, h - c], [w - c, h], [1, h - 1]], r, 1.4);
+    let ink = '';
+    const top = 16, gap = (h - top - 18) / lines;
+    for (let i = 0; i < lines; i++) {
+      const y = top + i * gap, len = (i === lines - 1 ? .45 : .7 + r() * .22) * (w - 26) - (y > h - c - 6 ? c : 0);
+      if (i === mark) ink += marker(12, y, len, r);
+      ink += `<path class="pdInk" d="${scrib(12, y, len, r)}"/>`;
+    }
+    const curlPath = `M${f1(w - 1)} ${f1(h - c)} Q${f1(w - c * .35)} ${f1(h - c * .55)} ${f1(w - c)} ${f1(h)} Q${f1(w - c * .9)} ${f1(h - c * .9)} ${f1(w - 1)} ${f1(h - c)} Z`;
+    return `<path d="${outline}" fill="url(#${id}g)"/>${ink}
+      <path class="pdCurlUnder" d="M${f1(w - 1)} ${f1(h - c)} L${f1(w - c)} ${f1(h)} L${f1(w - 1)} ${f1(h)} Z"/>
+      <path d="${curlPath}" fill="url(#${id}c)"/><path class="pdEdgeSoft" d="${curlPath}"/><path class="pdEdgeSoft" d="${outline}"/>`;
+  };
+  const pageDefs = (id, w, h) => grad(id + 'g', 0, 0, 0, 1) + grad(id + 'c', 1, 1, 0, 0, 'var(--pd-keel)', 'var(--pd-face)') + soft(id + 's');
+
+  // A single sheet, a little askew, its corner curling.
+  const sheet = (x, y, rot = -6, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pds');
+    return at(x, y, rot, s, `<defs>${pageDefs(id)}</defs><rect x="6" y="10" width="112" height="146" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>${page(118, 152, r, { lines: 8, mark: 3, curl: 20, id })}`);
+  };
+  // Half folded: the first two folds of a dart, the flaps lifting a little off the page, shade under them.
+  const halfFold = (x, y, rot = 0, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdh');
+    const W = 84, H = 118, t = 42;
+    let ink = '';
+    for (let i = 0; i < 4; i++) { const yy = t + 18 + i * 13, len = (i === 3 ? .45 : .72 + r() * .18) * (W - 22); if (i === 1) ink += marker(11, yy, len, r); ink += `<path class="pdInk" d="${scrib(11, yy, len, r)}"/>`; }
+    const body = shape([[0, t], [W, t + 1], [W - 1, H], [1, H - 1]], r, 1);
+    const flapL = `M0 ${t} Q${f1(W * .24)} ${f1(t * .45)} ${f1(W / 2)} 0 Q${f1(W / 2 - 2)} ${f1(t * .55)} ${f1(W / 2 + 1)} ${f1(t + 2)} Z`;
+    const flapR = `M${W} ${t + 1} Q${f1(W * .76)} ${f1(t * .45)} ${f1(W / 2)} 0 Q${f1(W / 2 + 2)} ${f1(t * .55)} ${f1(W / 2 + 1)} ${f1(t + 2)} Z`;
+    return at(x, y, rot, s, `<defs>${grad(id + 'g', 0, 0, 0, 1)}${grad(id + 'l', 0, 0, 1, 1, 'var(--pd-face)', 'var(--pd-keel)')}${grad(id + 'r', 1, 0, 0, 1, 'var(--pd-far)', 'var(--pd-keel)')}${soft(id + 's')}</defs>
+      <rect x="5" y="${t + 6}" width="${W}" height="${H - t}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
+      <path d="${body}" fill="url(#${id}g)"/>${ink}
+      <path class="pdFlapShadow" d="M2 ${t + 1} L${W / 2 + 1} ${t + 6} L${W - 2} ${t + 2} Z" filter="url(#${id}s)"/>
+      <path d="${flapL}" fill="url(#${id}l)"/><path d="${flapR}" fill="url(#${id}r)"/>
+      <path class="pdEdgeSoft" d="${body}"/><path class="pdEdgeSoft" d="${flapL}"/><path class="pdEdgeSoft" d="${flapR}"/>
+      <path class="pdCrease2" d="M${W / 2} ${t + 3} L${W / 2 + 1} ${H - 2}"/>`);
+  };
   // Landed nose first: a dart standing on its nose, tail up.
   const landed = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="30" cy="104" rx="22" ry="4"/>
     <g transform="rotate(58 60 60)">${DART}</g>`);
-  // Three more crumpled sheets, each its own shape.
-  const BALLS = [
-    { o: 'M6 22 L14 8 L28 3 L40 8 L48 22 L44 38 L30 46 L14 43 L5 33 Z', k: 'M14 8 L22 20 L6 22 Z M48 22 L36 26 L44 38 Z M30 46 L26 32 L14 43 Z', e: 'M22 20 L28 3 M22 20 L36 26 L40 8 M36 26 L26 32 L22 20 M26 32 L5 33' },
-    { o: 'M4 26 L10 12 L24 6 L34 4 L46 14 L50 28 L42 42 L26 48 L12 42 Z', k: 'M24 6 L28 22 L10 12 Z M50 28 L34 30 L42 42 Z M12 42 L22 32 L4 26 Z', e: 'M28 22 L34 4 M28 22 L34 30 L46 14 M34 30 L22 32 L28 22 M22 32 L26 48' },
-    { o: 'M8 18 L20 6 L36 6 L46 16 L44 34 L34 44 L18 44 L6 34 Z', k: 'M20 6 L24 18 L8 18 Z M44 34 L32 30 L34 44 Z M6 34 L16 28 L18 44 Z', e: 'M24 18 L36 6 M24 18 L32 30 L46 16 M32 30 L16 28 L24 18 M16 28 L8 18' },
-  ];
-  const ballV = (i, x, y, s = 1) => { const b = BALLS[i % BALLS.length]; return at(x, y, 0, s, `<ellipse class="pdShadow" cx="26" cy="48" rx="22" ry="4"/><path class="pdFace" d="${b.o}"/><path class="pdKeel" d="${b.k}"/><path class="pdEdge" d="${b.o} ${b.e}"/>`); };
-  // A small stack of sheets, slightly askew, the top one printed and marked.
-  const stack = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<rect class="pdShadow" x="8" y="12" width="110" height="80" rx="2"/>
-    <g transform="rotate(-5 60 45)"><rect class="pdFar" x="4" y="4" width="108" height="78" rx="2"/><rect class="pdEdge" x="4" y="4" width="108" height="78" rx="2"/></g>
-    <g transform="rotate(3 60 45)"><rect class="pdKeel" x="2" y="6" width="108" height="78" rx="2"/><rect class="pdEdge" x="2" y="6" width="108" height="78" rx="2"/></g>
-    <rect class="pdFace" x="0" y="4" width="108" height="78" rx="2"/><path class="pdLine" d="M12 22 L90 22 M12 34 L96 34 M12 46 L80 46 M12 58 L92 58"/><path class="pdMark" d="M12 34 L96 34"/><rect class="pdEdge" x="0" y="4" width="108" height="78" rx="2"/>`);
-  // A strip torn from a page, one line on it marked.
-  const TORN = 'M0 6 L160 2 L162 30 L156 34 L150 29 L143 35 L136 30 L128 36 L120 31 L112 37 L104 32 L96 38 L88 33 L80 39 L72 34 L64 40 L56 35 L48 41 L40 36 L32 42 L24 37 L16 43 L8 38 L2 42 Z';
-  const strip = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdShadow" d="M6 12 L164 8 L166 40 L8 46 Z"/>
-    <path class="pdFace" d="${TORN}"/><path class="pdLine" d="M12 14 L150 11"/><path class="pdMark" d="M12 22 L120 20"/><path class="pdEdge" d="${TORN}"/>`);
-  // A sheet folded in half, one half turned up.
-  const folded = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<rect class="pdShadow" x="6" y="10" width="120" height="92" rx="2"/>
-    <path class="pdFace" d="M0 4 L62 4 L62 96 L0 96 Z"/><path class="pdKeel" d="M62 4 L118 0 L122 92 L62 96 Z"/>
-    <path class="pdLine" d="M10 22 L52 22 M10 34 L48 34 M10 46 L52 46 M10 58 L40 58"/><path class="pdMark" d="M10 34 L48 34"/>
-    <path class="pdEdge" d="M0 4 L62 4 L62 96 L0 96 Z M62 4 L118 0 L122 92 L62 96"/>`);
+  // A crumpled sheet: an uneven outline, a few curved creases running out from where it was squeezed, the facets
+  // between them shaded, a highlight where the light catches it. Made fresh from its seed, so no two are alike.
+  const crumple = (x, y, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdc');
+    const cx = 26, cy = 23, R = 19, n = 17 + Math.floor(r() * 6);
+    const pts = Array.from({ length: n }, (_, i) => {
+      const a = (i / n) * Math.PI * 2 + (r() - .5) * .25, rr = R * (i % 2 ? .86 + r() * .1 : .93 + r() * .12);
+      return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * (.86 + r() * .1)];
+    });
+    // Lumpy but soft: the outline passes near each point, with small dents between some of them.
+    const mid = (p, q, k = .5) => [p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k];
+    let d = `M${mid(pts[n - 1], pts[0]).map(f1).join(' ')}`;
+    pts.forEach((p, i) => { const m = mid(p, pts[(i + 1) % n], .45 + r() * .1); d += ` Q${f1(p[0])} ${f1(p[1])} ${f1(m[0])} ${f1(m[1])}`; });
+    // Where it was squeezed: three points inside. The surface between each of them and the outline is a facet with a
+    // tone of its own, which is what reads as crumpled; the creases are just a few of the facets' edges.
+    const hubs = Array.from({ length: 3 }, (_, k) => { const a0 = k * 2.1 + r(); return [cx + Math.cos(a0) * (4 + r() * 6), cy + Math.sin(a0) * (4 + r() * 5)]; });
+    const near = (p) => hubs.reduce((best, h, k) => (Math.hypot(p[0] - h[0], p[1] - h[1]) < Math.hypot(p[0] - hubs[best][0], p[1] - hubs[best][1]) ? k : best), 0);
+    let shade = '', creases = '', lit = '';
+    pts.forEach((pa, i) => {
+      const pb = pts[(i + 1) % n], h = hubs[near(mid(pa, pb))], tone = r();
+      if (tone > .35) shade += `<path class="pdFacet" style="opacity:${f1((tone - .35) * .9)}" d="M${f1(h[0])} ${f1(h[1])} L${f1(pa[0])} ${f1(pa[1])} L${f1(pb[0])} ${f1(pb[1])} Z"/>`;
+      if (r() < .3) creases += `M${f1(h[0])} ${f1(h[1])} L${f1(pa[0])} ${f1(pa[1])} `;
+    });
+    hubs.forEach((h, k) => { const g = hubs[(k + 1) % 3]; creases += `M${f1(h[0])} ${f1(h[1])} L${f1(g[0])} ${f1(g[1])} `; });
+    const hl = hubs[0], e = pts[Math.floor(r() * n)];
+    lit = `M${f1(hl[0] + .8)} ${f1(hl[1] - .6)} L${f1(e[0] + .8)} ${f1(e[1] - .6)}`;
+    // Scraps of the writing that was on the page, broken up by the crumpling, and sometimes a bit of highlighter.
+    let scraps = '';
+    for (let q = 0; q < 3 + Math.floor(r() * 3); q++) {
+      const sx = cx - 13 + r() * 20, sy = cy - 12 + r() * 22, ang = (r() - .5) * 70;
+      scraps += `<path class="pdInk" transform="rotate(${f1(ang)} ${f1(sx)} ${f1(sy)})" d="${scrib(sx, sy, 7 + r() * 9, r)}"/>`;
+    }
+    if (r() < .45) { const sx = cx - 10 + r() * 12, sy = cy - 6 + r() * 12; scraps = `<path class="pdHi" transform="rotate(${f1((r() - .5) * 60)} ${f1(sx)} ${f1(sy)})" d="M${f1(sx)} ${f1(sy)} q5 -1 ${f1(9 + r() * 5)} 0"/>` + scraps; }
+    return at(x, y, 0, s, `<defs><radialGradient id="${id}g" cx="36%" cy="30%" r="78%"><stop offset="0" style="stop-color:var(--pd-face)"/><stop offset=".62" style="stop-color:var(--pd-face)"/><stop offset="1" style="stop-color:var(--pd-keel)"/></radialGradient>
+      <clipPath id="${id}k"><path d="${d}"/></clipPath>${soft(id + 's')}</defs>
+      <ellipse class="pdShadowSoft" cx="${cx + 2}" cy="${cy + R - 1}" rx="${R * .9}" ry="4.5" filter="url(#${id}s)"/>
+      <path d="${d}" fill="url(#${id}g)"/>
+      <g clip-path="url(#${id}k)">${scraps}${shade}<path class="pdCreaseLit" d="${lit}"/><path class="pdCrease2" d="${creases}"/></g>
+      <path class="pdEdgeSoft" d="${d}"/>`);
+  };
+  const ballV = (i, x, y, s = 1) => crumple(x, y, s, Math.random() * 1e9 + i);
+  // A small stack of pages, fanned a little, held with a paper clip, the top one written on and marked.
+  const stack = (x, y, rot = 0, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdk'), W = 108, H = 80;
+    const under = (dx, dy, a, cls) => `<g transform="translate(${dx} ${dy}) rotate(${a} ${W / 2} ${H / 2})"><path class="${cls}" d="${shape([[0, 0], [W, 1], [W - 1, H], [1, H - 1]], r, 1)}"/><path class="pdEdgeSoft" d="${shape([[0, 0], [W, 1], [W - 1, H], [1, H - 1]], r, 1)}"/></g>`;
+    return at(x, y, rot, s, `<defs>${pageDefs(id)}</defs><rect x="8" y="12" width="${W}" height="${H}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
+      ${under(5, 4, -4 - r() * 3, 'pdFar')}${under(2, 3, 2 + r() * 3, 'pdPaper2')}
+      ${page(W, H, r, { lines: 4, mark: 1, curl: 14, id })}
+      <path class="pdClip" d="M${W - 30} -6 v16 a4 4 0 0 0 8 0 v-19 a5.5 5.5 0 0 0 -11 0 v17"/>`);
+  };
+  // A strip torn from a page: one straight edge, one torn and fibrous, a line on it marked.
+  const strip = (x, y, rot = 0, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdt'), W = 160;
+    let torn = `M${W} 30`;
+    for (let xx = W; xx > 0; xx -= 4 + r() * 5) torn += ` L${f1(xx)} ${f1(30 + (r() - .5) * 5)}`;
+    torn += ' L0 33';
+    const d = `M0 4 Q${W / 2} ${f1(1 + r() * 2)} ${W} 2 ${torn.replace(/^M/, 'L')} Z`;
+    return at(x, y, rot, s, `<defs>${grad(id + 'g', 0, 0, 0, 1)}${soft(id + 's')}</defs>
+      <path class="pdShadowSoft" d="${d}" transform="translate(3 5)" filter="url(#${id}s)"/>
+      <path d="${d}" fill="url(#${id}g)"/>${marker(10, 19, 108, r)}<path class="pdInk" d="${scrib(10, 12, 140, r)}"/><path class="pdInk" d="${scrib(10, 20, 120, r)}"/>
+      <path class="pdEdgeSoft" d="${d}"/><path class="pdTornFibre" d="${torn}"/>`);
+  };
+  // A sheet folded in half and lying half open: the left page flat, the right one lifting, its shade deepest at the fold.
+  const folded = (x, y, rot = 0, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdf');
+    let ink = '';
+    for (let i = 0; i < 5; i++) { const yy = 20 + i * 12, len = (i === 4 ? .5 : .78 + r() * .16) * 44; if (i === 1) ink += marker(9, yy, len, r); ink += `<path class="pdInk" d="${scrib(9, yy, len, r)}"/>`; }
+    const left = `M0 6 Q30 3 60 5 L60 96 Q30 97 1 98 Z`;
+    const right = `M60 5 Q86 -6 116 -2 Q113 44 118 88 Q88 86 60 96 Z`;
+    return at(x, y, rot, s, `<defs>${grad(id + 'l', 0, 0, 1, 0, 'var(--pd-face)', 'var(--pd-far)')}${grad(id + 'r', 0, 0, 1, 0, 'var(--pd-keel)', 'var(--pd-face)')}${soft(id + 's')}</defs>
+      <path class="pdShadowSoft" d="M4 12 L64 12 L126 94 L6 104 Z" filter="url(#${id}s)"/>
+      <path d="${left}" fill="url(#${id}l)"/>${ink}
+      <path d="${right}" fill="url(#${id}r)"/><path class="pdInk" d="${scrib(70, 22, 34, r)} ${scrib(71, 34, 30, r)} ${scrib(71, 46, 36, r)}" opacity=".6"/>
+      <path class="pdEdgeSoft" d="${left}"/><path class="pdEdgeSoft" d="${right}"/><path class="pdCrease2" d="M60 5 L60 96"/>`);
+  };
+  const ball = (x, y, s = 1) => crumple(x, y, s);
   const tiny = (x, y, rot, s) => at(x, y, rot, s, DART);
   // Four trails: a loop, an arc, a zigzag, and one that missed and ends in a crumpled ball.
   const TRAILS = [
