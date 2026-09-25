@@ -455,6 +455,8 @@ var Landing = (() => {
     // comes after (audit of 2026-09-24: on a laptop the row was below the fold and the planes flew off screen).
     hero(main);
     const l = latest(main);
+    // What else the extension does, shown working, before the steps to get it (David, 2026-09-25).
+    if (typeof Features !== 'undefined') Features.mount(main);
     install(main);
     watchInstalled(root);
     return { fillLatest: l.fill };

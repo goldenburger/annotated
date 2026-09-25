@@ -552,6 +552,16 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   they have not published anything. Download buttons read Downloaded once pressed. The page does not scroll
   sideways while a plane flies (`html:has(> body > .pl-layer)`). The stroke under the take is gone. The dark
   divider on a post card in Yours so far at 0:36 could not be reproduced: all cards draw the same line.
+- **What else it does** (`website/public/features.js`, `tests/features.py`, 2026-09-25). Under Yours so far on the
+  front page and before the install steps, three working examples, each labelled Example and sending nothing: "Say
+  it your way" (a take, a tag, a poll to vote on and reactions, drawn as the card while you make it), "It lands as a
+  page" (a finished annotation with reactions, a reply box and File a claim, which says nothing was sent), and "Clip
+  what's playing, even on Spotify" (three steps, playing, found in Apple's directory, cut from the show's own file,
+  over the NASA episode's real loudness). Then a line of chips with a tip each for the rest (floating panel, six
+  colours, light and dark, voice notes, GIFs, photos and videos, save as GIF, Undo, signed out, the shortcut, live
+  streams, For you). Marked words keep dark ink in dark mode, and the section clips sideways so a tip cannot widen a
+  phone page. A backup before it is the tag `backup-2026-09-25-before-features` and
+  `E:\claude_codeackupsnnotated-backup-2026-09-25-before-features.zip`.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

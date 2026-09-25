@@ -651,3 +651,90 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sitenav .navBtn + .navBtn { margin-left: 6px; }
 .sceneTry .stScreen { background-repeat: no-repeat; }
 .sceneTry .stScreen:not(.live) video { opacity: 0; }
+
+/* What else it does (features.js): three working examples and a line of the rest, between Yours so far and the
+   install steps. */
+.landFeatures { margin: 10px 0 34px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.landFeatures .ftH { margin: 0 0 18px; font: 600 clamp(20px, 2.2vw, 26px)/1.2 var(--serif); }
+.ftRow { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 20px 40px; align-items: start; padding: 22px 0; border-bottom: 1px solid var(--rule); }
+.ftCopy h3 { margin: 0 0 8px; font: 600 clamp(18px, 1.8vw, 22px)/1.25 var(--serif); }
+.ftCopy p { margin: 0; max-width: 40ch; font: var(--t-m)/1.55 var(--sans); color: var(--ink-2); }
+.ftDemo { position: relative; padding: 18px; border: 1px solid var(--rule); border-radius: var(--r-l); background: var(--sheet); display: grid; gap: 14px; }
+.ftEx { position: absolute; top: -10px; right: 14px; padding: 2px 8px; border-radius: 999px; background: var(--newsprint); font: 700 11px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.ftDemo mark { background: linear-gradient(transparent 18%, var(--hi) 18%, var(--hi) 88%, transparent 88%); color: var(--hi-ink, #16181D); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.ftQuote, .ftQ { margin: 0; font: 400 15px/1.55 var(--serif); color: var(--ink); }
+.ftQ { padding-left: 12px; border-left: 3px solid var(--hi); }
+.ftLbl { display: block; margin: 0 0 4px; font: 600 12.5px/1.3 var(--sans); color: var(--ink-3); }
+.ftTake { width: 100%; box-sizing: border-box; resize: vertical; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: 400 14px/1.45 var(--sans); }
+.ftTags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.ftTag, .ftPollBtn, .ftR, .ftClaim, .ftStep, .ftChip { font: 500 12.5px/1 var(--sans); color: var(--ink-2); background: var(--paper); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.ftTag[aria-checked="true"], .ftR[aria-pressed="true"], .ftStep[aria-selected="true"] { background: var(--hi); border-color: var(--hi); color: var(--hi-ink, #16181D); }
+.ftTag:hover, .ftPollBtn:hover, .ftR:hover, .ftClaim:hover, .ftStep:hover, .ftChip:hover { border-color: var(--ink-3); }
+.ftPollBtn .ic, .ftClaim .ic { width: 14px; height: 14px; }
+.ftPollEdit { display: grid; gap: 6px; margin-top: 8px; }
+.ftPollEdit[hidden] { display: none; }
+.ftPollEdit input, .ftCIn, .ftClaimForm select { box-sizing: border-box; width: 100%; padding: 6px 9px; border: 1px solid var(--rule); border-radius: 8px; background: var(--paper); color: var(--ink); font: 400 13.5px/1.3 var(--sans); }
+.ftCard, .ftPage { padding: 14px 16px; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper); display: grid; gap: 10px; }
+.ftMeta { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 13px/1 var(--sans); color: var(--ink-2); }
+.ftAv { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--newsprint); font: 700 11px/1 var(--sans); color: var(--ink-2); flex: none; }
+.ftDot { color: var(--ink-3); font-weight: 400; }
+.ftTagOut { margin-left: auto; padding: 3px 8px; border-radius: 999px; background: var(--newsprint); font: 600 11.5px/1.2 var(--sans); color: var(--ink-2); }
+.ftTagOut[hidden], .ftPoll[hidden] { display: none; }
+.ftTakeOut { margin: 0; font: 600 18px/1.35 var(--serif); color: var(--ink); overflow-wrap: anywhere; }
+.ftSrc, .ftSrcRow { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 12.5px/1.3 var(--sans); color: var(--ink-3); }
+.ftSrcRow { justify-content: space-between; flex-wrap: wrap; }
+.ftSrcRow > span { display: inline-flex; align-items: center; gap: 6px; }
+.ftSrc .ic, .ftSrcRow .ic { width: 14px; height: 14px; }
+.ftReact { display: flex; gap: 6px; flex-wrap: wrap; }
+.ftR b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ftPollQ { margin: 0 0 6px; font: 600 14px/1.35 var(--sans); }
+.ftChoices { display: grid; gap: 6px; }
+.ftChoice { position: relative; overflow: hidden; display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); color: var(--ink); font: 500 13px/1.2 var(--sans); cursor: pointer; text-align: left; }
+.ftChoice[aria-pressed="true"] { border-color: var(--ink-3); }
+.ftChoice .ftBar { position: absolute; inset: 0 auto 0 0; background: var(--hi); opacity: .45; transition: width .35s ease; }
+.ftChoice .ftCt, .ftChoice b { position: relative; }
+.ftBar2 { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ftClaimForm { display: grid; gap: 8px; padding: 10px 12px; border: 1px dashed var(--rule); border-radius: 8px; }
+.ftClaimForm[hidden] { display: none; }
+.ftClaimForm label { font: 600 12.5px/1.3 var(--sans); color: var(--ink-2); }
+.ftClaimForm .ghost, .ftComment .ghost { justify-self: start; width: auto; }
+.ftSaid { margin: 0; font: 400 12.5px/1.45 var(--sans); color: var(--ink-2); }
+.ftSaid[hidden] { display: none; }
+.ftComment { display: flex; gap: 8px; }
+.ftComments { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.ftComments li { display: flex; gap: 8px; font: 400 13.5px/1.4 var(--sans); color: var(--ink); }
+.ftComments:empty { display: none; }
+.ftSteps { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
+.ftFrame { display: grid; gap: 10px; min-height: 150px; align-content: start; }
+.ftFrame[hidden] { display: none; }
+.ftPlayer { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; background: #121212; color: #fff; font: 400 13px/1.35 var(--sans); }
+.ftPlayer .ftDot { color: #B3B3B3; }
+.ftArt { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 6px; background: #2A2A2A; flex: none; }
+.ftArt .ic { width: 22px; height: 22px; }
+.ftPlay { margin-left: auto; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #1ED760; color: #121212; flex: none; }
+.ftPlay .ic { width: 16px; height: 16px; }
+.ftProg { height: 4px; border-radius: 2px; background: var(--rule); overflow: hidden; }
+.ftProg i { display: block; height: 100%; background: var(--ink-2); }
+@media (prefers-reduced-motion: no-preference) { .ftFrame:not([hidden]) .ftProg i { animation: ftProg 3.2s linear infinite; } }
+@keyframes ftProg { from { width: 12%; } to { width: 20%; } }
+.ftCap { margin: 0; font: 400 13px/1.45 var(--sans); color: var(--ink-2); }
+.ftFind { padding: 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--paper); display: grid; gap: 6px; }
+.ftField { margin: 0; padding: 7px 9px; border: 1px solid var(--rule); border-radius: 8px; font: 400 13.5px/1.3 var(--sans); color: var(--ink); }
+.ftHit { margin: 0; display: flex; gap: 8px; align-items: flex-start; padding: 8px 9px; border-radius: 8px; background: var(--newsprint); font: 400 13px/1.35 var(--sans); }
+.ftHit .ic { width: 16px; height: 16px; margin-top: 2px; flex: none; }
+.ftWave { display: flex; align-items: center; gap: 2px; height: 64px; padding: 0 8px; border-radius: 8px; background: var(--newsprint); }
+.ftWave i { flex: 1; border-radius: 2px; background: var(--ink-3); opacity: .45; }
+.ftWave i.in { background: var(--ink); opacity: .9; box-shadow: 0 -3px 0 var(--hi) inset; }
+.ftTimes { margin: 0; display: flex; justify-content: space-between; font: 500 12.5px/1 var(--sans); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ftCredit { margin: 0; font: 400 12.5px/1.4 var(--sans); color: var(--ink-3); }
+.ftMore { padding: 22px 0 4px; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.ftMoreH { margin: 0; font: 600 clamp(18px, 1.8vw, 22px)/1.25 var(--serif); }
+.ftChips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.ftChips li { position: relative; }
+.ftTip { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 5; width: max-content; max-width: 240px; padding: 8px 10px; border-radius: 8px; background: var(--ink); color: var(--paper); font: 400 12.5px/1.4 var(--sans); opacity: 0; visibility: hidden; transition: opacity .15s ease; pointer-events: none; }
+.ftChips li:hover .ftTip, .ftChips li:focus-within .ftTip, .ftChips li.open .ftTip { opacity: 1; visibility: visible; }
+@media (max-width: 760px) { .ftRow { grid-template-columns: 1fr; } .ftTip { max-width: 200px; } }
+.ftTimes b { font-weight: 600; color: var(--ink-2); }
+/* A tip over a chip near the right edge made a phone page scroll sideways; the section clips sideways only. */
+.landFeatures { overflow-x: clip; }
+@media (max-width: 760px) { .ftChips li:nth-child(even) .ftTip { left: auto; right: 0; } }
