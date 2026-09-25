@@ -132,6 +132,17 @@ const AnnotationPage = (() => {
     // On the website the logo is the home page and Feed is the feed. The nav's button was called Home and opened
     // the feed, so pressing Home on the feed went nowhere (recording of 2026-09-25 at 05:47, 0:32).
     container.querySelectorAll('.navHome').forEach((b) => b.addEventListener('click', () => onHome && onHome()));
+    // Inside the extension the logo goes to a tab already on annotated's home page, when there is one, rather than
+    // opening another copy each time (recording of 2026-09-25 at 14:08, 2:36).
+    container.querySelectorAll('a.wmBtn[target="_blank"]').forEach((a) => a.addEventListener('click', async (e) => {
+      if (!(typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.query)) return;
+      e.preventDefault();
+      const tabs = await chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).catch(() => []);
+      const open = tabs.find((x) => { try { const u = new URL(x.url); return u.pathname === '/' && !u.searchParams.has('feed') && !u.searchParams.has('tag'); } catch { return false; } });
+      if (!open) { chrome.tabs.create({ url: a.href }).catch(() => {}); return; }
+      await chrome.tabs.update(open.id, { active: true }).catch(() => {});
+      if (open.windowId != null && chrome.windows) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+    }));
     container.querySelectorAll('.navFeed').forEach((b) => b.addEventListener('click', () => (onFeed || onHome) && (onFeed || onHome)()));
     const you = container.querySelector('.navProfile');
     if (you) you.addEventListener('click', () => onProfile && onProfile());
@@ -607,29 +618,14 @@ const AnnotationPage = (() => {
     // whether it was published or saved on this computer, which has no banner.
     // The rest of the page waits for the card, so comments and the rail do not sit under an empty space while
     // the plane comes down (recording of 2026-09-25 at 01:15, 2:10), and comes in once it has opened.
-    // The plane is a small card of the take and quote laid over the top of the annotation, not the annotation
-    // itself: a whole post's picture made a dart as tall as the window, which opened over the entire page
-    // (recording of 2026-09-25 at 06:58, 2:58). The full card fades in under it once it has opened.
+    // The whole annotation folds into the plane and opens out as itself, as it did before 2.33.11. A small card of
+    // the take and quote stood in for it for one version and David missed the post unwrapping (recording of
+    // 2026-09-25 at 14:50, 0:24 and 1:18). The rest of the page, the Published toast included, waits for it.
     if (opts.showBanner === true && typeof Fold !== 'undefined' && Fold.on() && q('.annCard')) {
       container.classList.add('pl-landing');
-      const card = q('.annCard'), b = Fold.pageBox(card);
-      const fly = document.createElement('div');
-      fly.className = 'flyCard annFly';
-      fly.innerHTML = '<p class="fcTake"></p><p class="fcQuote"></p><p class="fcSrc"></p>';
-      fly.querySelector('.fcTake').textContent = takeLine(take) || 'Your annotation';
-      fly.querySelector('.fcQuote').textContent = (item.quote || item.text || '').slice(0, 280);
-      let src = ''; try { src = titleOf(item) || ''; } catch { /* an item with no title */ }
-      fly.querySelector('.fcSrc').textContent = src;
-      fly.style.cssText = `position:absolute;left:${b.x}px;top:${b.y}px;width:${Math.min(b.w, 380)}px;`;
-      document.body.appendChild(fly);
       let done = false;
-      const land = () => {
-        if (done) return; done = true;
-        container.classList.remove('pl-landing');
-        fly.classList.add('annFlyGone');
-        setTimeout(() => fly.remove(), 400);
-      };
-      Fold.arrive(fly, { z0: 220, T: 1100, openT: 900 }).then(land);
+      const land = () => { if (done) return; done = true; container.classList.remove('pl-landing'); };
+      Fold.arrive(q('.annCard'), { z0: 220, T: 1100, openT: 1100, s0: Fold.clamp(200 / Math.max(1, q('.annCard').offsetWidth), .2, .45) }).then(land);
       // Never held for longer than the flight, whatever becomes of it.
       setTimeout(land, 3500);
     }
@@ -1112,7 +1108,10 @@ const AnnotationPage = (() => {
           const tabs = social && social.tabs;
           const why = tabs && tabs.current === 'following' ? (tabs.empty || 'Follow someone and their annotations show up here.')
             : tabs && tabs.empty && filter === 'all' ? tabs.empty
-            : { all: 'Publish an annotation from the panel and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter];
+            // Your own profile says what the panel's does (recording of 2026-09-25 at 14:08, 2:30 and 2:34), and
+            // someone else's says it is theirs.
+            : filter === 'all' && person ? `${person.name || 'They'} has not published anything yet.`
+            : { all: 'Select words on any page, or clip a video or podcast, and it shows up here.', video: 'Open a YouTube video and capture a clip from the panel.', audio: 'Open a podcast episode and clip it from the panel.', article: 'Select any words in an article and click Annotate.', post: 'Open a post on X and capture it from the panel.' }[filter];
           // On the website an empty list leads to the extension, which is where annotations are published. It led to
           // the home page, whose takes are demonstrations that never reach a feed or a profile (recording of
           // 2026-09-25 at 06:58, 1:00 and 1:22). With the extension already installed there is nothing to offer.
@@ -1220,6 +1219,12 @@ const AnnotationPage = (() => {
     stopClock(container);
     // For you arrives ranked, so its order is kept. Everything else is newest first.
     const list = tabs && tabs.current === 'foryou' ? records.slice() : records.slice().sort((a, b) => b.created - a.created);
+    // Drawn again only when something on it would change. Redrawing the same list replaced the button under the
+    // pointer, and "Open your profile as a full page" took two seconds to answer (recording of 2026-09-25 at 14:08,
+    // 2:30 to 2:32).
+    const sig = JSON.stringify([title, note, emptyNote, tabs && tabs.current, backTo, !!onBack, action && action.label, !!onDeleteAll, list.map((r) => [r.id, takeLine(r.take), r.why || '', onlyHere(r)])]);
+    if (container.dataset.sig === sig && container.querySelector('.annside.browse')) return;
+    container.dataset.sig = sig;
     // The way back says where it goes, like the one beside the feed. An arrow on its own left people guessing.
     container.innerHTML = `<div class="annside browse">
       ${onBack ? `<button type="button" class="ghost sm browseBack" title="${esc(backTo)}">${Brand.icon('arrowLeft')}<span>${esc(backTo)}</span></button>` : ''}
@@ -1242,7 +1247,12 @@ const AnnotationPage = (() => {
     if (act) act.addEventListener('click', () => action.onClick());
     // One way to the full page, under the list. A small "See all annotations" at the top did the same thing
     // under another name (recording of 2026-09-25 at 03:14).
-    container.querySelectorAll('.browseFullBtn').forEach((b) => b.addEventListener('click', () => onFull()));
+    // It says it heard you at once, since the page it opens can take a moment.
+    container.querySelectorAll('.browseFullBtn').forEach((b) => b.addEventListener('click', () => {
+      const was = b.innerHTML; b.textContent = 'Opening…'; b.disabled = true;
+      setTimeout(() => { if (b.isConnected) { b.innerHTML = was; b.disabled = false; } }, 1500);
+      onFull();
+    }));
     if (tabs) container.querySelectorAll('.browseTabs input').forEach((i) => i.addEventListener('change', () => tabs.onTab(i.value)));
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
   }

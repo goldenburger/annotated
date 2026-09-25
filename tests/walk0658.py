@@ -10,8 +10,8 @@
 #   7. The panel's Home draws its start tools at once, before the database answers, and the account button stays
 #      out of sight until the panel knows who is signed in.
 #   8. The help screen's headline matches the website's.
-#   9. Opened from Publish, the Published toast waits for the plane, and the plane is a small card of the take and
-#      quote, not the whole annotation.
+#   9. Opened from Publish, the whole annotation folds in as a plane and opens out, and the Published toast waits
+#      for it (the unfold David asked to keep, recording of 2026-09-25 at 14:50).
 import asyncio, pathlib, mimetypes, json, time
 from playwright.async_api import async_playwright
 from _env import *
@@ -158,7 +158,8 @@ async def main():
     print('9. from Publish: toast while landing', sorted(set(held)), '| widest piece', widest, '| after', end)
     if not landed: errs.append('no plane landed on the annotation page')
     if any(o is not None and o > .05 for o in held): errs.append(f'the Published toast showed while the plane was landing: {sorted(set(held))}')
-    if widest > 600: errs.append(f'the plane on the annotation page was {widest} pixels across (964 before the fix)')
+    # The plane is the whole annotation folded up, which David wants (recording of 2026-09-25 at 14:50), not a small card.
+    if widest < 400: errs.append(f'the plane on the annotation page was a small card, {widest} pixels across, not the annotation')
     if end['text'] != 'Published' or (end['banner'] or 0) < .99 or end['card'] < .99: errs.append(f'the toast or the card did not come in after the plane: {end}')
     await ctx.close()
   print('errors:', errs)

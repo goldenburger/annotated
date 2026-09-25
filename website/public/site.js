@@ -67,7 +67,15 @@ function matchExtension(me) {
       const visitor = query.get('preview') === 'visitor';
       const meta = session ? (session.user.user_metadata || {}) : {};
       const me = session ? { name: meta.full_name || meta.name || '', avatar: meta.avatar_url || meta.picture || '' } : null;
-      const toProfile = async () => { const p = await Backend.profile().catch(() => null); location.href = p && p.handle ? '/@' + p.handle : '/?feed'; };
+      // You goes to your profile, never the feed. It fell back to the feed whenever the account took a moment to
+      // read (recording of 2026-09-25 at 14:08, 2:16), so it waits for it, and otherwise uses the handle this
+      // browser last saw for this account.
+      const toProfile = async () => {
+        const known = Backend.lastHandle && Backend.lastHandle(session && session.user.id);
+        const p = await Promise.race([Backend.profile().catch(() => null), new Promise((r) => setTimeout(() => r(null), 3000))]);
+        const h = (p && p.handle) || known;
+        if (h) location.href = '/@' + h; else signInNow();
+      };
       const land = Landing.mount(page, { signedIn: !!session && !visitor, onSignIn: signInNow, me, onProfile: toProfile });
       document.title = 'annotated: say what you think about anything on the web';
       void land;
@@ -84,8 +92,12 @@ function matchExtension(me) {
   // An annotation, a profile or the feed takes a moment to arrive, so its outline is drawn at once, before the
   // page's code has even loaded, rather than a blank page with only the footer (the feed showed that for one to
   // two seconds in the recording of 2026-09-25 at 04:48).
+  // The outline carries the header's Feed and You (or Sign in), so they do not pop in a second later (recording of
+  // 2026-09-25 at 14:08, 1:05, 1:17 and 2:21). Whether anyone is signed in is read from this browser.
+  let hasSession = false; try { hasSession = !!localStorage.getItem('annotated-auth'); } catch { /* no storage */ }
   page.innerHTML = `<div class="skel" aria-busy="true" aria-label="Loading">
-    <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a></header>
+    <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
+      <nav class="sitenav" aria-hidden="true"><span class="navBtn">Feed</span>${hasSession ? '<span class="navBtn"><span class="avatar xs"></span> You</span>' : '<span class="navBtn">Sign in<span class="wideOnly"> with Google</span></span>'}</nav></header>
     <div class="skelBody"><div class="skelCol"><i class="sk1"></i><i class="sk2"></i><i class="sk3"></i><i class="sk4"></i><i class="sk5"></i></div>
     <div class="skelRail"><i></i><i></i></div></div></div>`;
   await loadReading();
@@ -256,6 +268,20 @@ function matchExtension(me) {
   if (parts[0] && parts[0].startsWith('@') && parts[1]) await annotation(parts[1]);
   else if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1));
   else await home(query.get('tag'));
+  // A list is read again when you come back to its tab, since the panel or another tab may have changed it. The
+  // profile went on showing an annotation the panel had just deleted (recording of 2026-09-25 at 14:08, 2:28).
+  // An annotation's own page is left alone, where a comment may be half written.
+  if (!(parts[0] && parts[0].startsWith('@') && parts[1])) {
+    let hiddenAt = 0;
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (!hiddenAt || Date.now() - hiddenAt < 1500 || page.querySelector('.delAllAsk:not([hidden]), textarea:focus')) return;
+      hiddenAt = 0;
+      const y = scrollY;
+      if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1)); else await home(query.get('tag'));
+      scrollTo(0, y);
+    });
+  }
   matchExtension(me);
   document.addEventListener('annotated-user', () => matchExtension(me));
 })();

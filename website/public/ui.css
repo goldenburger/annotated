@@ -483,7 +483,8 @@ dialog .radio input { margin: 0; }
 .annCard .who .name { font-weight: 600; }
 .when { display: block; font-size: var(--t-xs); color: var(--ink-3); }
 .annCard .take { font: 500 26px/1.32 var(--serif); letter-spacing: -0.01em; margin: 16px 0 18px; }
-.annCard .take::after { content: ""; display: block; width: 56px; height: 7px; margin-top: 10px; background: linear-gradient(103deg, var(--hi-deep) 0 6%, var(--hi) 14% 88%, var(--hi-lift) 100%); border-radius: 2px 5px 3px 6px; transform: skewX(-12deg) rotate(-1deg); opacity: var(--hi-op); }
+/* The short stroke under the take read as a stray mark (recording of 2026-09-25 at 14:08, 1:18). Gone. */
+.annCard .take::after { display: none !important; }
 .vnote { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 6px 10px; border-radius: var(--r-m); background: var(--newsprint); color: var(--ink-2); }
 .media { margin: 0 0 14px; }
 .media .clip, .media .xembed, .media .xshot { margin: 0; }

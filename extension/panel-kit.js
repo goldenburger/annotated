@@ -307,7 +307,7 @@ const PanelKit = (() => {
           <label><input type="radio" name="w-display" value="side" ${Prefs.get().display !== 'float' ? 'checked' : ''}><span>Side panel</span></label>
           <label><input type="radio" name="w-display" value="float" ${Prefs.get().display === 'float' ? 'checked' : ''}><span>Floating</span></label></div>
           <p class="note">You can change this any time under the gear.</p></fieldset>` : ''}
-        <button type="button" class="primary wGo">${seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page'}</button>
+        <button type="button" class="primary wGo">${seen ? 'Got it' : bare ? 'Show me where to start' : 'Try it on this page'}</button>
         <a class="ghost wSite" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">Open annotated's home page ${Brand.icon('external')}</a>
         <p class="wKey">${shortcut ? `Open this panel any time with <kbd>${shortcut.split('+').join('</kbd> + <kbd>')}</kbd>.` : 'Set a keyboard shortcut to open this panel at chrome://extensions/shortcuts.'}</p>`;
       brand.insertAdjacentElement('afterend', w);
@@ -321,7 +321,7 @@ const PanelKit = (() => {
     // Reopened: the choice shows the display in use now, not the last click.
     const cur = w.querySelector(`input[name="w-display"][value="${Prefs.get().display === 'float' ? 'float' : 'side'}"]`);
     if (cur) cur.checked = true;
-    w.querySelector('.wGo').textContent = seen ? 'Back to annotated' : bare ? 'Show me where to start' : 'Try it on this page';
+    w.querySelector('.wGo').textContent = seen ? 'Got it' : bare ? 'Show me where to start' : 'Try it on this page';
     document.body.classList.add('welcoming');
     w.querySelector('.wGo').focus({ preventScroll: true });
   }

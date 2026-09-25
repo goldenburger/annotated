@@ -529,12 +529,29 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   (`tidy`). An empty feed or profile on the website offers "Get the extension to publish one" (`/install`), since
   the home page's takes never reach either. The extension's full list is headed Feed, its tab "Feed | annotated",
   and the panel's button reads "Open the feed as a full page". Help's headline is the website's. On an annotation
-  page from Publish the plane is a small card of the take and quote (`.annFly`, at most 380 pixels wide), where it
-  was the whole annotation, 964 pixels across; the card fades in under it, and the Published toast waits, since its
-  `riseIn` animation outranked `.pl-landing .banner`'s opacity. The panel's Home draws its start tools from this
+  page from Publish the Published toast waits for the plane, since its `riseIn` animation outranked
+  `.pl-landing .banner`'s opacity. The plane was made a small card of the take and quote for 2.33.11 and put back
+  to the whole annotation folding and opening out in 2.33.12, which David asked for (recording of 2026-09-25 at
+  14:50: "the whole post i captured would unwrap in a cool way"). The panel's Home draws its start tools from this
   computer at once (`drawBrowse({ quick })`, "Loading annotations…") and then the lists, where it sat blank for two
   seconds; the account button stays out of sight (`acctPending`, three seconds at most) until the panel knows who
   is signed in, where it said Sign in to someone signed in. The white frame at 2:16 was the launch's steam.
+- **The recording of 2026-09-25 at 14:08** (`tests/walk1408.py`). You on the home page waits up to three seconds
+  for the account and otherwise uses the handle this browser last read (`annotated-last-handle`,
+  `Backend.lastHandle`); it went to the feed. The feed and profile pages read their lists again when their tab comes
+  back into view after 1.5 s away (not with Delete all's question open or a box in use), since a profile went on
+  listing what the panel had deleted. The loading outline carries Feed and You or Sign in, and the footer hides
+  while `#page` is an outline. The panel's `renderBrowse` does nothing when its words would not change
+  (`dataset.sig`), because a redraw replaced "Open your profile as a full page" under the pointer and it took two
+  seconds to answer; the button says "Opening…" when pressed. The full page goes to a website tab already on
+  `/?feed` or your `/@handle` before opening the extension's (`openFull`), and the extension pages' logo goes to a
+  tab already on the home page. The panel's Home, opened again, shows the lists it last drew for that account
+  (`lastHome`) instead of "Loading annotations…" and a jump from For you to Everyone. Help's button reads Got it,
+  and beside the home page help leaves out "Open annotated's home page". An empty profile says "Select words on any
+  page, or clip a video or podcast, and it shows up here." on the full page as in the panel, and someone else's says
+  they have not published anything. Download buttons read Downloaded once pressed. The page does not scroll
+  sideways while a plane flies (`html:has(> body > .pl-layer)`). The stroke under the take is gone. The dark
+  divider on a post card in Yours so far at 0:36 could not be reproduced: all cards draw the same line.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is

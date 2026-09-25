@@ -127,6 +127,15 @@ var Landing = (() => {
 
   // Getting it, three steps in a row. The first ticks when the file is taken and the second has the address
   // to copy, since a web page may not link to Chrome's own pages.
+  // A download button, once pressed, reads Downloaded and still downloads again if pressed.
+  function markDownloaded(b) {
+    if (!b || b.classList.contains('didDownload')) return;
+    b.classList.add('didDownload');
+    b.innerHTML = `${icon('check')} Downloaded`;
+    b.title = 'Download it again';
+  }
+  document.addEventListener('click', (e) => { const g = e.target.closest && e.target.closest('.heroGet[download]'); if (g) markDownloaded(g); });
+
   function install(root) {
     const box = document.createElement('section');
     box.className = 'getIt landGet'; box.id = 'get';
@@ -147,6 +156,9 @@ var Landing = (() => {
       const first = box.querySelector('.giSteps li');
       first.classList.add('done'); first.querySelector('span').textContent = 'Downloaded. Unzip it wherever you keep things.';
       box.querySelector('.giSteps li:nth-child(2)').classList.add('now');
+      // The button says so too. The small tick on the first step was missed, and it was pressed twice in the
+      // recording of 2026-09-25 at 14:08 (0:48, 0:50).
+      markDownloaded(box.querySelector('.giDo .primary'));
     }));
     return box;
   }

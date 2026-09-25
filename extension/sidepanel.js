@@ -224,6 +224,19 @@ const OWN_PAGE = /\/(annotation|feed)\.html/;
 // beforeLoad runs only when a page is really about to load, which is what a mark for that load needs. A tab
 // already showing the page is only brought forward, nothing loads, and a mark set then waited for some later
 // load that had nothing to do with it.
+// The full page of Home or your profile goes to one already open, on the website or here, before it opens another.
+// Beside the website's profile it opened the extension's as a new tab (recording of 2026-09-25 at 14:08, 2:32).
+async function openFull(kind, me) {
+  const tabs = await chrome.tabs.query({ url: 'https://annotated-app.netlify.app/*' }).catch(() => []);
+  const want = (u) => { try { const x = new URL(u); return kind === 'home' ? x.pathname === '/' && x.searchParams.has('feed') : !!(me && me.handle) && x.pathname === '/@' + me.handle; } catch { return false; } };
+  const open = tabs.find((x) => want(x.url));
+  if (open) {
+    await chrome.tabs.update(open.id, { active: true }).catch(() => {});
+    if (open.windowId != null) chrome.windows.update(open.windowId, { focused: true }).catch(() => {});
+    return open;
+  }
+  return openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile');
+}
 async function openExtPage(path, beforeLoad = null) {
   const url = chrome.runtime.getURL(path);
   const tabs = await chrome.tabs.query({});
@@ -855,7 +868,7 @@ function wirePaste(root, beside = false) {
 // Home and your profile read inside the panel. A menu shows its contents where you are, and opening a tab
 // for one was both a lost place and a tab to close afterwards. An annotation is still a page, because its
 // comments, its source and the conversation live there, and that page shares the one annotated tab.
-let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null;
+let browsing = null, browseTab = 'foryou', browsePressed = false, browseFrom = null, lastHome = null;
 // Beside annotated's own page, Home and Your profile move that page, which is already the full version of
 // them. Drawing the list in the panel first showed it for a second before the panel put back its line about
 // the page beside it, and offered "Back to annotated" from annotated (recording of 2026-09-24 at 19:34).
@@ -952,9 +965,15 @@ async function drawBrowse({ quick = false } = {}) {
     const t = Cloud.homeTabs(merged, soc, me, merged.filter((r) => r.mine || !r.author));
     const cur = Cloud.startTab(t, browseTab, browsePressed);
     records = t[cur].records; note = t[cur].note || ''; emptyNote = t[cur].empty || '';
-    if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; }
+    // The first quick draw shows the lists it last showed, tab and all, where it said "Loading annotations…" and
+    // then jumped from For you to Everyone each time the tab beside it changed (recording of 2026-09-25 at 14:08,
+    // 1:56 to 2:04, 2:21, 3:07). Only with nothing kept does it say it is loading.
     tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
       onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
+    const kept = lastHome && lastHome.who === (me && me.id) ? lastHome : null;
+    if (quick && kept) { records = kept.records; note = kept.note; emptyNote = kept.emptyNote; tabs = { ...tabs, current: kept.current }; }
+    else if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; }
+    else lastHome = { who: me && me.id, records, note, emptyNote, current: cur };
   }
   if (browsing !== kind) return;
   // Where Back goes, by name. Beside a bare tab Home has nowhere to go back to, and Your profile goes to Home.
@@ -974,7 +993,7 @@ async function drawBrowse({ quick = false } = {}) {
     title, records, note, emptyNote, tabs, localAware: true, backTo, action,
     onOpen: (id) => openExtPage('annotation.html#' + id),
     onBack: backTo ? closeBrowse : null,
-    onFull: () => openExtPage(kind === 'home' ? 'feed.html' : 'feed.html#profile'),
+    onFull: () => openFull(kind, me),
     // The same control as on your profile page, where it took some finding.
     onDeleteAll: kind === 'profile' ? async (progress) => {
       const all = records.slice(), failed = [];
@@ -1091,6 +1110,10 @@ async function refresh() {
     // Test hook: sidepanel.html?tab=<id> pins the panel to one tab.
     const pinned = Number(new URLSearchParams(location.search).get('tab'));
     const [tab] = pinned ? [await chrome.tabs.get(pinned).catch(() => null)] : await chrome.tabs.query({ active: true, currentWindow: true });
+    // Beside annotated's home page, help does not offer to open it. Pressed there it only closed help, and it
+    // was pressed twice in the recording of 2026-09-25 at 14:08 (2:55, 2:59).
+    const wSite = document.querySelector('.welcome .wSite');
+    if (wSite) { let onHome = false; try { const u = new URL(tab && tab.url); onHome = u.origin === 'https://annotated-app.netlify.app' && u.pathname === '/' && !new URLSearchParams(u.search).has('feed'); } catch { /* no address */ } wSite.hidden = onHome; }
     // Home and your profile hold while you are still on the page you opened them from, so a take you are
     // part way through is never pulled out from under you. Go to another tab, or let this one go somewhere
     // else, and the panel comes back to what you are looking at instead of waiting to be sent back.

@@ -89,7 +89,8 @@ async def main():
     print('2. the page from Publish:', arrive, after, '| toast while landing', sorted(set(held)), '| widest piece', widest)
     if not arrive['planes'] or after['planes'] or after['hidden']: errs.append(f'the annotation did not land on its page: {arrive} {after}')
     if any(o is not None and o > .05 for o in held): errs.append(f'the Published toast showed while the plane was landing: {held}')
-    if widest > 600: errs.append(f'the plane on the annotation page was {widest} pixels across (964 before the fix)')
+    # The plane is the whole annotation folded up, which David wants (recording of 2026-09-25 at 14:50), not a small card.
+    if widest < 400: errs.append(f'the plane on the annotation page was a small card, {widest} pixels across, not the annotation')
     if after['cardOp'] < .99 or after['fly'] or (after['bannerOp'] is not None and after['bannerOp'] < .99): errs.append(f'the card or the toast did not come in after the plane: {after}')
     await page.close()
 

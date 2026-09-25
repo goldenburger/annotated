@@ -7,6 +7,9 @@
 .webSignIn { font-weight: 600; }
 .webSignOut { margin-left: 12px; font-size: var(--t-xs); }
 .webFoot { display: flex; gap: 18px; justify-content: center; padding: 30px 16px 40px; font-size: var(--t-xs); color: var(--ink-3); }
+/* The footer waits for the page. On its own it sat in the middle of a white screen for half a second as the home
+   page loaded (recording of 2026-09-25 at 14:08, 0:01.75). */
+#page:has(> .bootSkel) ~ .webFoot, #page:has(> .skel) ~ .webFoot { visibility: hidden; }
 .webFoot a { color: inherit; }
 .doc { max-width: 720px; margin: 0 auto; padding: 40px 20px 20px; font: 16px/1.6 var(--sans); color: var(--ink); }
 .doc h1 { font: 600 34px/1.2 var(--serif); margin: 18px 0 8px; }
