@@ -449,7 +449,7 @@ const AnnotationPage = (() => {
       <div class="annBody">
         ${showBanner ? `<div class="banner toast" role="status">
           <div class="toastRow">
-            <span class="toastCheck">${Brand.icon('check')}</span>
+            <span class="toastCheck">${Brand.mark ? Brand.mark() : Brand.icon('check')}</span>
             <b class="toastText">${opts.localOnly ? 'Saved on this computer' : 'Published'}</b>
             <span class="toastActions" ${opts.localOnly ? 'hidden' : ''}>
               <button type="button" class="ghost sm toastCopy">${Brand.icon('link')} <span>Copy link</span></button>
@@ -788,7 +788,7 @@ const AnnotationPage = (() => {
         <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
             ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
-        : '<li class="empty">No comments yet. Start the conversation.</li>';
+        : `<li class="empty">${typeof PaperDeco !== 'undefined' ? PaperDeco.waiting() : ''}No comments yet. Start the conversation.</li>`;
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
       more.textContent = showAll ? 'Show fewer comments' : `Show all ${list.length} comments`;
@@ -1039,7 +1039,7 @@ const AnnotationPage = (() => {
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div><button type="button" class="strong sm pSignIn">Sign in with Google</button>`
                  : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
-            : `<h1>Feed</h1><p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
+            : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         <div class="feedBar">
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">

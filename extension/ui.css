@@ -1620,3 +1620,30 @@ body.embedded > .brand .wmPlane { display: none; }
 .shellEmpty .pdEmpty svg:first-child { width: 60px; }
 .shellEmpty .pdEmpty svg:last-child { width: 120px; }
 .shellEmpty .pdEmpty { margin-bottom: 18px; }
+
+/* Paper in the interface itself (paperdeco.js), small and quiet. */
+/* A heading's rule: a dashed trail ending in a tiny dart. */
+.pdRule { display: block; width: 132px; height: 14px; margin: 2px 0 8px; }
+.pdRule .pdTrail { stroke-width: 1.3; }
+/* The main card on an annotation's page has its top right corner folded down, the first fold of a dart. */
+.annBody .annCard { position: relative; }
+.annBody .annCard::after { content: ""; position: absolute; top: -1px; right: -1px; width: 22px; height: 22px; border-top-right-radius: var(--r-l);
+  background: linear-gradient(225deg, var(--paper) 0 50%, var(--pd-keel) 50% 100%); box-shadow: -1px 1px 2px var(--pd-shadow); border-bottom-left-radius: 3px; pointer-events: none; }
+/* Empty comments: a small dart resting on the line. */
+.cList li.empty { display: flex; align-items: center; gap: 8px; }
+.cList li.empty .pdWaiting { flex: none; transform: rotate(-8deg) translateY(1px); }
+/* The Published toast's tick is the mark, a plane just landed. */
+.toastCheck .wmPlaneSvg { width: 17px; height: 17px; transform: translate(-1px, 1px); }
+.toastCheck .wmPlaneSvg .wpW { fill: #fff; } .toastCheck .wmPlaneSvg .wpK { fill: var(--hi-ink, #16181D); opacity: .85; } .toastCheck .wmPlaneSvg .wpF { stroke: var(--hi-ink, #16181D); stroke-width: 3; fill: none; }
+/* Your own profile: a faint trail curving in to your avatar. */
+.feedHead .who { position: relative; }
+.feedHead .who .pdArrival { position: absolute; left: -96px; top: -14px; width: 120px; height: 70px; opacity: .8; }
+@media (max-width: 900px) { .feedHead .who .pdArrival { display: none; } }
+/* Loading: one small paper dart glides slowly across the top of the outline. */
+/* On the website's page outline it glides over the main column, not the header. */
+.skel:not(:has(.skelCol)), .skelCol { position: relative; overflow: hidden; container-type: inline-size; }
+.skel:not(:has(.skelCol))::before, .skelCol::before { content: ""; position: absolute; top: 10px; left: 0; width: 22px; height: 21px; z-index: 1; pointer-events: none;
+  background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='14 14 100 96'%3E%3Cpath d='M108 20 L20 56 L55 68 Z' fill='%23FFFDF7' stroke='%23CFC7B2' stroke-width='3'/%3E%3Cpath d='M108 20 L55 68 L66 104 Z' fill='%23E6DFCC' stroke='%23CFC7B2' stroke-width='3'/%3E%3C/svg%3E");
+  opacity: .9; transform: translateX(24px); }
+@media (prefers-reduced-motion: no-preference) { .skel:not(:has(.skelCol))::before, .skelCol::before { animation: pdGlide 2.6s cubic-bezier(.45, .05, .35, 1) infinite; } }
+@keyframes pdGlide { 0% { transform: translate(-30px, 8px) rotate(6deg); opacity: 0; } 12% { opacity: .9; } 88% { opacity: .9; } 100% { transform: translate(calc(100cqw + 30px), -2px) rotate(-4deg); opacity: 0; } }

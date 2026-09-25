@@ -256,7 +256,7 @@ var Features = (() => {
   function mount(root) {
     const s = document.createElement('section');
     s.className = 'landFeatures'; s.id = 'more';
-    s.innerHTML = '<h2 class="ftH">What else it does</h2>';
+    s.innerHTML = `<h2 class="ftH">What else it does</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}`;
     root.appendChild(s);
     sayIt(s); page(s); receipts(s); podcast(s); more(s);
     arrive(s);

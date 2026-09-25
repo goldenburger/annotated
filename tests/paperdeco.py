@@ -3,6 +3,8 @@
 #   2. The drawings never take a click, are hidden from screen readers, and never widen the page.
 #   3. An empty list shows its crumpled sheet and plane; the home page ends on the desk.
 #   4. The panel's help screen has its plane and trail, and a list in the panel ends on the small pile.
+#   5. In the interface itself: a trail under the Feed heading and What else it does, a plane gliding over loading
+#      outlines, the annotation card's folded corner, a dart resting on empty comments, the mark as the toast's tick.
 import asyncio, pathlib, mimetypes
 from playwright.async_api import async_playwright
 from _env import *
@@ -35,8 +37,15 @@ async def main():
         if r['desk'] != want: errs.append(f'{w} {path}: the desk shown {r["desk"]}, wanted {want}')
         if not r['silent'] or r['wide']: errs.append(f'{w} {path}: a drawing takes clicks, is read aloud, or widens the page: {r}')
         if not r['empty']: errs.append(f'{w} {path}: the empty list has no drawing')
+      # 5. Paper in the interface: the Feed heading's trail, the loading outline's plane.
+      await pg.goto(URL + '?feed'); await asyncio.sleep(2.5)
+      ui = await pg.evaluate("""(() => { const d = document.createElement('div'); d.innerHTML = '<div class="skel"><div class="skelBody"><div class="skelCol"></div></div></div>'; document.body.appendChild(d);
+        const bg = getComputedStyle(d.querySelector('.skelCol'), '::before').backgroundImage; d.remove();
+        return { rule: !!document.querySelector('.feedHead .pdRule'), glide: bg.includes('svg') }; })()""")
+      if ui != {'rule': True, 'glide': True}: errs.append(f'{w}: the feed heading or the loading outline has no paper: {ui}')
       await pg.goto(URL + '?noplanes'); await asyncio.sleep(2)
       foot = await pg.evaluate("document.querySelectorAll('.pdFoot .paperDeco').length")
+      if not await pg.evaluate("!!document.querySelector('.landFeatures .pdRule')"): errs.append(f'{w}: What else it does has no trail under it')
       if foot < 2: errs.append(f'{w}: the home page does not end on the desk ({foot})')
       await c.close()
     await b.close()
@@ -57,6 +66,14 @@ async def main():
     corner = await pan.evaluate("!!document.querySelector('#browseMode .pd-corner .paperDeco')")
     print('4. help plane', help_, '| the list ends on a pile', corner)
     if not help_ or not corner: errs.append(f'the panel is missing its paper: {help_}, {corner}')
+    # 5. The annotation page: its card's folded corner, the dart resting on the empty comments, the toast's mark.
+    ann = await ctx.new_page(); await ann.set_viewport_size({'width': 1280, 'height': 900})
+    await ann.goto(f'chrome-extension://{extid}/annotation.html#d1'); await ann.wait_for_selector('.annCard'); await asyncio.sleep(1)
+    a = await ann.evaluate("""({ fold: getComputedStyle(document.querySelector('.annBody .annCard'), '::after').backgroundImage.includes('gradient'),
+      resting: !!document.querySelector('.cList li.empty .pdWaiting'),
+      mark: (() => { const d = document.createElement('span'); d.className = 'toastCheck'; d.innerHTML = Brand.mark(); return !!d.querySelector('.wmPlaneSvg'); })() })""")
+    print('5.', a)
+    if a != {'fold': True, 'resting': True, 'mark': True}: errs.append(f'the annotation page is missing its paper: {a}')
     await ctx.close()
   print('errors:', errs)
 

@@ -35,6 +35,13 @@ var PaperDeco = (() => {
   const trail = (w = 220, h = 90) => `<path class="pdTrail" d="M4 ${h - 10} C ${w * .25} ${h - 4}, ${w * .32} ${h * .35}, ${w * .5} ${h * .5} S ${w * .62} ${h * .95}, ${w * .7} ${h * .6} S ${w * .82} 10, ${w - 30} 16"/>
     <g transform="translate(${w - 44} -8) rotate(8) scale(.34)"><path class="pdFace" d="M108 20 L20 56 L55 68 Z"/><path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`;
 
+  // A heading's rule: a short dashed trail ending in a tiny dart, the size of a letter.
+  const DART = '<path class="pdFace" d="M108 20 L20 56 L55 68 Z"/><path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/>';
+  const rule = () => `<svg class="paperDeco pdRule" viewBox="0 0 132 14" width="132" height="14" aria-hidden="true" focusable="false"><path class="pdTrail" d="M1 9 C 30 12, 62 4, 92 8 S 108 9, 114 7"/><g transform="translate(111 -1) rotate(4) scale(.14)">${DART}</g></svg>`;
+  // Behind an avatar: a faint trail curving in to it, as if it had arrived by plane.
+  const arrival = () => `<svg class="paperDeco pdArrival" viewBox="0 0 120 70" width="120" height="70" aria-hidden="true" focusable="false"><path class="pdTrail" d="M2 60 C 26 62, 34 30, 58 30 S 92 44, 116 26"/></svg>`;
+  // Resting on a line of text: a small folded dart waiting to be thrown.
+  const waiting = () => `<svg class="paperDeco pdWaiting" viewBox="14 14 100 96" width="22" height="21" aria-hidden="true" focusable="false">${DART}</svg>`;
   const svg = (w, h, body, cls = '') => `<svg class="paperDeco ${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" focusable="false">${body}</svg>`;
   const ART = {
     // A pile of planes thrown down together, one marked, a crumpled sheet beside them.
@@ -63,5 +70,5 @@ var PaperDeco = (() => {
     d.innerHTML = ART.ball() + ART.lone();
     el.prepend(d);
   }
-  return { make, desk, empty, ART };
+  return { make, desk, empty, ART, rule, arrival, waiting };
 })();

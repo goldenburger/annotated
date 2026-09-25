@@ -965,6 +965,12 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   little chance), using `approach`, `dist` and `swoop` added to `Fold.arrive`; the row of chips arrives as a flock
   of three small planes whose chips then pop in one by one. They fly only once the page is scrolled, and not with
   ?noplanes, on a phone or a touch screen, as on the rest of the front page.
+- **Paper in the interface** (2.33.18, `tests/paperdeco.py` part 5, David's ask to integrate it subtly). A dashed trail
+  ending in a tiny dart under the Feed heading and "What else it does" (`PaperDeco.rule`); the main card on an
+  annotation's page has its top right corner folded down (`.annBody .annCard::after`); a small dart glides across
+  loading outlines (`pdGlide`, still with reduced motion); a dart rests on "No comments yet" (`PaperDeco.waiting`); the
+  Published toast's tick is the mark (`Brand.mark`). A faint trail behind your own avatar was tried and dropped,
+  since at full size it read as a stray line.
 - **The recording of 2026-09-25 at 16:45** (`tests/walk1645.py`). A link in the account menu (About annotated) closes
   it. A clip card in Yours so far waits on a light placeholder, not black, and the clip's picture of frames is
   fetched as the home page opens, so the card shows its frame at once. Each example under "What else it does"
