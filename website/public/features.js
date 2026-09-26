@@ -312,12 +312,14 @@ var Features = (() => {
   function arrive(section) {
     // Off wherever the rest of the front page's planes are off (planes.js): ?noplanes, a phone, a touch screen.
     if (typeof Fold === 'undefined' || !Fold.on() || !('IntersectionObserver' in window)) return;
-    // Once a browser visit. On the third return to the home page the same planes were still flying in (recording of
-    // 2026-09-25 at 23:23, 0:55, 3:14 and 3:20); after the first time the examples are simply there.
-    let flown = false;
-    try { flown = !!sessionStorage.getItem('annotated-features-flown'); } catch {}
-    if (flown) return;
-    const markFlown = () => { try { sessionStorage.setItem('annotated-features-flown', '1'); } catch {} };
+    // At most once an hour. On the third return to the home page the same planes were still flying in (recording of
+    // 2026-09-25 at 23:23, 0:55, 3:14 and 3:20), and once a browser visit left a tab that had reloaded itself with no
+    // planes at all (recording of 2026-09-26 at 03:37). An hour after they last flew they fly again (David's choice).
+    const HOUR = 60 * 60 * 1000;
+    let last = 0;
+    try { last = +localStorage.getItem('annotated-features-flown') || 0; } catch {}
+    if (Date.now() - last < HOUR) return;
+    const markFlown = () => { try { localStorage.setItem('annotated-features-flown', String(Date.now())); } catch {} };
     if (/[?&]noplanes\b/.test(location.search) || matchMedia('(max-width: 760px), (hover: none)').matches) return;
     const demos = [...section.querySelectorAll('.ftDemo')];
     // Each one comes its own way, so four in a row do not read as one trick repeated: a glide from behind, a wide

@@ -110,6 +110,20 @@ async def main():
     print('5. planes on the first visit:', flew1, '| waiting on the second:', waiting)
     if not flew1: errs.append('the examples did not fly on the first visit')
     if waiting: errs.append('the examples waited to fly again on the second visit')
+    # An hour after they last flew, they fly again (recording of 2026-09-26 at 03:37, David's choice).
+    await pg.evaluate("localStorage.setItem('annotated-features-flown', String(Date.now() - 61 * 60 * 1000))")
+    await pg.goto(URL + '?planes'); await asyncio.sleep(1.5)
+    later = await pg.evaluate("document.querySelectorAll('.ftDemo.ftWaiting, .ftChips.ftFlock').length")
+    print('   waiting to fly an hour later:', later)
+    if not later: errs.append('the examples did not fly again an hour later')
+    # The plane at the end of the foot's trail plays it all from the top, whenever pressed (David, 2026-09-26).
+    await pg.evaluate("localStorage.setItem('annotated-features-flown', String(Date.now())); sessionStorage.setItem('annotated-example-shown', '1')")
+    await pg.goto(URL + '?planes'); await asyncio.sleep(1.5)
+    await pg.evaluate("scrollTo(0, document.body.scrollHeight)"); await asyncio.sleep(.4)
+    await pg.click('.pdFoot .flyAgain .pdFlyer', force=True); await asyncio.sleep(2.5)
+    again = await pg.evaluate("({ y: scrollY, waiting: document.querySelectorAll('.ftDemo.ftWaiting, .ftChips.ftFlock').length, example: sessionStorage.getItem('annotated-example-shown') })")
+    print('   after pressing the plane at the foot:', again)
+    if again['y'] > 5 or not again['waiting']: errs.append(f'the plane at the foot did not play it again from the top: {again}')
     await c.close()
     await b.close()
 

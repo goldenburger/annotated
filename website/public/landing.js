@@ -450,6 +450,27 @@ var Landing = (() => {
     foot.appendChild(b);
   }
 
+  // The plane at the end of the trail at the foot of the page is a button while the planes are on: pressed, it flies
+  // off along its way and the page plays its flights again from the top, the examples under Other things it does
+  // included, which otherwise wait an hour (David, 2026-09-26: "you already have the plane drawn, just use that").
+  function footTrail() {
+    const planesOn = !matchMedia('(prefers-reduced-motion: reduce)').matches && !matchMedia('(max-width: 760px), (hover: none)').matches
+      && (() => { try { return localStorage.getItem('annotated-planes-off') !== '1'; } catch { return true; } })();
+    if (!planesOn || !PaperDeco.ART.flyTrail) return PaperDeco.make('trail');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pd pd-trail flyAgain';
+    b.setAttribute('aria-label', 'Watch the page fly again'); b.title = 'Watch it fly again';
+    b.innerHTML = PaperDeco.ART.flyTrail();
+    b.addEventListener('click', () => {
+      if (b.classList.contains('taking')) return;
+      try { localStorage.removeItem('annotated-features-flown'); sessionStorage.removeItem('annotated-example-shown'); } catch {}
+      b.classList.add('taking');
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      setTimeout(() => { scrollTo(0, 0); location.reload(); }, 700);
+    });
+    return b;
+  }
+
   function mount(root, { signedIn = false, onSignIn = () => {}, me = null, onProfile = null } = {}) {
     planesSwitch();
     root.className = 'land';
@@ -465,8 +486,8 @@ var Landing = (() => {
     install(main);
     // The foot of the page ends on the desk: planes thrown in a pile, one still flying off, a sheet half folded.
     if (typeof PaperDeco !== 'undefined') {
-      const desk = document.createElement('div'); desk.className = 'pdFoot'; desk.setAttribute('aria-hidden', 'true');
-      desk.append(PaperDeco.make('pile'), PaperDeco.make('trail'), PaperDeco.make('sheet'));
+      const desk = document.createElement('div'); desk.className = 'pdFoot';
+      desk.append(PaperDeco.make('pile'), footTrail(), PaperDeco.make('sheet'));
       main.appendChild(desk);
     }
     watchInstalled(root);

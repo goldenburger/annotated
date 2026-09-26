@@ -835,3 +835,20 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .ftRQuoted { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; display: grid; gap: 6px; color: var(--ink); text-decoration: none; }
 .ftRQuoted:hover { border-color: var(--ink-3); }
 .ftRQuoted .ftRText { margin: 0; font-size: 13.5px; }
+/* The plane at the end of the foot's trail is a button (landing.js footTrail): it lifts a little on hover and, pressed,
+   flies off up and to the right before the page plays its flights again. */
+.pdFoot .flyAgain { padding: 0; border: 0; background: none; cursor: pointer; }
+.pdFoot .flyAgain .pdFlyer { transform-box: fill-box; transform-origin: center; transition: filter .2s; }
+.pdFoot .flyAgain:hover .pdFlyer, .pdFoot .flyAgain:focus-visible .pdFlyer { filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .18)); }
+.pdFoot .flyAgain:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 4px; border-radius: 8px; }
+@media (prefers-reduced-motion: no-preference) {
+  .pdFoot .flyAgain:hover .pdFlyer, .pdFoot .flyAgain:focus-visible .pdFlyer { animation: faWobble 1s ease-in-out infinite; }
+  .pdFoot .flyAgain.taking .pdFlyer { animation: faTakeOff .7s cubic-bezier(.45, 0, .9, .5) forwards; }
+  .pdFoot .flyAgain.taking .pdTrail { animation: faTrail .7s ease-out forwards; }
+}
+@keyframes faWobble { 0%, 100% { translate: 0 0; } 50% { translate: 3px -4px; } }
+@keyframes faTakeOff { to { translate: 260px -180px; scale: .5; opacity: 0; } }
+@keyframes faTrail { to { opacity: .25; } }
+.pdFoot .flyAgain svg { overflow: visible; }
+/* Decorations ignore the mouse; this plane does not. */
+.pdFoot .flyAgain .pdFlyer { pointer-events: bounding-box; }

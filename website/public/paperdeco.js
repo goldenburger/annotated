@@ -225,6 +225,8 @@ var PaperDeco = (() => {
       () => svg(170, 90, stack(10, 12, -4, .62) + plane(90, 10, -12, .6)),
     ])(),
   };
+  // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
+  ART.flyTrail = () => svg(220, 90, TRAILS[Math.floor(Math.random() * 3)](220, 90).replace(/(<g transform="[^"]*">)(?![\s\S]*<g transform)([\s\S]*<\/g>)/, '<g class="pdFlyer">$1$2</g>'));
   const make = (name, cls = '') => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](); return d; };
 
   // The margins of a full page (feed, profile, an annotation): something low on the left, something high on the

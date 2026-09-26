@@ -998,6 +998,12 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   12), where it was Elon Musk's of Sep 24, and "Use the whole post" keeps a space between paragraphs (`quoteText` treats
   a range on an element holding several blocks as several). The takes are written to
   take no side, the readers are made up, all marked Example, and no like or view counts are shown.
+- **The recording of 2026-09-26 at 03:37** (`tests/walk2323.py`). The examples under Other things it does fly at most once an
+  hour (`annotated-features-flown` in localStorage holds when they last flew), where once a browser visit left a tab that
+  reloaded itself onto a new release with none. The plane at the end of the trail at the foot of the home page is a
+  button (`footTrail` in `landing.js`, `PaperDeco.ART.flyTrail`, its plane wrapped in `.pdFlyer`, the one decoration
+  that takes the mouse): it bobs on hover and, pressed, flies off, then the page plays its flights again from the top,
+  the examples included. Only while the planes are on; otherwise the trail is a plain drawing.
 - **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
   Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a
   row emptied before then read as a visitor with nothing made. `tryit.js` counts what the row held when the page
