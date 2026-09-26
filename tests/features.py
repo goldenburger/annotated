@@ -66,7 +66,7 @@ async def main():
     shown2 = await pg.evaluate("({ n: [...document.querySelectorAll('.ftFY')].filter((c) => !c.hidden).length, why: document.querySelector('.ftFY:nth-child(2) .ftWhy').textContent.trim() })")
     print('7.', rec['whys'], len(set(rec['links'])), 'posts linked | Following holds', shown1, 'then', shown2)
     if len(rec['whys']) != 3 or not all(rec['whys']): errs.append(f'the For you cards do not say why: {rec["whys"]}')
-    if len(set(rec['links'])) != 3 or rec['brief'] or rec['deleted'] or not rec['card']: errs.append(f'the examples do not quote the real posts: {rec}')
+    if len(set(rec['links'])) < 3 or rec['brief'] or rec['deleted'] or not rec['card']: errs.append(f'the examples do not quote the real posts: {rec}')
     if shown1 != 1 or shown2['n'] != 2 or shown2['why'] != 'You follow Priya': errs.append(f'Following and Follow did not work: {shown1} {shown2}')
     if not {'Invite by email', 'Works offline', 'Drafts are kept', 'Trending and people to follow'} <= set(rec['chips']): errs.append(f"chips missing: {rec['chips']}")
     # 8. The Post on X tab shows the post as a screenshot, an embed or both.

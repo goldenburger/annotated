@@ -831,3 +831,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .ftFollow[aria-pressed="true"] { background: var(--newsprint); }
 .ftFYNote[hidden] { display: none; }
 .ftMake > .ftRPost { margin-bottom: 12px; }
+/* A post it quotes, under the post (Elon Musk's "Dario is right" quotes Dario Amodei). */
+.ftRQuoted { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; display: grid; gap: 6px; color: var(--ink); text-decoration: none; }
+.ftRQuoted:hover { border-color: var(--ink-3); }
+.ftRQuoted .ftRText { margin: 0; font-size: 13.5px; }

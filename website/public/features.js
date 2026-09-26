@@ -5,28 +5,37 @@
 //   2. Every annotation gets its own page: a finished page, with reactions, a reply box and File a claim that work.
 //   3. Clip podcasts from Spotify: found by name in Apple's directory, cut from the show's own file.
 //   4. For you, and why: a feed of annotations of real posts, each saying why it is there.
-// The examples quote real public posts on X, word for word as X shows them, each linked (David, 2026-09-25: every
-// example quoted the same line of the brief). The takes are ours and marked Example; no like or view counts are
-// shown, since those change. "If the post gets deleted" was taken out at David's word the same day.
+// The examples are one real debate, the pace of AI and whether models should be open, in the words of the people in
+// it: Jensen Huang's first post, Elon Musk's "Dario is right", Dwarkesh Patel, and Anthropic's own statement (David,
+// 2026-09-25: examples matter, and every example quoted the same line of the brief). Each is quoted word for word from
+// X or anthropic.com and linked. The takes are ours, written to take no side, and marked Example; no like or view
+// counts are shown, since those change. "If the post gets deleted" was taken out at David's word the same day.
 var Features = (() => {
   const icon = (n) => (typeof Brand !== 'undefined' ? Brand.icon(n) : '');
   const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const POSTS = {
-    jason: { name: 'jason', handle: '@Jason', date: 'Sep 19, 2026', url: 'https://x.com/Jason/status/2101344059906314387',
-      before: 'We are offering five PAID, full-time slots in our Associate-in-training program. This program is for the most driven fanatics, out of school (or sometimes, but rarely, career-changing), ',
-      quote: 'who want to work 60/70+ hours a week to become legendary venture capitalists', after: " — and who don't want to wait in line." },
-    tim: { name: "Tim O'Reilly", handle: '@timoreilly', date: 'Sep 24, 2026', url: 'https://x.com/timoreilly/status/2103245779489972264',
-      before: 'This says a lot about "the frontier wins everything" narrative. ',
-      quote: "We have planes that fly 3x the speed of sound but airlines don't use them.", after: ' We have cars that go hundreds of miles an hour, but we just use them for racing, not for ordinary driving.' },
-    sawyer: { name: 'Sawyer Merritt', handle: '@SawyerMerritt', date: 'Sep 25, 2026', url: 'https://x.com/SawyerMerritt/status/2103612173687861404',
-      before: 'SpaceXAI has just introduced Grok @Bot Creator Rewards! … In the last two weeks, ',
-      quote: 'I’ve earned $500 in rewards', after: ' due to people using my Home Robots template 🔥' },
+    jensen: { name: 'Jensen Huang', handle: '@JensenHuang', date: 'Jul 24, 2026', url: 'https://x.com/JensenHuang/status/2080643682408321103',
+      before: 'For my first post, I’m sharing a letter @NVIDIA signed on why open models matter. AI will transform every industry, power every company, and be built by every country. Open models strengthen safety and cybersecurity, accelerate innovation and diffusion, and enable sovereignty. ',
+      quote: 'The world needs both frontier closed models and frontier open models.', after: '' },
+    jensenSafety: { name: 'Jensen Huang', handle: '@JensenHuang', date: 'Jul 24, 2026', url: 'https://x.com/JensenHuang/status/2080643682408321103',
+      quote: 'Open models strengthen safety and cybersecurity' },
+    elon: { name: 'Elon Musk', handle: '@elonmusk', date: 'Sep 12, 2026', url: 'https://x.com/elonmusk/status/2098789109980332057',
+      before: '', quote: 'Dario is right', after: '',
+      quoted: { name: 'Dario Amodei', handle: '@DarioAmodei', date: 'Sep 12, 2026', url: 'https://x.com/DarioAmodei/status/2098773920774074715',
+        text: 'We Must Pace the Frontier: I’ve written a new essay on why the AI industry should slow down, with a three-part plan for doing so.' } },
+    dwarkesh: { name: 'Dwarkesh Patel', handle: '@dwarkesh_sp', date: 'Sep 17, 2026', url: 'https://x.com/dwarkesh_sp/status/2100691266405298647',
+      quote: 'labs will just stop externally deploying their models' },
+    anthropic: { name: 'Anthropic', site: 'anthropic.com', title: "Anthropic's Position on Open-Weights Models", date: 'Jul 27, 2026', url: 'https://www.anthropic.com/news/position-open-weights-models',
+      quote: "Open-weights models that don't have dangerous capabilities are a public good." },
   };
-  // A post as it reads on X, with the quoted words marked. Words, name and handle only, and a link to the real post.
+  // A post as it reads on X, with the quoted words marked, and the post it quotes under it. Words, name and handle
+  // only, and a link to the real post.
   const post = (p, cls = '') => `<div class="ftRPost ${cls}"><div class="ftRHead"><span class="ftAv" aria-hidden="true">${esc(p.name[0].toUpperCase())}</span><span><b>${esc(p.name)}</b> <span class="ftDot">${esc(p.handle)} · ${esc(p.date)}</span></span><a class="ftXLink" href="${p.url}" target="_blank" rel="noopener" aria-label="See the post on X">${icon('x')}</a></div>
-    <p class="ftRText">${esc(p.before)}<mark>${esc(p.quote)}</mark>${esc(p.after)}</p></div>`;
-  const srcLine = (p) => `${icon('x')} ${esc(p.name)} on X`;
+    <p class="ftRText">${esc(p.before)}<mark>${esc(p.quote)}</mark>${esc(p.after)}</p>
+    ${p.quoted ? `<a class="ftRQuoted" href="${p.quoted.url}" target="_blank" rel="noopener"><span class="ftRHead"><span class="ftAv" aria-hidden="true">${esc(p.quoted.name[0])}</span><span><b>${esc(p.quoted.name)}</b> <span class="ftDot">${esc(p.quoted.handle)} · ${esc(p.quoted.date)}</span></span></span><span class="ftRText">${esc(p.quoted.text)}</span></a>` : ''}</div>`;
+  // Where a quote came from: a post on X, or a page on the web (Anthropic's statement is an article).
+  const srcLine = (p) => (p.site ? `${icon('article')} ${esc(p.name)}, ${esc(p.site)}` : `${icon('x')} ${esc(p.name)} on X`);
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
   const EMOJI = ['👍', '🔥', '🤔', '😂'];
   const MORE = [
@@ -67,19 +76,19 @@ var Features = (() => {
       title: 'Tags, polls and reactions',
       lead: 'Tag a take as a fact check or a hot take, add a poll, and let people react with an emoji. Try it here.',
       body: `<div class="ftMake">
-          ${post(POSTS.jason, 'ftSmall')}
+          ${post(POSTS.jensen, 'ftSmall')}
           <label class="ftLbl" for="ftTake">Your take</label>
-          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Seven days a week for two years. Who is this really for?</textarea>
+          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Both, he says. The argument is over where the line between them goes.</textarea>
           <div class="ftTags" role="radiogroup" aria-label="Tag">${TAGS.map((t) => `<button type="button" class="ftTag" role="radio" aria-checked="false">${t}</button>`).join('')}</div>
           <button type="button" class="ftPollBtn" aria-expanded="false">${icon('poll')} Add a poll</button>
-          <div class="ftPollEdit" hidden><input class="ftPq" maxlength="80" value="Would you take this job?" aria-label="Poll question"></div>
+          <div class="ftPollEdit" hidden><input class="ftPq" maxlength="80" value="Should the most capable models be open?" aria-label="Poll question"></div>
         </div>
         <div class="ftCard" aria-live="polite">
           <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut" hidden></span></p>
           <p class="ftTakeOut"></p>
           <div class="ftPoll" hidden><p class="ftPollQ"></p><div class="ftChoices"></div></div>
-          <blockquote class="ftQ ftQs"><mark>${esc(POSTS.jason.quote)}</mark></blockquote>
-          <p class="ftSrc">${srcLine(POSTS.jason)}</p>
+          <blockquote class="ftQ ftQs"><mark>${esc(POSTS.jensen.quote)}</mark></blockquote>
+          <p class="ftSrc">${srcLine(POSTS.jensen)}</p>
           <div class="ftReact">${EMOJI.map((e) => `<button type="button" class="ftR" aria-pressed="false"><span>${e}</span><b>0</b></button>`).join('')}</div>
         </div>`,
     });
@@ -97,7 +106,7 @@ var Features = (() => {
     const drawPoll = () => {
       // The choices are in the card only; the editor holds the question, where both showed them twice (recording
       // of 2026-09-25 at 15:38, 2:53).
-      const q = d.querySelector('.ftPq').value.trim(), opts = ['Yes, sign me up', 'No, thanks'];
+      const q = d.querySelector('.ftPq').value.trim(), opts = ['Yes, open them', 'No, keep them closed'];
       d.querySelector('.ftPollQ').textContent = q || 'Your question';
       const total = votes[0] + votes[1];
       const box = d.querySelector('.ftChoices'); box.innerHTML = '';
@@ -131,10 +140,10 @@ var Features = (() => {
       title: 'Every annotation gets its own page',
       lead: 'You get a link you can share. People can reply and react, and anyone can file a claim if an annotation gets something wrong. The original is linked right there.',
       body: `<div class="ftPage">
-          <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut">Steelman</span></p>
-          <p class="ftTakeOut">The best answer yet to "the frontier wins everything". Fast isn't what people pay for.</p>
-          ${post(POSTS.tim)}
-          <p class="ftSrcRow"><span>${srcLine(POSTS.tim)}</span><a class="link" href="${POSTS.tim.url}" target="_blank" rel="noopener">See the post on X ${icon('external')}</a></p>
+          <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut">Receipts</span></p>
+          <p class="ftTakeOut">Musk and Amodei agreeing on the pace of AI. Worth keeping for later.</p>
+          ${post(POSTS.elon)}
+          <p class="ftSrcRow"><span>${srcLine(POSTS.elon)}</span><a class="link" href="${POSTS.elon.url}" target="_blank" rel="noopener">See the post on X ${icon('external')}</a></p>
           <div class="ftBar2"><div class="ftReact">${EMOJI.map((e) => `<button type="button" class="ftR" aria-pressed="false"><span>${e}</span><b>0</b></button>`).join('')}</div>
             <button type="button" class="ftClaim">${icon('flag')} File a claim</button></div>
           <form class="ftClaimForm" hidden><label for="ftWhy">What is wrong with it?</label><select id="ftWhy"><option>The quote is not in the source</option><option>It is misleading</option><option>It is mine and was used without permission</option><option>Something else</option></select>
@@ -143,8 +152,8 @@ var Features = (() => {
           <ul class="ftComments"></ul>
         </div>
         <div class="ftShare"><p class="ftLbl">How the link looks when you post it on X</p>
-          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">The best answer yet to "the frontier wins everything". Fast isn't what people pay for.</span><span class="ftXFrom">${srcLine(POSTS.tim)}</span></div>
-            <p class="ftXMeta"><span>annotated-app.netlify.app</span><b>“Fast isn't what people pay for.” on annotated</b></p></div></div>`,
+          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">Musk and Amodei agreeing on the pace of AI. Worth keeping for later.</span><span class="ftXFrom">${srcLine(POSTS.elon)}</span></div>
+            <p class="ftXMeta"><span>annotated-app.netlify.app</span><b>“Worth keeping for later.” on annotated</b></p></div></div>`,
     });
     d.querySelectorAll('.ftR').forEach((b) => b.addEventListener('click', () => {
       const on = b.getAttribute('aria-pressed') !== 'true';
@@ -238,9 +247,9 @@ var Features = (() => {
   // readers who made them are made up and the takes are ours, so the whole row is marked Example; the posts are real.
   function forYou(root) {
     const CARDS = [
-      { who: 'Sam', why: 'You follow Sam', tag: 'Steelman', take: 'Supersonic planes exist and nobody flies them. A good check on the hype.', p: POSTS.tim },
-      { who: 'Priya', why: 'Popular this week', tag: 'Hot take', take: 'Seven days a week for two years. Is this a job or a dare?', p: POSTS.jason },
-      { who: 'Leo', why: 'You annotated this post too', tag: 'Fact check', take: '$500 in two weeks from one template. How many people used it to earn that?', p: POSTS.sawyer },
+      { who: 'Sam', why: 'You follow Sam', tag: 'Steelman', take: 'A fair worry. If the strongest models stay inside the labs, who gets to check them?', p: POSTS.dwarkesh },
+      { who: 'Priya', why: 'Popular this week', tag: 'Explainer', take: 'Not a ban, then. The actual asks are chips, distillation and safety testing.', p: POSTS.anthropic },
+      { who: 'Leo', why: 'You annotated this post too', tag: 'Fact check', take: 'Safer because open is the claim. What evidence would settle it either way?', p: POSTS.jensenSafety },
     ];
     const d = row(root, {
       title: 'For you, and why',

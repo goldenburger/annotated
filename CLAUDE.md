@@ -990,9 +990,11 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `features.js` and `landing.js`. The Bash tool turns `\b` in a heredoc into that character, so edit such lines with the
   Edit tool. At David's word, "If the post gets deleted" became **For you, and why** (three example readers' annotations,
   each with its reason, For you and Following tabs, Follow that changes both), and the examples quote real public posts
-  on X, word for word and linked: Jason's Associate-in-training post (Sep 19), Tim O'Reilly's "planes that fly 3x the
-  speed of sound" (Sep 24) and Sawyer Merritt's Grok creator rewards (Sep 25). The takes and readers are ours and marked
-  Example, and no like or view counts are shown.
+  on X, word for word and linked. In 2.33.24, at David's choice, they became one debate about the pace of AI and open
+  models: Jensen Huang's first post (Jul 24, the open-weights letter), Elon Musk's "Dario is right" quoting Dario Amodei's
+  "We Must Pace the Frontier" (Sep 12), Dwarkesh Patel on labs no longer deploying during RSI (Sep 17), and Anthropic's
+  position statement on open-weights models (Jul 27, quoted as an article from anthropic.com). The takes are written to
+  take no side, the readers are made up, all marked Example, and no like or view counts are shown.
 - **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
   Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a
   row emptied before then read as a visitor with nothing made. `tryit.js` counts what the row held when the page
