@@ -993,7 +993,10 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   on X, word for word and linked. In 2.33.24, at David's choice, they became one debate about the pace of AI and open
   models: Jensen Huang's first post (Jul 24, the open-weights letter), Elon Musk's "Dario is right" quoting Dario Amodei's
   "We Must Pace the Frontier" (Sep 12), Dwarkesh Patel on labs no longer deploying during RSI (Sep 17), and Anthropic's
-  position statement on open-weights models (Jul 27, quoted as an article from anthropic.com). The takes are written to
+  position statement on open-weights models (Jul 27, quoted as an article from anthropic.com), and in 2.33.25 Demis
+  Hassabis backing Dario's essay (Sep 12). The Post on X tab became Dario Amodei's "We Must Pace the Frontier" post (Sep
+  12), where it was Elon Musk's of Sep 24, and "Use the whole post" keeps a space between paragraphs (`quoteText` treats
+  a range on an element holding several blocks as several). The takes are written to
   take no side, the readers are made up, all marked Example, and no like or view counts are shown.
 - **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
   Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a

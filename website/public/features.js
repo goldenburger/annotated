@@ -6,7 +6,7 @@
 //   3. Clip podcasts from Spotify: found by name in Apple's directory, cut from the show's own file.
 //   4. For you, and why: a feed of annotations of real posts, each saying why it is there.
 // The examples are one real debate, the pace of AI and whether models should be open, in the words of the people in
-// it: Jensen Huang's first post, Elon Musk's "Dario is right", Dwarkesh Patel, and Anthropic's own statement (David,
+// it: Jensen Huang's first post, Elon Musk's "Dario is right", Dwarkesh Patel, and Anthropic's own statement, and Demis Hassabis (David,
 // 2026-09-25: examples matter, and every example quoted the same line of the brief). Each is quoted word for word from
 // X or anthropic.com and linked. The takes are ours, written to take no side, and marked Example; no like or view
 // counts are shown, since those change. "If the post gets deleted" was taken out at David's word the same day.
@@ -18,8 +18,8 @@ var Features = (() => {
     jensen: { name: 'Jensen Huang', handle: '@JensenHuang', date: 'Jul 24, 2026', url: 'https://x.com/JensenHuang/status/2080643682408321103',
       before: 'For my first post, I’m sharing a letter @NVIDIA signed on why open models matter. AI will transform every industry, power every company, and be built by every country. Open models strengthen safety and cybersecurity, accelerate innovation and diffusion, and enable sovereignty. ',
       quote: 'The world needs both frontier closed models and frontier open models.', after: '' },
-    jensenSafety: { name: 'Jensen Huang', handle: '@JensenHuang', date: 'Jul 24, 2026', url: 'https://x.com/JensenHuang/status/2080643682408321103',
-      quote: 'Open models strengthen safety and cybersecurity' },
+    demis: { name: 'Demis Hassabis', handle: '@demishassabis', date: 'Sep 12, 2026', url: 'https://x.com/demishassabis/status/2098909516582490602',
+      quote: "Dario's essay points towards the right path forward." },
     elon: { name: 'Elon Musk', handle: '@elonmusk', date: 'Sep 12, 2026', url: 'https://x.com/elonmusk/status/2098789109980332057',
       before: '', quote: 'Dario is right', after: '',
       quoted: { name: 'Dario Amodei', handle: '@DarioAmodei', date: 'Sep 12, 2026', url: 'https://x.com/DarioAmodei/status/2098773920774074715',
@@ -249,7 +249,7 @@ var Features = (() => {
     const CARDS = [
       { who: 'Sam', why: 'You follow Sam', tag: 'Steelman', take: 'A fair worry. If the strongest models stay inside the labs, who gets to check them?', p: POSTS.dwarkesh },
       { who: 'Priya', why: 'Popular this week', tag: 'Explainer', take: 'Not a ban, then. The actual asks are chips, distillation and safety testing.', p: POSTS.anthropic },
-      { who: 'Leo', why: 'You annotated this post too', tag: 'Fact check', take: 'Safer because open is the claim. What evidence would settle it either way?', p: POSTS.jensenSafety },
+      { who: 'Leo', why: 'Someone you follow joined in', tag: 'Fact check', take: 'Right direction, he says. Has Google DeepMind signed up to the same first step?', p: POSTS.demis },
     ];
     const d = row(root, {
       title: 'For you, and why',

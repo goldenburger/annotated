@@ -38,7 +38,10 @@ var ArticleCore = (() => {
   const quoteText = (r) => {
     const s = r.startContainer, e = r.endContainer;
     const bs = (s.nodeType === 1 ? s : s.parentElement), be = (e.nodeType === 1 ? e : e.parentElement);
-    if (bs && be && (bs.closest(GROUP) || bs) === (be.closest(GROUP) || be)) return norm(rangeText(r));
+    // A range that starts and ends on an element holding several blocks (a whole post taken at once) is several
+    // blocks, not one: it read "doing so.Anthropic is" with the paragraphs run together (2026-09-25).
+    const holdsBlocks = s.nodeType === 1 && s.querySelector && s.querySelectorAll(GROUP).length > 1;
+    if (!holdsBlocks && bs && be && (bs.closest(GROUP) || bs) === (be.closest(GROUP) || be)) return norm(rangeText(r));
     try { return blockText(r) || norm(rangeText(r)); } catch { return norm(rangeText(r)); }
   };
 

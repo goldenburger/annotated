@@ -80,7 +80,7 @@ var SceneTry = (() => {
     }
     if (how !== 'screenshot') {
       const em = document.createElement('blockquote'); em.className = 'stEmbed';
-      em.innerHTML = `<p class="stEmbedWho">${icon('x')} <b>Elon Musk</b> <span>@elonmusk · Sep 24, 2026</span></p><p class="stEmbedText"></p><a class="link" href="${POST_URL}" target="_blank" rel="noopener">See the post on X</a>`;
+      em.innerHTML = `<p class="stEmbedWho">${icon('x')} <b>${POST_WHO.name}</b> <span>${POST_WHO.handle} · ${POST_WHO.date}</span></p><p class="stEmbedText"></p><a class="link" href="${POST_URL}" target="_blank" rel="noopener">See the post on X</a>`;
       const pt = root.querySelector('.stPostText');
       em.querySelector('.stEmbedText').textContent = pt ? (pt.children.length ? [...pt.children].map((x) => ArticleCore.norm(x.textContent)).join(' ') : ArticleCore.norm(pt.textContent)) : '';
       box.appendChild(em);
@@ -384,12 +384,14 @@ var SceneTry = (() => {
   };
   const xi = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${XI[k]}</svg>`;
   const XACTS = `<span>${xi('reply')}</span><span>${xi('repost')}</span><span>${xi('like')}</span><span>${xi('views')}</span><span class="xEnd">${xi('save')}${xi('share')}</span>`;
-  const POST_URL = 'https://x.com/elonmusk/status/2103160462472892536';
+  // Dario Amodei's post of September 12, 2026, the one that started the week's argument about slowing AI down (David's
+  // choice, 2026-09-25; it was Elon Musk's of September 24). Word for word as X shows it, with the essay it links.
+  const POST_URL = 'https://x.com/DarioAmodei/status/2098773920774074715';
+  const POST_WHO = { name: 'Dario Amodei', handle: '@DarioAmodei', date: 'Sep 12, 2026', initial: 'D' };
   const POST_TEXT = [
-    '1. We will keep accelerating. Our AI efforts are only 3 years old, vs 6 and 10 years old for Anthropic and OpenAI. If our second derivative remains strong, SpaceX will reach pole position in about 6 months.',
-    '2. Once you far exceed the caliber of intelligence needed for a class of tasks, additional intelligence is pointless. You don’t need (and it would be cruel to put) Newton-level intelligence in your toaster!',
-    '3. Hardware is hard. Bringing massive compute online rapidly is incredibly difficult. SpaceX has demonstrated exceptional ability in this regard and will only get better.',
-  ].map((t) => `<p>${t}</p>`).join('');
+    'We Must Pace the Frontier: I’ve written a new essay on why the AI industry should slow down, with a three-part plan for doing so.',
+    'Anthropic is unilaterally committing to the first of these steps. We’ll provide third-party evaluators with permanent, employee-level access to our systems, so that they can verify adherence to our safety measures, report on incidents, and assess models’ alignment during training.',
+  ].map((t) => `<p>${t}</p>`).join('') + '<p>You can read the full post here: <a href="https://darioamodei.com/post/we-must-pace-the-frontier" target="_blank" rel="noopener">darioamodei.com/post/we-must-p…</a></p>';
 
   const SCENES = {
     article: (root) => words(root, { kind: 'article', source: 'An example article', kindIcon: 'article', forMe: 'The council voted 7 to 2 to run buses through the night on three routes.',
@@ -407,15 +409,14 @@ var SceneTry = (() => {
       source: 'NASA, Houston We Have a Podcast: So You Want to be an Astronaut? (11:04)',
       media: { src: '/media/astronaut.mp3', peaks: '/media/astronaut-peaks.json',
         credit: { text: 'Houston We Have a Podcast: So You Want to be an Astronaut?', site: 'NASA, public domain', href: 'https://www.nasa.gov/podcasts/houston-we-have-a-podcast/so-you-want-to-be-an-astronaut/' } } }),
-    // A real post (David, 2026-09-25): Elon Musk's of September 24, 2026, word for word as X's own embed gives it,
-    // with his name, handle and date and a link to the post. No view, like or repost numbers, since the real
-    // ones are not known here and made-up ones would be data that is not true.
-    post: (root) => words(root, { kind: 'post', source: 'Elon Musk on X', kindIcon: 'post', whole: 'Use the whole post', forMe: 'Hardware is hard.',
-      html: `<div class="stPost stX"><div class="xHead"><span class="stAv" aria-hidden="true">E</span>
-          <span class="xWho"><b>Elon Musk</b><span class="xHandle">@elonmusk</span></span>
+    // A real post, word for word, with its author's name, handle and date and a link to the post. No view, like or
+    // repost numbers, since the real ones change and made-up ones would be data that is not true.
+    post: (root) => words(root, { kind: 'post', source: `${POST_WHO.name} on X`, kindIcon: 'post', whole: 'Use the whole post', forMe: 'Anthropic is unilaterally committing to the first of these steps.',
+      html: `<div class="stPost stX"><div class="xHead"><span class="stAv" aria-hidden="true">${POST_WHO.initial}</span>
+          <span class="xWho"><b>${POST_WHO.name}</b><span class="xHandle">${POST_WHO.handle}</span></span>
           <a class="xMark" href="${POST_URL}" target="_blank" rel="noopener" aria-label="See the post on X" title="See the post on X">${typeof Brand !== 'undefined' ? Brand.icon('x') : ''}</a></div>
         <div data-annotated-self><div class="stPostText">${POST_TEXT}</div></div>
-        <p class="xTime"><a href="${POST_URL}" target="_blank" rel="noopener">Sep 24, 2026</a></p>
+        <p class="xTime"><a href="${POST_URL}" target="_blank" rel="noopener">${POST_WHO.date}</a></p>
         <div class="xActs" aria-hidden="true">${XACTS}</div></div>` }),
   };
 
