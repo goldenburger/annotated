@@ -297,7 +297,7 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. Make one above.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. <button type="button" class="link llMake">Make one above</button>.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
@@ -388,6 +388,9 @@ var Landing = (() => {
   }
   // "See it", wherever it is offered: to Latest on annotated, where yours is.
   document.addEventListener('click', (e) => {
+    // "Make one above", after Clear all: up to the try-it, which is off screen by then (2026-09-26 at 04:06, 2:04).
+    const mk = e.target.closest && e.target.closest('.llMake');
+    if (mk) { const t = document.querySelector('.heroTry, .tryit'); if (t) t.scrollIntoView({ behavior: still() ? 'auto' : 'smooth', block: 'center' }); return; }
     const b = e.target.closest && e.target.closest('.seeYours');
     if (!b) return;
     const row = document.querySelector('.landLatest .llRow');
@@ -463,10 +466,13 @@ var Landing = (() => {
     b.innerHTML = PaperDeco.ART.flyTrail();
     b.addEventListener('click', () => {
       if (b.classList.contains('taking')) return;
-      try { localStorage.removeItem('annotated-features-flown'); sessionStorage.removeItem('annotated-example-shown'); } catch {}
+      // Everything flies again, the brief's opening included, which has its own once-a-visit mark (recording of
+      // 2026-09-26 at 04:06, 0:42, where only the examples below flew).
+      try { localStorage.removeItem('annotated-features-flown'); ['annotated-example-shown', 'annotated-plane-seen'].forEach((k) => sessionStorage.removeItem(k)); } catch {}
       b.classList.add('taking');
       if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-      setTimeout(() => { scrollTo(0, 0); location.reload(); }, 700);
+      // Straight to the top, not a glide up through every section, which took two and a half seconds (0:39).
+      setTimeout(() => { scrollTo({ top: 0, behavior: 'instant' }); location.reload(); }, 700);
     });
     return b;
   }

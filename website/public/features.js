@@ -247,7 +247,7 @@ var Features = (() => {
   // readers who made them are made up and the takes are ours, so the whole row is marked Example; the posts are real.
   function forYou(root) {
     const CARDS = [
-      { who: 'Sam', why: 'You follow Sam', tag: 'Steelman', take: 'A fair worry. If the strongest models stay inside the labs, who gets to check them?', p: POSTS.dwarkesh },
+      { who: 'Sam', why: 'You follow Sam', otherwise: 'Talked about in AI this week', tag: 'Steelman', take: 'A fair worry. If the strongest models stay inside the labs, who gets to check them?', p: POSTS.dwarkesh },
       { who: 'Priya', why: 'Popular this week', tag: 'Explainer', take: 'Not a ban, then. The actual asks are chips, distillation and safety testing.', p: POSTS.anthropic },
       { who: 'Leo', why: 'Someone you follow joined in', tag: 'Fact check', take: 'Right direction, he says. Has Google DeepMind signed up to the same first step?', p: POSTS.demis },
     ];
@@ -278,7 +278,9 @@ var Features = (() => {
       const on = b.getAttribute('aria-pressed') !== 'true';
       b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'Following' : 'Follow';
       const card = b.closest('.ftFY'), c = CARDS[+card.dataset.i];
-      card.querySelector('.ftWhy span').textContent = on ? `You follow ${c.who}` : (+card.dataset.i === 0 ? 'Popular this week' : c.why);
+      // Unfollowed, a card gives a reason of its own, not one the card beside it already gives (recording of
+      // 2026-09-26 at 04:06, 2:34, where Sam's became Priya's "Popular this week").
+      card.querySelector('.ftWhy span').textContent = on ? `You follow ${c.who}` : (c.otherwise || c.why);
       draw();
     }));
   }

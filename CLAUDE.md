@@ -1004,6 +1004,12 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   button (`footTrail` in `landing.js`, `PaperDeco.ART.flyTrail`, its plane wrapped in `.pdFlyer`, the one decoration
   that takes the mouse): it bobs on hover and, pressed, flies off, then the page plays its flights again from the top,
   the examples included. Only while the planes are on; otherwise the trail is a plain drawing.
+- **The recording of 2026-09-26 at 04:06** (`tests/walk0406.py`). The foot's plane clears the brief's own once-a-visit mark
+  (`annotated-plane-seen`) too, so the opening flight plays again, and it goes to the top at once rather than gliding up.
+  The panel's way back names our own full pages "your profile page" and "the feed page" (`cleanTitle`). A For you card
+  unfollowed gives its own reason (`otherwise`), not the one beside it. After Clear all, "Make one above" scrolls up to the
+  try-it. A jump to the headline a second after Clear all at 2:05 could not be reproduced: in a test Clear all leaves the
+  page where it was.
 - **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
   Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a
   row emptied before then read as a visitor with nothing made. `tryit.js` counts what the row held when the page

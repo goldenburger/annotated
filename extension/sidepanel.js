@@ -1073,6 +1073,10 @@ const cleanTitle = (t) => {
   // A post on X is titled with its whole text ("Sawyer Merritt on X: "Motortrend after…"), which the way back cut
   // off mid word (recording of 2026-09-25 at 15:38, 3:47). It is called what it is.
   if (/^.{1,80}? on X: [“"]/.test(s)) return 'the post on X';
+  // Our own full pages are named as pages: "Back to Your profile" under the heading Your profile read as a loop
+  // (recording of 2026-09-26 at 04:06, 1:46).
+  if (/^your profile$/i.test(s)) return 'your profile page';
+  if (/^feed$/i.test(s)) return 'the feed page';
   return s;
 };
 // A tab with nothing to annotate and no page of ours: a new tab, a blank page, a browser page.
