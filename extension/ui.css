@@ -1501,7 +1501,7 @@ body.signedOut .steps .stSave { display: inline; }
 .card.mf .cbody { gap: 8px; }
 .card.mf .ctake { font-size: 22px; line-height: 1.3; }
 @container (max-width: 560px) { .card.mf .ctake { font-size: 19px; } }
-.cthumb.cwide { display: block; width: 100%; max-width: 100%; margin: 4px 0 2px; border-radius: var(--r-m); background: #0E1014; }
+.cthumb.cwide { display: block; width: 100%; max-width: 100%; margin: 4px 0 2px; border-radius: var(--r-m); background: var(--paper, #F2EEE2); }
 .cthumb.cwide img { width: 100%; aspect-ratio: 16 / 9; max-height: 340px; object-fit: cover; border-radius: 0; }
 /* A saved post keeps its own shape, only its foot cut when it is tall. Filled to a fixed shape, a short wide post
    lost both sides ("M · Sep 25" and "View qu", UX audit of 2026-09-25). */
@@ -1574,9 +1574,12 @@ body.embedded > .brand .wmPlane { display: none; }
 /* "Publishing…" where the take was, while its plane flies off (panel-kit.js sendOff). */
 .flyNote { margin: 0; z-index: 5; text-align: center; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-3); pointer-events: none; }
 /* A picture still loading shows a light placeholder, not a black box (recording of 2026-09-25 at 04:27, 0:26).
-   A clip keeps its dark frame, which is what a video looks like before it plays. */
+   A clip waits on the light placeholder too, until its picture arrives: the dark frame read as a black box for a
+   second on the website's profile (recording of 2026-09-25 at 23:23, 2:51). */
 .cthumb { background: var(--paper, #F2EEE2); }
-.cthumb.cprev, .cthumb.caudio { background: #000; }
+.cthumb.caudio { background: #000; }
+/* A filter with nothing in it is drawn faint (annotation-page.js). */
+.feedFilter label.zero span { opacity: .45; }
 /* Your own profile's foot: Delete all and Sign out, after your annotations (annotation-page.js). */
 .profileFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 8px; padding-top: 16px; border-top: 1px solid var(--rule); }
 .profileFoot:empty { display: none; }

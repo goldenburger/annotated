@@ -797,8 +797,9 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 :root[data-theme="dark"] .heroTry .tiBar, :root[data-theme="dark"] .heroTry .stBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; }
 /* The row of smaller features arrives as a small flock (features.js): hidden until it comes into view, each chip
    waiting unseen until its plane has opened, then popping into place. */
-.ftChips.ftFlock { visibility: hidden; }
-.ftChips li.ftChipWait { opacity: 0; transform: translateY(6px) scale(.9); }
+/* Waiting chips are faint rather than gone, so the row never reads as missing (recording of 2026-09-25 at 23:23). */
+.ftChips.ftFlock li { opacity: .22; }
+.ftChips li.ftChipWait { opacity: .22; transform: translateY(4px) scale(.96); }
 .ftChips li { transition: opacity .25s ease, transform .35s cubic-bezier(.2, 1.4, .4, 1); }
 @media (prefers-reduced-motion: reduce) { .ftChips li { transition: none; } }
 /* The home page ends on the desk (paperdeco.js): a pile of planes, one flying off on its dashed trail, a sheet. */
@@ -808,3 +809,25 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .pdFoot .pd-trail svg { width: min(100%, 300px); height: auto; }
 .pdFoot .pd-sheet svg { width: 120px; height: auto; transform: translateY(12px); }
 @media (max-width: 760px) { .pdFoot .pd-trail { display: none; } .pdFoot .pd-pile svg { width: 170px; } .pdFoot .pd-sheet svg { width: 84px; } }
+
+/* The examples quote real posts on X (features.js, 2026-09-25). A post as it reads on X, smaller in the take box. */
+.ftRPost.ftSmall { padding: 10px 12px; }
+.ftRPost.ftSmall .ftRText { font-size: 13.5px; }
+.ftXLink { margin-left: auto; display: inline-flex; color: var(--ink-2); }
+.ftXLink .ic { width: 15px; height: 15px; }
+.ftXLink:hover { color: var(--ink); }
+.ftQs { font-size: 14px; }
+.ftSrc a.link { display: inline-flex; align-items: center; gap: 6px; color: inherit; }
+/* For you, and why. */
+.ftTabs { display: flex; gap: 6px; }
+.ftTabs [role="tab"] { font: 500 12.5px/1 var(--sans); color: var(--ink-2); background: var(--paper); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.ftTabs [role="tab"][aria-selected="true"] { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+.ftFeed { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.ftFY[hidden] { display: none; }
+.ftWhy { margin: 0; display: flex; align-items: center; gap: 6px; font: 500 12px/1.3 var(--sans); color: var(--ink-3); }
+.ftWhy .ic { width: 13px; height: 13px; }
+.ftFY .ftMeta .ftTagOut { margin-left: auto; }
+.ftFollow { width: auto; padding: 4px 10px; font-size: 12px; }
+.ftFollow[aria-pressed="true"] { background: var(--newsprint); }
+.ftFYNote[hidden] { display: none; }
+.ftMake > .ftRPost { margin-bottom: 12px; }

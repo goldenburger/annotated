@@ -1,16 +1,32 @@
 // "What else it does", on the front page under Yours so far (David, 2026-09-25: the extension does far more than the
 // four try-it tabs show). Three small working demonstrations and a line of the rest. Each is labelled Example,
 // sends nothing and keeps nothing, like the try-it above it.
-//   1. Say it your way: a take with a tag, a poll and reactions, drawn as the card it becomes while you make it.
-//   2. It lands as a page: a finished annotation's page, with reactions, a comment box and File a claim that work.
-//   3. Receipts that stay: a post saved as a marked picture, which is kept when the post is deleted.
-//   4. Clip what's playing: an episode on Spotify, found by name in Apple's directory, cut from the show's own file.
+//   1. Tags, polls and reactions: a take on a real post, with a tag, a poll and reactions, drawn as the card it becomes.
+//   2. Every annotation gets its own page: a finished page, with reactions, a reply box and File a claim that work.
+//   3. Clip podcasts from Spotify: found by name in Apple's directory, cut from the show's own file.
+//   4. For you, and why: a feed of annotations of real posts, each saying why it is there.
+// The examples quote real public posts on X, word for word as X shows them, each linked (David, 2026-09-25: every
+// example quoted the same line of the brief). The takes are ours and marked Example; no like or view counts are
+// shown, since those change. "If the post gets deleted" was taken out at David's word the same day.
 var Features = (() => {
   const icon = (n) => (typeof Brand !== 'undefined' ? Brand.icon(n) : '');
   const still = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const QUOTE = 'All clipped content, text, audio, or video, must link back to its original source URL.';
-  const SOURCE = 'The annotated.com brief';
+  const POSTS = {
+    jason: { name: 'jason', handle: '@Jason', date: 'Sep 19, 2026', url: 'https://x.com/Jason/status/2101344059906314387',
+      before: 'We are offering five PAID, full-time slots in our Associate-in-training program. This program is for the most driven fanatics, out of school (or sometimes, but rarely, career-changing), ',
+      quote: 'who want to work 60/70+ hours a week to become legendary venture capitalists', after: " — and who don't want to wait in line." },
+    tim: { name: "Tim O'Reilly", handle: '@timoreilly', date: 'Sep 24, 2026', url: 'https://x.com/timoreilly/status/2103245779489972264',
+      before: 'This says a lot about "the frontier wins everything" narrative. ',
+      quote: "We have planes that fly 3x the speed of sound but airlines don't use them.", after: ' We have cars that go hundreds of miles an hour, but we just use them for racing, not for ordinary driving.' },
+    sawyer: { name: 'Sawyer Merritt', handle: '@SawyerMerritt', date: 'Sep 25, 2026', url: 'https://x.com/SawyerMerritt/status/2103612173687861404',
+      before: 'SpaceXAI has just introduced Grok @Bot Creator Rewards! … In the last two weeks, ',
+      quote: 'I’ve earned $500 in rewards', after: ' due to people using my Home Robots template 🔥' },
+  };
+  // A post as it reads on X, with the quoted words marked. Words, name and handle only, and a link to the real post.
+  const post = (p, cls = '') => `<div class="ftRPost ${cls}"><div class="ftRHead"><span class="ftAv" aria-hidden="true">${esc(p.name[0].toUpperCase())}</span><span><b>${esc(p.name)}</b> <span class="ftDot">${esc(p.handle)} · ${esc(p.date)}</span></span><a class="ftXLink" href="${p.url}" target="_blank" rel="noopener" aria-label="See the post on X">${icon('x')}</a></div>
+    <p class="ftRText">${esc(p.before)}<mark>${esc(p.quote)}</mark>${esc(p.after)}</p></div>`;
+  const srcLine = (p) => `${icon('x')} ${esc(p.name)} on X`;
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
   const EMOJI = ['👍', '🔥', '🤔', '😂'];
   const MORE = [
@@ -25,7 +41,7 @@ var Features = (() => {
     ['Works signed out', 'No account needed to start. Sign in later to publish.'],
     ['Keyboard shortcut', 'Alt + Shift + K opens the panel on any page.'],
     ['Live streams', "Clip a live stream while it's still going."],
-    ['For you', 'A feed picked for you, with a note on why each one is there.'],
+    ['Most talked about', 'The panel shows what people here are discussing most, so you know where to start.'],
     ['Trending and people to follow', "What people here are annotating this week, and who's worth following."],
     ['Invite by email', 'Send someone a link to an annotation from its page.'],
     ['Already annotated?', "It warns you if you've already annotated the same thing."],
@@ -51,18 +67,19 @@ var Features = (() => {
       title: 'Tags, polls and reactions',
       lead: 'Tag a take as a fact check or a hot take, add a poll, and let people react with an emoji. Try it here.',
       body: `<div class="ftMake">
-          <p class="ftQuote"><mark>${esc(QUOTE)}</mark></p>
+          ${post(POSTS.jason, 'ftSmall')}
           <label class="ftLbl" for="ftTake">Your take</label>
-          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Good rule. I want to be able to check the original.</textarea>
+          <textarea id="ftTake" class="ftTake" rows="2" maxlength="200" placeholder="What should people notice?">Seven days a week for two years. Who is this really for?</textarea>
           <div class="ftTags" role="radiogroup" aria-label="Tag">${TAGS.map((t) => `<button type="button" class="ftTag" role="radio" aria-checked="false">${t}</button>`).join('')}</div>
           <button type="button" class="ftPollBtn" aria-expanded="false">${icon('poll')} Add a poll</button>
-          <div class="ftPollEdit" hidden><input class="ftPq" maxlength="80" value="Should every clip link its source?" aria-label="Poll question"></div>
+          <div class="ftPollEdit" hidden><input class="ftPq" maxlength="80" value="Would you take this job?" aria-label="Poll question"></div>
         </div>
         <div class="ftCard" aria-live="polite">
           <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut" hidden></span></p>
           <p class="ftTakeOut"></p>
           <div class="ftPoll" hidden><p class="ftPollQ"></p><div class="ftChoices"></div></div>
-          <p class="ftSrc">${icon('article')} ${esc(SOURCE)}</p>
+          <blockquote class="ftQ ftQs"><mark>${esc(POSTS.jason.quote)}</mark></blockquote>
+          <p class="ftSrc">${srcLine(POSTS.jason)}</p>
           <div class="ftReact">${EMOJI.map((e) => `<button type="button" class="ftR" aria-pressed="false"><span>${e}</span><b>0</b></button>`).join('')}</div>
         </div>`,
     });
@@ -80,7 +97,7 @@ var Features = (() => {
     const drawPoll = () => {
       // The choices are in the card only; the editor holds the question, where both showed them twice (recording
       // of 2026-09-25 at 15:38, 2:53).
-      const q = d.querySelector('.ftPq').value.trim(), opts = ['Yes, always', 'Not for memes'];
+      const q = d.querySelector('.ftPq').value.trim(), opts = ['Yes, sign me up', 'No, thanks'];
       d.querySelector('.ftPollQ').textContent = q || 'Your question';
       const total = votes[0] + votes[1];
       const box = d.querySelector('.ftChoices'); box.innerHTML = '';
@@ -114,10 +131,10 @@ var Features = (() => {
       title: 'Every annotation gets its own page',
       lead: 'You get a link you can share. People can reply and react, and anyone can file a claim if an annotation gets something wrong. The original is linked right there.',
       body: `<div class="ftPage">
-          <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut">Explainer</span></p>
-          <p class="ftTakeOut">Good rule. I want to be able to check the original.</p>
-          <blockquote class="ftQ"><mark>${esc(QUOTE)}</mark></blockquote>
-          <p class="ftSrcRow"><span>${icon('article')} ${esc(SOURCE)}</span><a class="link" href="https://annotated.lovable.app/" target="_blank" rel="noopener">Read the brief ${icon('external')}</a></p>
+          <p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">just now</span> <span class="ftTagOut">Steelman</span></p>
+          <p class="ftTakeOut">The best answer yet to "the frontier wins everything". Fast isn't what people pay for.</p>
+          ${post(POSTS.tim)}
+          <p class="ftSrcRow"><span>${srcLine(POSTS.tim)}</span><a class="link" href="${POSTS.tim.url}" target="_blank" rel="noopener">See the post on X ${icon('external')}</a></p>
           <div class="ftBar2"><div class="ftReact">${EMOJI.map((e) => `<button type="button" class="ftR" aria-pressed="false"><span>${e}</span><b>0</b></button>`).join('')}</div>
             <button type="button" class="ftClaim">${icon('flag')} File a claim</button></div>
           <form class="ftClaimForm" hidden><label for="ftWhy">What is wrong with it?</label><select id="ftWhy"><option>The quote is not in the source</option><option>It is misleading</option><option>It is mine and was used without permission</option><option>Something else</option></select>
@@ -126,8 +143,8 @@ var Features = (() => {
           <ul class="ftComments"></ul>
         </div>
         <div class="ftShare"><p class="ftLbl">How the link looks when you post it on X</p>
-          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">Good rule. I want to be able to check the original.</span><span class="ftXFrom">${icon('article')} ${esc(SOURCE)}</span></div>
-            <p class="ftXMeta"><span>annotated-app.netlify.app</span><b>“Links back to the source, every time.” on annotated</b></p></div></div>`,
+          <div class="ftXCard" aria-label="How the link looks in a post on X"><div class="ftXImg"><span class="ftXTake">The best answer yet to "the frontier wins everything". Fast isn't what people pay for.</span><span class="ftXFrom">${srcLine(POSTS.tim)}</span></div>
+            <p class="ftXMeta"><span>annotated-app.netlify.app</span><b>“Fast isn't what people pay for.” on annotated</b></p></div></div>`,
     });
     d.querySelectorAll('.ftR').forEach((b) => b.addEventListener('click', () => {
       const on = b.getAttribute('aria-pressed') !== 'true';
@@ -217,27 +234,44 @@ var Features = (() => {
     }
   }
 
-  // 4. Receipts: a post saved as a picture with the quoted words marked, which stays when the post is deleted.
-  function receipts(root) {
+  // 4. For you: a feed of annotations of real posts, each carrying the reason it is there, as the real feed does. The
+  // readers who made them are made up and the takes are ours, so the whole row is marked Example; the posts are real.
+  function forYou(root) {
+    const CARDS = [
+      { who: 'Sam', why: 'You follow Sam', tag: 'Steelman', take: 'Supersonic planes exist and nobody flies them. A good check on the hype.', p: POSTS.tim },
+      { who: 'Priya', why: 'Popular this week', tag: 'Hot take', take: 'Seven days a week for two years. Is this a job or a dare?', p: POSTS.jason },
+      { who: 'Leo', why: 'You annotated this post too', tag: 'Fact check', take: '$500 in two weeks from one template. How many people used it to earn that?', p: POSTS.sawyer },
+    ];
     const d = row(root, {
-      title: 'If the post gets deleted',
-      lead: 'When you annotate a post on X, annotated saves a screenshot with your quote highlighted. If the author deletes the post, your annotation still shows what it said.',
-      body: `<div class="ftRec">
-          <div class="ftRPost"><div class="ftRHead"><span class="ftAv" aria-hidden="true">E</span><span><b>Example Account</b> <span class="ftDot">@example · Sep 24, 2026</span></span>${icon('x')}</div>
-            <p class="ftRText">We will ship the new model <mark>before the end of the year</mark>, no delays this time.</p></div>
-          <p class="ftRGone" hidden>${icon('info')} This post was deleted.</p>
-        </div>
-        <div class="ftRArrow" aria-hidden="true">↓ on annotated</div>
-        <div class="ftCard ftRSaved"><p class="ftMeta"><span class="ftAv" aria-hidden="true">Y</span> You <span class="ftDot">Sep 24, 2026</span> <span class="ftTagOut">Receipts</span></p>
-          <p class="ftTakeOut">Saving this one for January.</p>
-          <figure class="ftRShot"><div class="ftRPost"><div class="ftRHead"><span class="ftAv" aria-hidden="true">E</span><span><b>Example Account</b> <span class="ftDot">@example · Sep 24, 2026</span></span>${icon('x')}</div>
-            <p class="ftRText">We will ship the new model <mark>before the end of the year</mark>, no delays this time.</p></div>
-            <figcaption>Saved Sep 24, 2026. Still here if the post is deleted.</figcaption></figure></div>
-        <p class="ftRRow"><button type="button" class="ghost sm ftRDel">${icon('trash')} Delete the post</button><button type="button" class="link ftRBack" hidden>Put it back</button></p>`,
+      title: 'For you, and why',
+      lead: 'Your feed brings annotations from people you follow and posts people are talking about, and every card says why it is there. Follow someone and theirs come to you.',
+      body: `<div class="ftTabs" role="tablist" aria-label="Which annotations"><button type="button" role="tab" aria-selected="true">For you</button><button type="button" role="tab" aria-selected="false">Following</button></div>
+        <ul class="ftFeed">${CARDS.map((c, i) => `<li class="ftCard ftFY" data-i="${i}">
+          <p class="ftWhy">${icon('info')} <span>${esc(c.why)}</span></p>
+          <p class="ftMeta"><span class="ftAv" aria-hidden="true">${esc(c.who[0])}</span> ${esc(c.who)} <span class="ftDot">Example reader</span> <span class="ftTagOut">${esc(c.tag)}</span>
+            <button type="button" class="ghost sm ftFollow" aria-pressed="${i === 0}">${i === 0 ? 'Following' : 'Follow'}</button></p>
+          <p class="ftTakeOut">${esc(c.take)}</p>
+          <blockquote class="ftQ ftQs"><mark>${esc(c.p.quote)}</mark></blockquote>
+          <p class="ftSrc"><a class="link" href="${c.p.url}" target="_blank" rel="noopener">${srcLine(c.p)}</a></p></li>`).join('')}</ul>
+        <p class="ftCap ftFYNote" hidden></p>`,
     });
-    const del = d.querySelector('.ftRDel'), back = d.querySelector('.ftRBack');
-    del.addEventListener('click', () => { d.querySelector('.ftRec .ftRPost').hidden = true; d.querySelector('.ftRGone').hidden = false; del.hidden = true; back.hidden = false; d.querySelector('.ftRSaved').classList.add('kept'); });
-    back.addEventListener('click', () => { d.querySelector('.ftRec .ftRPost').hidden = false; d.querySelector('.ftRGone').hidden = true; del.hidden = false; back.hidden = true; d.querySelector('.ftRSaved').classList.remove('kept'); });
+    const tabs = [...d.querySelectorAll('.ftTabs [role="tab"]')], note = d.querySelector('.ftFYNote');
+    const following = () => [...d.querySelectorAll('.ftFY')].filter((c) => c.querySelector('.ftFollow').getAttribute('aria-pressed') === 'true');
+    const draw = () => {
+      const onFollowing = tabs[1].getAttribute('aria-selected') === 'true', mine = following();
+      d.querySelectorAll('.ftFY').forEach((c) => { c.hidden = onFollowing && !mine.includes(c); });
+      note.hidden = !onFollowing || mine.length > 0;
+      note.textContent = 'Follow someone and their annotations show up here.';
+    };
+    tabs.forEach((t, i) => t.addEventListener('click', () => { tabs.forEach((x, j) => x.setAttribute('aria-selected', String(i === j))); draw(); }));
+    // Follow changes what Following holds, and the card's reason says so.
+    d.querySelectorAll('.ftFollow').forEach((b) => b.addEventListener('click', () => {
+      const on = b.getAttribute('aria-pressed') !== 'true';
+      b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'Following' : 'Follow';
+      const card = b.closest('.ftFY'), c = CARDS[+card.dataset.i];
+      card.querySelector('.ftWhy span').textContent = on ? `You follow ${c.who}` : (+card.dataset.i === 0 ? 'Popular this week' : c.why);
+      draw();
+    }));
   }
 
   function more(root) {
@@ -258,7 +292,7 @@ var Features = (() => {
     s.className = 'landFeatures'; s.id = 'more';
     s.innerHTML = `<h2 class="ftH">Other things it does</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}`;
     root.appendChild(s);
-    sayIt(s); page(s); receipts(s); podcast(s); more(s);
+    sayIt(s); page(s); podcast(s); forYou(s); more(s);
     arrive(s);
     return s;
   }
@@ -269,7 +303,13 @@ var Features = (() => {
   function arrive(section) {
     // Off wherever the rest of the front page's planes are off (planes.js): ?noplanes, a phone, a touch screen.
     if (typeof Fold === 'undefined' || !Fold.on() || !('IntersectionObserver' in window)) return;
-    if (/[?&]noplanes/.test(location.search) || matchMedia('(max-width: 760px), (hover: none)').matches) return;
+    // Once a browser visit. On the third return to the home page the same planes were still flying in (recording of
+    // 2026-09-25 at 23:23, 0:55, 3:14 and 3:20); after the first time the examples are simply there.
+    let flown = false;
+    try { flown = !!sessionStorage.getItem('annotated-features-flown'); } catch {}
+    if (flown) return;
+    const markFlown = () => { try { sessionStorage.setItem('annotated-features-flown', '1'); } catch {} };
+    if (/[?&]noplanes\b/.test(location.search) || matchMedia('(max-width: 760px), (hover: none)').matches) return;
     const demos = [...section.querySelectorAll('.ftDemo')];
     // Each one comes its own way, so four in a row do not read as one trick repeated: a glide from behind, a wide
     // swing in from the right, a steep drop from high up, a long S from the far left. A little is left to chance on
@@ -289,7 +329,7 @@ var Features = (() => {
     const land = (d) => {
       queue = queue.then(() => new Promise((done) => {
         if (!d.classList.contains('ftWaiting')) return done();
-        d.classList.remove('ftWaiting');
+        d.classList.remove('ftWaiting'); markFlown();
         const w = Math.max(1, d.offsetWidth), st = STYLES[demos.indexOf(d) % STYLES.length];
         let over = false; const end = () => { if (over) return; over = true; d.classList.remove('pl-hidden'); done(); };
         // Sized from the card: the plane is about 150 pixels long whatever the card's width, and starts in sight.
@@ -311,18 +351,21 @@ var Features = (() => {
       const items = [...chips.children];
       const groups = [0, 1, 2].map((g) => items.filter((_, i) => i % 3 === g));
       const flock = () => {
-        chips.classList.remove('ftFlock');
+        chips.classList.remove('ftFlock'); markFlown();
         items.forEach((li) => li.classList.add('ftChipWait'));
         groups.forEach((g, gi) => {
           const lead = g[0]; if (!lead) return;
           setTimeout(() => {
-            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 90, T: 1000 + gi * 150, openT: 600, s0: .5, within: true, unfold: ['snap', 'spin', 'flutter'][gi % 3] })
+            // About 110 pixels long whatever the chip's width: at half a chip they were specks over an empty row.
+            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 90, T: 900 + gi * 120, openT: 500, s0: Fold.clamp(110 / Math.max(1, lead.offsetWidth), .5, 1.2), within: true, unfold: ['snap', 'spin', 'flutter'][gi % 3] })
               .then(() => g.forEach((li, k) => setTimeout(() => { li.classList.remove('ftChipWait'); li.classList.add('ftChipPop'); }, k * 70)));
           }, gi * 260);
         });
         setTimeout(() => items.forEach((li) => li.classList.remove('ftChipWait')), 4000);
       };
-      const cio = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { cio.disconnect(); queue = queue.then(() => new Promise((r) => { flock(); setTimeout(r, 1600); })); } }), { threshold: .6 });
+      // It goes as soon as the row is in sight rather than waiting its turn behind the examples above, which left
+      // 'Also' over a blank row for two seconds (recording of 2026-09-25 at 23:23, 1:04 and 3:23).
+      const cio = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { cio.disconnect(); flock(); } }), { threshold: .6 });
       const cr = chips.getBoundingClientRect();
       if (cr.top < innerHeight && cr.bottom > 0) chips.classList.remove('ftFlock');
       else addEventListener('scroll', () => cio.observe(chips), { once: true, passive: true });

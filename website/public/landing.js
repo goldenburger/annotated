@@ -37,7 +37,7 @@ var Landing = (() => {
     // The logo on the home page itself goes to the top rather than loading the page again, which replayed the
     // brief's flight and the install plane on every press (recording of 2026-09-25 at 06:58, 0:38 and 0:52).
     bar.querySelector('.wmBtn').addEventListener('click', (e) => {
-      if (location.pathname !== '/' || /[?&](feed|tag)/.test(location.search)) return;
+      if (location.pathname !== '/' || /[?&](feed|tag)\b/.test(location.search)) return;
       e.preventDefault();
       scrollTo({ top: 0, behavior: still() ? 'auto' : 'smooth' });
     });

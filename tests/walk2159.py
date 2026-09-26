@@ -56,7 +56,7 @@ async def main():
     if not fresh: errs.append('a fresh visit with nothing made no longer gets the example')
     # 3.
     words = await pg.evaluate("document.body.innerText")
-    for w in ['Other things it does', 'Tags, polls and reactions', 'Every annotation gets its own page', 'If the post gets deleted', 'Clip podcasts from Spotify']:
+    for w in ['Other things it does', 'Tags, polls and reactions', 'Every annotation gets its own page', 'For you, and why', 'Clip podcasts from Spotify']:
       if w not in words: errs.append(f'the front page does not say "{w}"')
     for w in ['What else it does', 'Say it your way', 'Receipts that stay', 'It lands as a page']:
       if w in words: errs.append(f'the front page still says "{w}"')

@@ -295,15 +295,18 @@ var Fold = (() => {
     return f.finished.catch(() => {});
   }
   // In from `from` (a point on the page), touching down on the plane's own spot heading its own way.
-  function landPath(plane, from, swoop = .25) {
+  // `box`, when given, holds the curve's bends inside it: a curve never leaves the shape its points make, so a flight
+  // that starts in the window stays there. A wide swoop carried an example 110 pixels past the right edge (2026-09-25).
+  function landPath(plane, from, swoop = .25, box = null) {
     const to = plane.centre, h = dir(plane.phi);
+    const keep = (p) => (box ? { x: Math.min(box.x1, Math.max(box.x0, p.x)), y: Math.min(box.y1, Math.max(box.y0, p.y)) } : p);
     const dist = Math.hypot(to.x - from.x, to.y - from.y);
     const perp = { x: -h.y, y: h.x };
     let slide = dist * .12, pts;
     for (let pass = 0; pass < 2; pass++) {
       const p3 = { x: to.x - h.x * slide, y: to.y - h.y * slide };
-      const p2 = { x: p3.x - h.x * dist * .38, y: p3.y - h.y * dist * .38 };
-      const p1 = { x: from.x + (to.x - from.x) * .35 + perp.x * dist * swoop, y: from.y + (to.y - from.y) * .35 + perp.y * dist * swoop };
+      const p2 = keep({ x: p3.x - h.x * dist * .38, y: p3.y - h.y * dist * .38 });
+      const p1 = keep({ x: from.x + (to.x - from.x) * .35 + perp.x * dist * swoop, y: from.y + (to.y - from.y) * .35 + perp.y * dist * swoop });
       const c = bezier(from, p1, p2, p3);
       // The slide on the paper is what the slowing covers, so it is sized from the path before it.
       slide = lenOf(c) * .1;
@@ -374,18 +377,24 @@ var Fold = (() => {
       const go = () => {
         const L = Math.max(el.offsetWidth, el.offsetHeight);
         if (!L) { el.classList.remove('pl-hidden'); resolve(); return; }
-        const plane = buildPlane(el, { s0: len ? len / L : (s0 || clamp(150 / L, .2, .5)) });
+        const sStart = len ? len / L : (s0 || clamp(150 / L, .2, .5));
+        const plane = buildPlane(el, { s0: sStart });
         const t = track(plane, el, resolve);
         const h = dir(plane.phi);
         const a = approach * Math.PI / 180, bx = -h.x * dist - h.y * 90 * dist / 300, by = -h.y * dist + h.x * 70 * dist / 300;
         let start = { x: plane.centre.x + bx * Math.cos(a) - by * Math.sin(a), y: plane.centre.y + bx * Math.sin(a) + by * Math.cos(a) };
         // `within`: the flight starts inside the window, so the plane is never sliced by its edge on the way in
         // (recording of 2026-09-25 at 20:19, 0:12.75, where it came in from beyond the right edge as a pale slab).
+        let box = null;
         if (within) {
-          const m = 60, vw = document.documentElement.clientWidth, sx = scrollX, sy = scrollY;
-          start = { x: Math.min(sx + vw - m, Math.max(sx + m, start.x)), y: Math.min(sy + innerHeight - m, Math.max(sy + m, start.y)) };
+          // The margin grows with the plane, since a centre 60 pixels in still left half of a larger one outside
+          // (the chip flock, once it stopped waiting behind the examples, 2026-09-25).
+          // Lifted towards you it looks about two and a half times its folded length, hence 1.3 of it each side.
+          const m = Math.max(60, L * sStart * 1.3 + 16), vw = document.documentElement.clientWidth, sx = scrollX, sy = scrollY;
+          box = { x0: sx + m, x1: sx + vw - m, y0: sy + m, y1: sy + innerHeight - m };
+          start = { x: Math.min(box.x1, Math.max(box.x0, start.x)), y: Math.min(box.y1, Math.max(box.y0, start.y)) };
         }
-        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, swoop), { z: descend(z0, .84), T });
+        const air = from ? Promise.resolve() : flight(plane, landPath(plane, start, swoop, box), { z: descend(z0, .84), T });
         if (from) plane.fshadow.style.opacity = '0';
         air.then(async () => {
           if (!flying.has(t)) return;

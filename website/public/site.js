@@ -10,6 +10,22 @@ const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/comp
     const el = document.createElement('script'); el.src = src + (SITE_V ? '?v=' + SITE_V : '');
     el.onload = res; el.onerror = res; document.head.appendChild(el);
   })), Promise.resolve());
+// A tab left open across a new release catches up when it is next looked at. The logo on the extension's pages
+// switched to a home page tab opened before a deploy, and it showed the old wording (recording of 2026-09-25 at
+// 23:23, 0:41). It reloads only when nothing is being typed or made, and asks at most once a minute.
+let versionAsked = 0;
+document.addEventListener('visibilitychange', async () => {
+  if (document.hidden || !SITE_V || Date.now() - versionAsked < 60000) return;
+  versionAsked = Date.now();
+  try {
+    const html = await (await fetch('/', { cache: 'no-store' })).text();
+    const m = html.match(/site\.js\?v=([0-9.]+)/);
+    if (!m || m[1] === SITE_V) return;
+    const busy = [...document.querySelectorAll('textarea, input[type="text"], input:not([type])')].some((x) => x.value.trim() || x === document.activeElement)
+      || document.querySelector('.tryit .tiText mark, .pl-layer');
+    if (!busy) location.reload();
+  } catch { /* offline: stay as it is */ }
+});
 // Signing in or out in another tab reaches this one. A tab opened before a sign-in went on offering Sign in with
 // Google, and one opened before a sign-out went on showing the account (recording of 2026-09-25 at 03:54, 2:50).
 // The change arrives while this tab is in the background, so it is drawn again when it is next looked at, and at
@@ -87,7 +103,17 @@ function matchExtension(me) {
   }
   // The feed's list and who you are are asked for while the page's code loads, not one after another. The feed
   // sat blank for two to four seconds (recording of 2026-09-25 at 03:54, 1:30 and 2:06).
-  let earlyList = !parts.length && !query.has('tag') ? Cloud.list({ limit: 100 }).catch(() => []) : null;
+  let earlyList = !parts.length && !query.has('tag') ? Cloud.list({ limit: 100 }).catch(() => null) : null;
+  // A list is asked for again before it is called empty: a request that failed once drew "0 annotations" and
+  // "Nothing here yet" on a profile with three (recording of 2026-09-25 at 23:23, 2:51). null means it did not load.
+  const listOrNull = async (opts, first = null) => {
+    if (first) { const r = await first; if (r) return r; }
+    for (let i = 0; i < 3; i++) {
+      try { return await Cloud.list(opts); } catch {}
+      await new Promise((res) => setTimeout(res, 600 * (i + 1)));
+    }
+    return null;
+  };
   const meP = Backend.profile().catch(() => null);
   // An annotation, a profile or the feed takes a moment to arrive, so its outline is drawn at once, before the
   // page's code has even loaded, rather than a blank page with only the footer (the feed showed that for one to
@@ -138,9 +164,9 @@ function matchExtension(me) {
   }
 
   async function home(tag) {
-    let all = [];
     const first = !tag && earlyList; earlyList = null;   // only the first drawing uses it; a tab switch asks again
-    try { all = (first ? await first : await Cloud.list({ limit: 100 })) || []; } catch {}
+    const got = await listOrNull({ limit: 100 }, first);
+    const all = got || [];
     all.forEach((r) => { r.mine = !!(me && r.author && r.author.id === me.id); });
     remember(all);
     const soc = await discover();
@@ -155,7 +181,7 @@ function matchExtension(me) {
       social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag); } };
     }
     document.title = tag ? `${tag} | annotated` : 'annotated';
-    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn });
+    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn, loadFailed: !got, onRetry: () => home(tag) });
     headerAccount();
     // Signed in, the front page is the feed, with the try-it one line away.
   }
@@ -163,8 +189,8 @@ function matchExtension(me) {
   async function profile(handle) {
     const { data: p } = await Backend.client.from('profiles').select('id, handle, display_name, avatar_url').eq('handle', handle).maybeSingle();
     if (!p) return notFound('Nobody has that handle.');
-    let records = [];
-    try { records = await Cloud.list({ authorId: p.id, limit: 80 }); } catch {}
+    const got = await listOrNull({ authorId: p.id, limit: 80 });
+    const records = got || [];
     records.forEach((r) => { r.mine = !!(me && me.id === p.id); });
     remember(records);
     const person = me && me.id === p.id ? null : { id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: p.avatar_url || '' };
@@ -182,7 +208,7 @@ function matchExtension(me) {
       if (!failed.length) location.reload();
       return failed;
     } : null;
-    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav });
+    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav, loadFailed: !got, onRetry: () => profile(handle) });
     headerAccount();
     if (me && me.id === p.id) {
       const out = document.createElement('button');

@@ -1016,7 +1016,7 @@ const AnnotationPage = (() => {
     }), { threshold: 0.5 });
     vids.forEach((v) => previewIo.observe(v));
   }
-  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null }) {
+  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null }) {
     stopClock(container);
     let filter = 'all', sort = 'new';
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
@@ -1035,14 +1035,16 @@ const AnnotationPage = (() => {
       const counts = { all: scope.length, video: 0, audio: 0, article: 0, post: 0 };
       scope.forEach((r) => { counts[r.item.kind] = (counts[r.item.kind] || 0) + 1; });
       // Every kind stays selectable, because each empty state says how to make one. Only the zeros are dropped,
-      // so the row stops reading like a scoreboard of nothing.
+      // so the row stops reading like a scoreboard of nothing, and a kind with nothing in it is drawn faint, since
+      // Audio and Passages looked like any other filter and led only to "Nothing here yet" (recording of
+      // 2026-09-25 at 23:23, 2:57).
       const kinds = [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']];
       main.innerHTML = `
         <header class="feedHead">
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div><button type="button" class="strong sm pSignIn">Sign in with Google</button>`
-                 : `<div class="stats">${plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
+                 : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
             : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
@@ -1055,7 +1057,7 @@ const AnnotationPage = (() => {
             <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>Most discussed</span></label>
           </div></div>
           <div class="seg feedFilter" role="radiogroup" aria-label="Show">
-            ${kinds.map(([k, l]) => `<label><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
+            ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
           </div>
         </div>
         <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => {
@@ -1134,6 +1136,9 @@ const AnnotationPage = (() => {
           // 2026-09-25 at 06:58, 1:00 and 1:22). With the extension already installed there is nothing to offer.
           const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
           const hasExt = document.documentElement.dataset.annotatedInstalled === '1';
+          // A list that did not load is not an empty one. The profile said "0 annotations" and "Nothing here yet"
+          // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
+          if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
           return `<li class="emptyState">${emptyArt()}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })(); })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
@@ -1151,6 +1156,8 @@ const AnnotationPage = (() => {
       wireDelAll(main, onDeleteAll);
       const esMine = main.querySelector('.esMine');
       if (esMine) esMine.addEventListener('click', () => onProfile());
+      const esRetry = main.querySelector('.esRetry');
+      if (esRetry) esRetry.addEventListener('click', () => { esRetry.disabled = true; esRetry.textContent = 'Loading…'; onRetry(); });
       const signInBtn = main.querySelector('.pSignIn');
       if (signInBtn) signInBtn.addEventListener('click', () => onSignIn());
       const railIn = rail.querySelector('.railSignIn');

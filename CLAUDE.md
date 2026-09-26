@@ -976,6 +976,23 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   and footballs: hand-drawn edges, curled corners, soft shadows, written lines and a rough highlighter stroke; the
   stack has a paper clip; the crumpled balls are made fresh from a seed, with uneven facets, a few creases and scraps
   of the page's writing.
+- **The recording of 2026-09-25 at 23:23** (`tests/walk2323.py`, `tests/features.py`). The website asks for a list up to
+  three times before calling it empty (`listOrNull` in `site.js`), and one that never loads says "These annotations did
+  not load" with Try again (`loadFailed`, `onRetry` in `renderFeed`); the profile said "0 annotations" and "Nothing here
+  yet" for half a second before three appeared. A clip card waits on the light placeholder, not black (pictures still load
+  only once on screen, as `cardpic.py` asks). Beside a YouTube video still arriving, or with no player yet, the panel reads
+  "Opening the video…" (`openingHost = 'the video'`) instead of the start page. Reaching the take step puts the cursor in
+  the take box (`setStep` in `panel-kit.js`). The examples under Other things it does fly once a browser visit
+  (`annotated-features-flown`), and the chips go as soon as their row is in sight, faint while waiting, on planes about
+  110 pixels long. A website tab behind the latest release reloads when looked at again, unless something is being typed
+  or made (`site.js`, checks `/` at most once a minute). A filter with nothing in it is drawn faint (`.zero`).
+  `?noplanes` had never switched off the examples' planes: a backspace character stood where `\b` belonged in
+  `features.js` and `landing.js`. The Bash tool turns `\b` in a heredoc into that character, so edit such lines with the
+  Edit tool. At David's word, "If the post gets deleted" became **For you, and why** (three example readers' annotations,
+  each with its reason, For you and Following tabs, Follow that changes both), and the examples quote real public posts
+  on X, word for word and linked: Jason's Associate-in-training post (Sep 19), Tim O'Reilly's "planes that fly 3x the
+  speed of sound" (Sep 24) and Sawyer Merritt's Grok creator rewards (Sep 25). The takes and readers are ours and marked
+  Example, and no like or view counts are shown.
 - **The recording of 2026-09-25 at 21:59** (`tests/walk2159.py`). Clear all in Yours so far no longer brings an
   Example flying into the row it just emptied. The example's turn comes four seconds after the try-it is seen, and a
   row emptied before then read as a visitor with nothing made. `tryit.js` counts what the row held when the page

@@ -1,7 +1,7 @@
 # The front page's "What else it does" (website/public/features.js, David, 2026-09-25).
-#   1. Say it your way: a tag, a poll and a reaction show on the card as they are chosen, and a vote counts.
-#   2. It lands as a page: a reply is added, and File a claim says plainly that nothing was sent.
-#   3. Clip what's playing: the three steps switch, and the waveform is drawn from the episode's loudness.
+#   1. Tags, polls and reactions: a tag, a poll and a reaction show on the card as they are chosen, and a vote counts.
+#   2. Every annotation gets its own page: a reply is added, and File a claim says plainly that nothing was sent.
+#   3. Clip podcasts from Spotify: the three steps switch, and the waveform is drawn from the episode's loudness.
 #   4. The line of the rest: every chip has a tip, shown on focus.
 #   5. Nothing is sent anywhere: no request leaves for the database while the examples are used.
 #   6. Marked words keep dark ink in dark mode.
@@ -52,13 +52,22 @@ async def main():
     four = await pg.evaluate("({ chips: document.querySelectorAll('.ftChip').length, tips: [...document.querySelectorAll('.ftTip')].filter((t) => t.textContent.trim()).length, shown: getComputedStyle(document.querySelector('.ftTip')).visibility })")
     print('4.', four)
     if four['chips'] < 8 or four['tips'] != four['chips'] or four['shown'] != 'visible': errs.append(f'the chips have no tips: {four}')
-    # 7. Receipts: deleting the post leaves the saved picture. The X card. The new chips.
-    await pg.click('.ftRDel'); await asyncio.sleep(.2)
-    rec = await pg.evaluate("""({ gone: !document.querySelector('.ftRGone').hidden, post: !document.querySelector('.ftRec .ftRPost').hidden,
-      kept: document.querySelector('.ftRSaved .ftRText').textContent.includes('before the end of the year'), card: !!document.querySelector('.ftXCard .ftXTake'),
+    # 7. For you, and why (it replaced "If the post gets deleted" on 2026-09-25): every card says why it is there,
+    # Following holds only who you follow, and Follow changes both. The examples quote real posts, linked. The X card.
+    rec = await pg.evaluate("""({ whys: [...document.querySelectorAll('.ftFY .ftWhy')].map((w) => w.textContent.trim()),
+      links: [...document.querySelectorAll('.ftDemo a[href*="x.com/"]')].map((a) => a.getAttribute('href')),
+      brief: document.querySelector('.landFeatures').textContent.includes('must link back to its original source URL'),
+      deleted: !!document.querySelector('.ftRDel'), card: !!document.querySelector('.ftXCard .ftXTake'),
       chips: [...document.querySelectorAll('.ftChip')].map((c) => c.textContent) })""")
-    print('7.', {k: rec[k] for k in ('gone', 'post', 'kept', 'card')}, len(rec['chips']), 'chips')
-    if not rec['gone'] or rec['post'] or not rec['kept'] or not rec['card']: errs.append(f'receipts or the X card did not work: {rec}')
+    await pg.click('.ftTabs [role="tab"]:nth-child(2)'); await asyncio.sleep(.2)
+    shown1 = await pg.evaluate("[...document.querySelectorAll('.ftFY')].filter((c) => !c.hidden).length")
+    await pg.click('.ftTabs [role="tab"]:nth-child(1)'); await pg.click('.ftFY:nth-child(2) .ftFollow')
+    await pg.click('.ftTabs [role="tab"]:nth-child(2)'); await asyncio.sleep(.2)
+    shown2 = await pg.evaluate("({ n: [...document.querySelectorAll('.ftFY')].filter((c) => !c.hidden).length, why: document.querySelector('.ftFY:nth-child(2) .ftWhy').textContent.trim() })")
+    print('7.', rec['whys'], len(set(rec['links'])), 'posts linked | Following holds', shown1, 'then', shown2)
+    if len(rec['whys']) != 3 or not all(rec['whys']): errs.append(f'the For you cards do not say why: {rec["whys"]}')
+    if len(set(rec['links'])) != 3 or rec['brief'] or rec['deleted'] or not rec['card']: errs.append(f'the examples do not quote the real posts: {rec}')
+    if shown1 != 1 or shown2['n'] != 2 or shown2['why'] != 'You follow Priya': errs.append(f'Following and Follow did not work: {shown1} {shown2}')
     if not {'Invite by email', 'Works offline', 'Drafts are kept', 'Trending and people to follow'} <= set(rec['chips']): errs.append(f"chips missing: {rec['chips']}")
     # 8. The Post on X tab shows the post as a screenshot, an embed or both.
     await pg.evaluate("scrollTo(0, 0)"); await pg.click('#tab-post'); await asyncio.sleep(.6)

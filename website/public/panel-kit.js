@@ -244,6 +244,13 @@ const PanelKit = (() => {
       li.querySelector('i').innerHTML = k < n ? Brand.icon('check') : '';
       li.title = k < n ? `${li.textContent} done` : k === n ? `${li.textContent}, current step` : li.textContent;
     });
+    // Reaching the take puts the cursor in the take box, so you can type straight away. Both captures in the
+    // recording of 2026-09-25 at 23:23 needed a click there first (1:36, 2:23). Not while you are typing elsewhere.
+    if (n === 2) requestAnimationFrame(() => requestAnimationFrame(() => {
+      const box = [...root.querySelectorAll('.takeInput')].find((t) => t.offsetParent);
+      const a = document.activeElement;
+      if (box && !(a && a !== document.body && (a.matches('input, textarea, select, [contenteditable]')))) box.focus({ preventScroll: true });
+    }));
   }
 
   // Shown instead of publishing when the same clip or passage is already published.

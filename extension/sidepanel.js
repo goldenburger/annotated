@@ -1186,8 +1186,13 @@ async function refresh() {
       try { await inject(tab.id, ['capture-engine.js', 'content.js'], 'ping'); }
       catch { return show(null, 'Reload the YouTube tab, then open this panel again.'); }
       const info = await sendTo(tab.id, { type: 'info' }).catch(() => null);
-      if (!info || !info.ok) return show(null, (info && info.error) || 'Waiting for the video to load.');
-      if (!isFinite(info.duration) || info.duration <= 0) return show(null, info.duration === Infinity ? 'Live streams cannot be clipped yet.' : 'Waiting for the video to load.');
+      // A video still arriving reads "Opening the video…", as a tab still loading does. It fell back to the whole
+      // start page, "Open something to annotate" and every site, for a second and a half each time a video opened
+      // from YouTube's own pages (recording of 2026-09-25 at 23:23, 2:08).
+      // YouTube puts its player on the page a moment after the address changes, so no player yet is the same wait.
+      const waiting = !info || !info.ok || (info.duration !== Infinity && !(isFinite(info.duration) && info.duration > 0));
+      if (waiting) { openingHost = 'the video'; return show(null); }
+      if (!isFinite(info.duration) || info.duration <= 0) return show(null, 'Live streams cannot be clipped yet.');
       if (!p) { p = makeVideo(tab.id); panels.set(tab.id, p); }
       show(tab.id);
       p.api.update(info);
