@@ -82,7 +82,10 @@ const Account = (() => {
       pop.querySelector('.acctHRule').classList.toggle('bad', !!h && !ok);
       pop.querySelector('.acctHSave').disabled = !ok || !changed;
       const m = pop.querySelector('.acctHMsg');
-      if (!m.dataset.sticky) m.textContent = ok && changed && me.handle ? `Links to @${me.handle} will stop working.` : '';
+      // An invalid handle says what is wrong with it, rather than leaving Save greyed out with no reason (exploration of
+      // 2026-09-26, where "x" did just that).
+      const why = !h || ok ? '' : h.length < 2 ? 'At least 2 characters.' : h.length > 30 ? 'At most 30 characters.' : 'Only lowercase letters, numbers and underscores.';
+      if (!m.dataset.sticky) m.textContent = why || (ok && changed && me.handle ? `Links to @${me.handle} will stop working.` : '');
     };
     if (hIn) { hIn.addEventListener('input', () => { pop.querySelector('.acctHMsg').dataset.sticky = ''; hLive(); }); hLive(); }
     const pr = pop.querySelector('.acctProfile');

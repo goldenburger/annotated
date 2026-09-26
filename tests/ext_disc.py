@@ -29,7 +29,7 @@ async def main():
     print('empty panel offers paste:', await pan.is_visible('#emptyAction .pasteForm'))
     await blank.bring_to_front()
     await sw.evaluate(f"chrome.tabs.update({tid},{{active:true}})")
-    await pan.fill('#pasteUrl','harborline.example/story'); await pan.click('.pasteForm button'); await asyncio.sleep(2.5)
+    await pan.fill('.pasteForm:visible .pasteUrl','harborline.example/story'); await pan.click('.pasteForm button'); await asyncio.sleep(2.5)
     print('message:', await pan.inner_text('.pasteMsg'), '| tabs:', await sw.evaluate('chrome.tabs.query({}).then(t=>t.map(x=>x.url))'))
     print('tab now at:', blank.url, '| panel switched to the article:', await pan.is_visible('#articleMode'))
     print('article panel offers paste too:', await pan.is_visible('#articleMode .pasteForm'))

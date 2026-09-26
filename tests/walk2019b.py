@@ -53,6 +53,9 @@ async def main():
     await c.close()
     # 2.
     c = await b.new_context(viewport={'width': 1530, 'height': 900})
+    # Only the examples under Other things it does are measured here. The try-it's example, which plays with the planes
+    # on since the second exploration of 2026-09-26, folds the whole brief and would be counted with them.
+    await c.add_init_script("try{sessionStorage.setItem('annotated-example-shown','1')}catch(e){}")
     await c.route('https://annotated-app.netlify.app/**', site)
     await c.route('https://efuotxdeifqzdfsavekb.supabase.co/**', lambda r: r.fulfill(status=200, content_type='application/json', body='[]'))
     pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))

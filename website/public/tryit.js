@@ -316,21 +316,23 @@ var TryIt = (() => {
         // Once a visit, too: with Yours so far empty it played on every load, twice in half a minute in the
         // recording of 2026-09-25 at 04:27. It comes back when the browser is next opened.
         if ((Array.isArray(y) ? y.length : y) || sessionStorage.getItem('annotated-example-shown')) { document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); return; }
-        sessionStorage.setItem('annotated-example-shown', '1');
       } catch { /* no storage: show it */ }
-      // Not on the heels of an arrival: while the page's opening motion is still playing, and for two seconds
-      // after it, the example waits (planes-waiting and data-plane-landed are set by the experiment in
-      // experiments/planes.js, and without it neither is ever set).
+      // Not on the heels of an arrival: while the page's opening motion is still playing, and for 0.7 seconds after it
+      // (two seconds, with four before it, made the example start almost seven seconds in; exploration of 2026-09-26)
+      // the example waits. planes-waiting and data-plane-landed are set by planes.js.
       const landed = +document.documentElement.dataset.planeLanded || 0;
       if (!force && document.documentElement.classList.contains('planes-waiting')) {
-        document.addEventListener('annotated-plane-landed', () => { clearTimeout(demoTimer); if (!touched) demoTimer = setTimeout(demo, 2000); }, { once: true });
+        document.addEventListener('annotated-plane-landed', () => { clearTimeout(demoTimer); if (!touched) demoTimer = setTimeout(demo, 700); }, { once: true });
         return;
       }
-      if (!force && landed && Date.now() - landed < 2000) { demoTimer = setTimeout(demo, 2000 - (Date.now() - landed)); return; }
+      if (!force && landed && Date.now() - landed < 700) { demoTimer = setTimeout(demo, 700 - (Date.now() - landed)); return; }
       const skip = () => document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
       if (!force && (touched || still() || marks.length)) return skip();
       const r = ArticleCore.findText(text, DEMO.phrase);
       if (!r) return skip();
+      // Marked as shown only now it really starts. Marked before waiting for the opening flight to land, it found its
+      // own mark two seconds later and never played for anyone with the planes on (exploration of 2026-09-26).
+      if (!force) try { sessionStorage.setItem('annotated-example-shown', '1'); } catch { /* no storage */ }
       demoing = true;
       let live = true;
       stopDemo = () => { live = false; demoing = false; document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words on this page.'; };
@@ -369,7 +371,7 @@ var TryIt = (() => {
       document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done'));
     }
     const io = new IntersectionObserver((rows) => {
-      if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 4000); io.disconnect(); }
+      if (rows.some((x) => x.isIntersecting)) { clearTimeout(demoTimer); demoTimer = setTimeout(demo, 2500); io.disconnect(); }
     }, { threshold: 0.6 });
     io.observe(el);
     // Choosing another tab counts as touching the try-it: the example is put away, rather than left on the

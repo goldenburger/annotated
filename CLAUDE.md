@@ -1004,6 +1004,13 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   button (`footTrail` in `landing.js`, `PaperDeco.ART.flyTrail`, its plane wrapped in `.pdFlyer`, the one decoration
   that takes the mouse): it bobs on hover and, pressed, flies off, then the page plays its flights again from the top,
   the examples included. Only while the planes are on; otherwise the trail is a plain drawing.
+- **The second exploration of 2026-09-26** (`tests/explore0926b.py`). With the planes on, the home page's example never
+  played on a first visit: `demo()` in `tryit.js` marked `annotated-example-shown` before waiting for the opening flight
+  to land, and found its own mark when it came back. The tests missed it because they run with the planes off. It is
+  marked now only when the example really starts, and it starts about 5.4 seconds in (0.7 s after the landing and 2.5 s
+  after the try-it is seen; it was 2 and 4). Each paste box has its own id (`pasteUrl1`, `pasteUrl2`, class `pasteUrl`),
+  since the panel holds several and a shared id pointed the label at a hidden one. The install page's header has Feed.
+  An invalid handle says why ("At least 2 characters.", "Only lowercase letters, numbers and underscores.").
 - **The exploration of 2026-09-26** (`tests/explore0926.py`; the scripts that drove it live in the session's scratchpad, not
   the repository). The examples under Other things it does fly lower and smaller (`z0` 40 to 60, `s0` about 95 pixels;
   the chips' about 85), and the home page's header sits above planes (`.landBar` z-index 70); one was about 310 pixels

@@ -518,7 +518,7 @@ var Landing = (() => {
     const bar = document.createElement('header');
     bar.className = 'sitebar landBar';
     bar.innerHTML = `<a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
-      <nav class="sitenav" aria-label="Site"><a class="navBtn" href="/">Try it first</a></nav>`;
+      <nav class="sitenav" aria-label="Site"><a class="navBtn navFeed" href="/?feed">Feed</a><a class="navBtn" href="/">Try it first</a></nav>`;
     root.appendChild(bar);
     const main = document.createElement('main'); main.className = 'landMain installMain'; root.appendChild(main);
     const have = document.createElement('p'); have.className = 'heroHave installHave'; have.hidden = true;

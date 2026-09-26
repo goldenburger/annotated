@@ -864,9 +864,12 @@ function wireStart(box, beside = false) {
   });
   showSuggest(box);
 }
-const pasteForm = () => `<form class="pasteForm" role="search" novalidate><label for="pasteUrl">Paste a link to annotate</label>
-  <div class="row"><input id="pasteUrl" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false"><button class="strong sm">Open</button></div>
-  <p class="note pasteMsg" role="status"></p></form>`;
+// Each box has its own id: the panel holds several at once (one per tab and one on Home), and a shared id pointed the
+// label at a hidden box (exploration of 2026-09-26).
+let pasteN = 0;
+const pasteForm = () => { const id = 'pasteUrl' + (++pasteN); return `<form class="pasteForm" role="search" novalidate><label for="${id}">Paste a link to annotate</label>
+  <div class="row"><input id="${id}" class="pasteUrl" type="url" inputmode="url" placeholder="https://" autocomplete="off" spellcheck="false"><button class="strong sm">Open</button></div>
+  <p class="note pasteMsg" role="status"></p></form>`; };
 function wirePaste(root, beside = false) {
   const f = root.querySelector('.pasteForm');
   if (!f) return;

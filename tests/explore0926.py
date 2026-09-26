@@ -33,6 +33,7 @@ async def main():
   async with async_playwright() as p:
     b = await p.chromium.launch(executable_path=CHROME, headless=True)
     c = await b.new_context(viewport={'width': 1280, 'height': 860})
+    await c.add_init_script("try{sessionStorage.setItem('annotated-example-shown','1')}catch(e){}")  # measure only the examples below
     await c.route('https://annotated-app.netlify.app/**', site)
     async def db(route):
       u = route.request.url
