@@ -118,6 +118,12 @@ const ArticlePanel = (() => {
       // Only new words put an error away. The page lets go of its selection the moment a capture starts, so
       // hiding it on every update wiped the reason a capture failed a tenth of a second after it appeared.
       if (s.state !== 'empty' || q('.selErr').dataset.from === 'sel') q('.selErr').hidden = true;
+      // On X, words inside a post name that post in the heading, and the button says what it captures.
+      if (opts.xHost && !result) {
+        const by = s.state !== 'empty' && s.postBy;
+        q('.aTitle').textContent = by ? `${by}'s post on X` : 'Posts on X';
+        q('.ameta').textContent = by ? 'The words you selected become an annotation of this post' : 'Whichever post you select words in';
+      }
       if (s.state === 'empty') {
         q('.selBox').hidden = true; q('.selHint').hidden = !!result;
         q('.grab').disabled = true; q('.grab').hidden = true;
@@ -140,7 +146,7 @@ const ArticlePanel = (() => {
       q('.selMode').hidden = eb.hidden;
       if (s.state === 'error') { q('.selErr').textContent = s.error; q('.selErr').dataset.from = 'sel'; q('.selErr').hidden = false; }
       q('.grab').disabled = s.state !== 'ok';
-      q('.grab').textContent = result ? 'Capture this passage instead' : 'Capture passage';
+      q('.grab').textContent = result ? 'Capture this passage instead' : s.postBy ? 'Capture from this post' : 'Capture passage';
       markStale(s.state === 'ok' && !!result);
     }
     function markStale(on) {

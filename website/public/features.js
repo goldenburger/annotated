@@ -332,10 +332,11 @@ var Features = (() => {
     // much larger than the card it becomes; the steep drop reads through its speed and angle, not its height. At
     // 420 it was twice the card's size (recording of 2026-09-25 at 19:26, 1:09 and 2:12).
     const STYLES = [
-      { approach: 0, dist: 300, swoop: .15, z0: 80, T: 1100, unfold: 'cascade' },
-      { approach: 75, dist: 440, swoop: -.45, z0: 70, T: 1300, unfold: 'flutter' },
-      { approach: -55, dist: 240, swoop: .05, z0: 100, T: 800, unfold: 'snap' },
-      { approach: 140, dist: 520, swoop: .38, z0: 60, T: 1500, unfold: 'spin' },
+      // Lower still since the exploration of 2026-09-26, where on a 1280 pixel screen one was about 310 pixels across.
+      { approach: 0, dist: 300, swoop: .15, z0: 50, T: 1100, unfold: 'cascade' },
+      { approach: 75, dist: 440, swoop: -.45, z0: 45, T: 1300, unfold: 'flutter' },
+      { approach: -55, dist: 240, swoop: .05, z0: 60, T: 800, unfold: 'snap' },
+      { approach: 140, dist: 520, swoop: .38, z0: 40, T: 1500, unfold: 'spin' },
     ];
     demos.forEach((d) => d.classList.add('pl-hidden', 'ftWaiting'));
     let queue = Promise.resolve();
@@ -346,7 +347,7 @@ var Features = (() => {
         const w = Math.max(1, d.offsetWidth), st = STYLES[demos.indexOf(d) % STYLES.length];
         let over = false; const end = () => { if (over) return; over = true; d.classList.remove('pl-hidden'); done(); };
         // Sized from the card: the plane is about 150 pixels long whatever the card's width, and starts in sight.
-        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(150 / w, .14, .3), within: true }).then(end);
+        Fold.arrive(d, { ...st, approach: st.approach + jitter(), openT: 1100, s0: Fold.clamp(95 / w, .09, .2), within: true }).then(end);
         // Never held longer than the flight, whatever becomes of it.
         setTimeout(end, 3500);
       }));
@@ -370,7 +371,7 @@ var Features = (() => {
           const lead = g[0]; if (!lead) return;
           setTimeout(() => {
             // About 110 pixels long whatever the chip's width: at half a chip they were specks over an empty row.
-            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 90, T: 900 + gi * 120, openT: 500, s0: Fold.clamp(110 / Math.max(1, lead.offsetWidth), .5, 1.2), within: true, unfold: ['snap', 'spin', 'flutter'][gi % 3] })
+            Fold.arrive(lead, { approach: 150 + gi * 25 + jitter(), dist: 520, swoop: .3 - gi * .2, z0: 45, T: 900 + gi * 120, openT: 500, s0: Fold.clamp(85 / Math.max(1, lead.offsetWidth), .4, 1), within: true, unfold: ['snap', 'spin', 'flutter'][gi % 3] })
               .then(() => g.forEach((li, k) => setTimeout(() => { li.classList.remove('ftChipWait'); li.classList.add('ftChipPop'); }, k * 70)));
           }, gi * 260);
         });

@@ -216,8 +216,11 @@ const AnnotationPage = (() => {
   // Saved on this computer and nowhere else, so nobody else's feed has it.
   const onlyHere = (r) => !r.cloud && !r.author;
   function railYou(stats) {
+    // Signed out there are no followers to count, and "0 followers" sat beside a header saying the same annotations
+    // were saved on this computer (exploration of 2026-09-26). The card says what is true of them.
+    const line = me.handle || stats.following !== undefined ? statsLine(stats) : `${plural(num(stats.annotations), 'annotation')} saved on this computer`;
     return `<section class="railcard"><div class="who">${av('')}<div><div class="name">${esc(me.name)} <span class="uname">${esc(meHandle())}</span></div>
-      <div class="stats">${statsLine(stats)}</div></div></div></section>`;
+      <div class="stats">${line}</div></div></div></section>`;
   }
   // Empty or placeholder cards stay in debug mode so a demo never shows unfinished parts.
   function railTags(records) {
@@ -504,6 +507,7 @@ const AnnotationPage = (() => {
         </article>
         <section class="comments" aria-label="Comments">
           <h3 class="cTitle">Comments</h3>
+          ${opts.localOnly ? '<p class="note cLocal">Only you can see comments here until it is published.</p>' : ''}
           <textarea class="cText" rows="2" aria-label="Add a comment" placeholder="Add a comment. Type : for emoji. Ctrl or Cmd + Enter posts it."></textarea>
           <div class="cRow"><span class="cEmojiSlot"></span>
             ${typeof Compose !== 'undefined' && Compose.checkMedia ? `<button type="button" class="quiet cUpBtn hasTip" data-tooltip="Add a photo or video" aria-label="Add a photo or video">${Brand.icon('image')}</button>
@@ -1115,7 +1119,7 @@ const AnnotationPage = (() => {
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(takeLine(r.take))}</span>
               ${media}
-              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span><span class="csn">${esc(snippet)}</span></span></span>
+              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
             </span>
           </div>

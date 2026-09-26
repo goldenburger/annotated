@@ -383,7 +383,7 @@ const VideoPanel = (() => {
       // three second clip at the very end.
       const refuse = (why) => { inp.value = fmt(which === 'start' ? sel.start : sel.end, true); sayMoved(why); };
       if (!isFinite(t)) return refuse('That is not a time. Type it like 1:05, or 65 for sixty five seconds.');
-      if (t < 0) return refuse('A time cannot come before the start.');
+      if (t < 0) return refuse('A time cannot come before the start of the video.');
       if (t > D + 0.05) return refuse(`${isAudio ? 'The episode' : 'The video'} is ${fmt(D)} long.`);
       let s = sel.start, e = sel.end;
       // Too long keeps the time you typed and moves the other end to exactly 90 seconds away.

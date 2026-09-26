@@ -388,6 +388,8 @@ const Cloud = (() => {
   function startTab(tabs, wanted, pressed = false) {
     const k = tabs[wanted] ? wanted : 'foryou';
     if (pressed) return k;
+    // Signed out there is nobody to pick for, so the feed opens on Everyone (exploration of 2026-09-26).
+    if (tabs.signedOut) return 'everyone';
     if (k === 'foryou' && !tabs.foryou.records.length && tabs.everyone.records.length) return 'everyone';
     return k;
   }
@@ -402,7 +404,9 @@ const Cloud = (() => {
       foryou: { records: fy,
         note: !fy.length ? '' : me ? 'Picked from who you follow, what you reply to and react to, and what you annotate. Each one says why.'
           : 'What people are discussing on annotated. Sign in and it learns from who you follow and what you react to.',
-        empty: 'Nothing to suggest yet. Your own annotations are under Your profile, and as more people publish, the best of it shows up here.' },
+        // A visitor has no profile, so it does not point them at one.
+        empty: me ? 'Nothing to suggest yet. Your own annotations are under Your profile, and as more people publish, the best of it shows up here.'
+          : 'Nothing to suggest yet. Sign in and it learns from who you follow and what you react to.' },
       following: { records: records.filter((r) => r.author && soc.followed.has(r.author.id)),
         // Signed out nobody can follow anyone, so telling them to follow people pointed at nothing they could do.
         note: !me ? 'Sign in to follow people and see their annotations here.'
@@ -416,6 +420,7 @@ const Cloud = (() => {
         return { records: out, note: out.length ? `${out.length} annotation${out.length === 1 ? '' : 's'} from everyone, newest first.` : '',
           empty: 'Nobody has published anything yet. Yours would be the first.' };
       })(),
+      signedOut: !me,
     };
   }
 

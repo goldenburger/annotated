@@ -635,6 +635,13 @@ var ArticlePage = (() => {
     }
     function push() {
       const { range, ...sel } = last;
+      // Words inside a post on X are an annotation of that post, so the panel names whose it is. It said only
+      // "Posts on X, whichever post you select words in" with "Capture passage" (exploration of 2026-09-26).
+      try {
+        const n = range && range.commonAncestorContainer;
+        const tw = n && (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
+        if (tw && typeof PostCore !== 'undefined') sel.postBy = PostCore.read(tw, location).author || '';
+      } catch { /* not a post */ }
       send({ type: 'sel-update', sel });
     }
 

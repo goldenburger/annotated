@@ -852,3 +852,5 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .pdFoot .flyAgain svg { overflow: visible; }
 /* Decorations ignore the mouse; this plane does not. */
 .pdFoot .flyAgain .pdFlyer { pointer-events: bounding-box; }
+/* The home page's header stays above planes in flight: one flew across it on a laptop screen (2026-09-26). */
+.landBar { z-index: 70; }

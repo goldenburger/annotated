@@ -1004,6 +1004,16 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   button (`footTrail` in `landing.js`, `PaperDeco.ART.flyTrail`, its plane wrapped in `.pdFlyer`, the one decoration
   that takes the mouse): it bobs on hover and, pressed, flies off, then the page plays its flights again from the top,
   the examples included. Only while the planes are on; otherwise the trail is a plain drawing.
+- **The exploration of 2026-09-26** (`tests/explore0926.py`; the scripts that drove it live in the session's scratchpad, not
+  the repository). The examples under Other things it does fly lower and smaller (`z0` 40 to 60, `s0` about 95 pixels;
+  the chips' about 85), and the home page's header sits above planes (`.landBar` z-index 70); one was about 310 pixels
+  across on a 1280 pixel screen. Signed out, the feed opens on Everyone (`signedOut` on `homeTabs`, read by `startTab`)
+  and For you no longer points a visitor at a profile. Signed out, the rail's card says "N annotations saved on this
+  computer" (`railYou`, by `me.handle`). A passage card showing its words does not quote them again under the source.
+  Words selected in a post on the X timeline name it ("Evan's post on X", `postBy` from `article-core.js`) and the button
+  reads Capture from this post. Comments on a saved-only annotation say only you can see them (they were not hidden, which
+  about ten tests rely on). Terms and Privacy carry the site header. Two wordings: "before the start of the video", and a
+  full stop after the signed-out sign-in line.
 - **The recording of 2026-09-26 at 04:06** (`tests/walk0406.py`). The foot's plane clears the brief's own once-a-visit mark
   (`annotated-plane-seen`) too, so the opening flight plays again, and it goes to the top at once rather than gliding up.
   The panel's way back names our own full pages "your profile page" and "the feed page" (`cleanTitle`). A For you card

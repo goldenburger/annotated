@@ -85,7 +85,7 @@ const Compose = (() => {
         <button type="button" class="ghost sm micFix" hidden>Allow the microphone</button>
       </div>
       <div class="pubBar">
-        <p class="pubSignIn">Signed out, this is saved only on this computer. <button type="button" class="link pubSignInBtn">Sign in to publish it for everyone</button></p>
+        <p class="pubSignIn">Signed out, this is saved only on this computer. <button type="button" class="link pubSignInBtn">Sign in to publish it for everyone</button>.</p>
         <button type="button" class="primary publish" disabled>${typeof document !== 'undefined' && document.body.classList.contains('signedOut') ? 'Save on this computer' : 'Publish'}</button>
         <p class="hint publishHint">Add a written take, a voice note, a poll, a GIF, or a photo or video.</p>
       </div>`;
