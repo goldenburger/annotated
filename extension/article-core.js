@@ -639,8 +639,8 @@ var ArticlePage = (() => {
       // "Posts on X, whichever post you select words in" with "Capture passage" (exploration of 2026-09-26).
       try {
         const n = range && range.commonAncestorContainer;
-        const tw = n && (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
-        if (tw && typeof PostCore !== 'undefined') sel.postBy = PostCore.read(tw, location).author || '';
+        const tw = n && typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && PostCore.postOf(n);
+        if (tw) sel.postBy = PostCore.read(tw, location).author || '';
       } catch { /* not a post */ }
       send({ type: 'sel-update', sel });
     }
@@ -727,7 +727,7 @@ var ArticlePage = (() => {
       const range = ArticleCore.expandToWords(d.range.cloneRange());
       // On X, a selection inside a post is an annotation of that post, wherever the post is shown.
       const node = range.commonAncestorContainer;
-      const postEl = typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && (node.nodeType === 1 ? node : node.parentElement).closest('article[data-testid="tweet"]');
+      const postEl = typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && PostCore.postOf(node);
       // Posts keep their line breaks. Articles collapse whitespace as before.
       const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.quoteText(range);
       const marks = ArticleCore.highlightRange(range);
@@ -797,7 +797,7 @@ var ArticlePage = (() => {
       if (!el) return false;
       const undo = [];
       const set = (n, prop, to) => { undo.push([n, prop, n.style[prop]]); n.style[prop] = to; };
-      for (const n of [el, ...el.querySelectorAll('[data-testid="tweetText"], [data-testid="tweetText"] *')]) {
+      for (const n of [el, ...el.querySelectorAll('[data-testid="tweetText"], [data-testid="tweetText"] *, div[dir="auto"], div[dir="auto"] *')]) {
         const cs = getComputedStyle(n);
         if (cs.webkitLineClamp && cs.webkitLineClamp !== 'none') set(n, 'webkitLineClamp', 'unset');
         if (cs.overflow === 'hidden' && n.scrollHeight > n.clientHeight + 1) set(n, 'overflow', 'visible');
@@ -870,8 +870,8 @@ var ArticlePage = (() => {
     function selectedPost() {
       const r = currentRange();
       if (!r) return null;
-      const n = r.commonAncestorContainer;
-      return (n.nodeType === 1 ? n : n.parentElement).closest('article[data-testid="tweet"]');
+      if (typeof PostCore === 'undefined' || !PostCore.isXHost(loc().hostname)) return null;
+      return PostCore.postOf(r.commonAncestorContainer);
     }
     // Taking the stroke off the page also drops the words it stood for, so capturing again does not bring
     // back a quote the person just removed.

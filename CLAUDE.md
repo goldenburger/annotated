@@ -1004,6 +1004,13 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   button (`footTrail` in `landing.js`, `PaperDeco.ART.flyTrail`, its plane wrapped in `.pdFlyer`, the one decoration
   that takes the mouse): it bobs on hover and, pressed, flies off, then the page plays its flights again from the top,
   the examples included. Only while the planes are on; otherwise the trail is a plain drawing.
+- **X signed out** (`tests/xsignedout.py`, 2.33.30). Signed out, x.com serves other markup: no `data-testid`, the words in
+  a `div[dir=auto]`, no `<time>`, the date as the text of the status link ("7:01 AM · Sep 12, 2026"). The post panel sat on
+  "Waiting for the post". `PostCore` now reads both (`POST`, `TEXT`, `postOf`, `timeLink`), and `article-core.js` finds a
+  post through `PostCore.postOf`. Checked against the real signed-out x.com on 2026-09-26 with Dario Amodei's post.
+  Found recording the demo video, whose script lives in the session's scratchpad (`demo/demo2.py`, `compose.py`).
+  YouTube stalled a capture that seeked back to a point it had not buffered after the page jumped ahead (a script's
+  jump, not a person's); a clip set while watching captured fine. Not checked on a real live account.
 - **The second exploration of 2026-09-26** (`tests/explore0926b.py`). With the planes on, the home page's example never
   played on a first visit: `demo()` in `tryit.js` marked `annotated-example-shown` before waiting for the opening flight
   to land, and found its own mark when it came back. The tests missed it because they run with the planes off. It is

@@ -27,7 +27,7 @@ var Features = (() => {
     dwarkesh: { name: 'Dwarkesh Patel', handle: '@dwarkesh_sp', date: 'Sep 17, 2026', url: 'https://x.com/dwarkesh_sp/status/2100691266405298647',
       quote: 'labs will just stop externally deploying their models' },
     anthropic: { name: 'Anthropic', site: 'anthropic.com', title: "Anthropic's Position on Open-Weights Models", date: 'Jul 27, 2026', url: 'https://www.anthropic.com/news/position-open-weights-models',
-      quote: "Open-weights models that don't have dangerous capabilities are a public good." },
+      quote: "Open-weights models that don't have dangerous capabilities are a public good" },
   };
   // A post as it reads on X, with the quoted words marked, and the post it quotes under it. Words, name and handle
   // only, and a link to the real post.
