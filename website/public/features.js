@@ -337,7 +337,13 @@ var Features = (() => {
       { approach: 75, dist: 440, swoop: -.45, z0: 45, T: 1300, unfold: 'flutter' },
       { approach: -55, dist: 240, swoop: .05, z0: 60, T: 800, unfold: 'snap' },
       { approach: 140, dist: 520, swoop: .38, z0: 40, T: 1500, unfold: 'spin' },
-    ];
+      // More of them (2.34.0), each a different way down and a different way open.
+      { approach: -110, dist: 380, swoop: -.3, z0: 55, T: 1400, unfold: 'drift' },
+      { approach: 30, dist: 340, swoop: .25, z0: 50, T: 1000, unfold: 'bounce' },
+      { approach: 100, dist: 460, swoop: -.2, z0: 45, T: 1250, unfold: 'peel' },
+      { approach: -20, dist: 280, swoop: .4, z0: 55, T: 950, unfold: 'tumble' },
+      { approach: 60, dist: 500, swoop: .1, z0: 40, T: 1600, unfold: 'float' },
+    ].sort(() => Math.random() - .5);
     demos.forEach((d) => d.classList.add('pl-hidden', 'ftWaiting'));
     let queue = Promise.resolve();
     const land = (d) => {

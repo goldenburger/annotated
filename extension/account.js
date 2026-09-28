@@ -1,6 +1,7 @@
-// The account button in the panel's top bar: "Sign in" with Google, or your photo with a small menu.
+// The account button in the panel's top bar: "Sign in" (Google or X), or your photo with a small menu.
 const Account = (() => {
   const G = '<svg class="gmark" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>';
+  const X = '<svg class="xmark" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.9 2H22l-7.2 8.2L23.3 22h-6.6l-5.2-6.8L5.6 22H2.5l7.7-8.8L2 2h6.8l4.7 6.2L18.9 2zm-1.2 18h1.8L7.4 3.9H5.5L17.7 20z"/></svg>';
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let me = null, btn = null, pop = null;
   const subs = [];
@@ -18,14 +19,16 @@ const Account = (() => {
       btn.title = me.name;
     } else {
       btn.innerHTML = `${G} Sign in`;
-      btn.setAttribute('aria-label', 'Sign in with Google');
-      btn.title = 'Sign in with Google';
+      btn.setAttribute('aria-label', 'Sign in with Google or X');
+      btn.title = 'Sign in with Google or X';
     }
     // Lets the panel show the "sign in to publish" line above Publish while signed out.
     document.body.classList.toggle('signedOut', !me);
     subs.forEach((f) => f(me));
   }
-  function close() { if (pop) { pop.remove(); pop = null; } }
+  // A sign-in asked for from elsewhere in the panel waits here until a way in is chosen, or the card is put away.
+  let waiting = null;
+  function close() { if (pop) { pop.remove(); pop = null; } if (waiting && !me) { const r = waiting; waiting = null; r(null); } }
   function open(errText) {
     close();
     // The menu and the help screen put each other away, where they opened one over the other (recording of
@@ -39,6 +42,7 @@ const Account = (() => {
     pop.innerHTML = me
       ? `<div class="who"><span class="avatar ${me.avatar ? 'hasImg' : ''}" aria-hidden="true">${me.avatar ? `<img src="${esc(me.avatar)}" alt="" referrerpolicy="no-referrer">` : esc(me.name.slice(0, 1))}</span>
            <div><b>${esc(me.name)}</b><span class="acctAt">${me.handle ? '@' + esc(me.handle) : ''}</span></div></div>
+         <p class="note acctX" hidden></p>
          ${actions.onProfile ? '<button type="button" class="ghost sm acctProfile">Your profile</button>' : ''}
          <a class="link acctAbout" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener">About annotated</a>
          <form class="acctHandle" novalidate><label for="acctH">Handle</label>
@@ -51,7 +55,9 @@ const Account = (() => {
            <button type="button" class="ghost sm acctOut">Sign out</button>
            ${actions.onDeleteAll ? `<button type="button" class="link danger acctDelAll"${actions.hasAny ? ' hidden' : ''}>Delete all my annotations</button>` : ''}
          </div>`
-      : `<p class="err">${esc(errText || '')}</p><button type="button" class="ghost sm acctIn">${G} Try again</button>`;
+      : `${errText ? `<p class="err">${esc(errText)}</p>` : ''}<p class="note">Sign in to publish, follow people and join in.</p>
+         <div class="acctWays"><button type="button" class="strong sm acctIn" data-provider="google">${G} Continue with Google</button>
+         <button type="button" class="strong sm acctIn" data-provider="x">${X} Continue with X</button></div>`;
     document.body.appendChild(pop);
     // A link out of the menu closes it. About annotated opened the home page and left the menu open over the panel
     // (recording of 2026-09-25 at 16:45, 1:48).
@@ -63,7 +69,20 @@ const Account = (() => {
     const r = btn.getBoundingClientRect();
     pop.style.top = (r.bottom + 6) + 'px';
     pop.style.left = Math.max(8, Math.min(window.innerWidth - 268, r.right - 260)) + 'px';
-    const out = pop.querySelector('.acctOut'), again = pop.querySelector('.acctIn');
+    const out = pop.querySelector('.acctOut');
+    // One account, two ways in. Connecting X keeps everything under the account already signed in.
+    const xLine = pop.querySelector('.acctX');
+    if (xLine && Backend.ways) Backend.ways().then((w) => {
+      if (!pop || !xLine.isConnected) return;
+      xLine.hidden = false;
+      if (w.includes('x')) { xLine.innerHTML = `${X} X is connected. You can sign in with it too.`; return; }
+      xLine.innerHTML = `<button type="button" class="link acctConnectX">${X} Connect X</button> <span>to sign in with either.</span>`;
+      xLine.querySelector('.acctConnectX').addEventListener('click', async () => {
+        xLine.textContent = 'Connecting X…';
+        try { me = await Backend.connectX(); draw(); xLine.innerHTML = `${X} X is connected. You can sign in with it too.`; }
+        catch (e) { xLine.textContent = (e && e.message) || 'X could not be connected just now.'; }
+      });
+    });
     if (out) out.addEventListener('click', async () => { close(); await Backend.signOut(); me = null; draw(); });
     // Nothing here is a password field, and a handle is two to thirty characters, so the browser's saved
     // entries are only ever in the way.
@@ -112,7 +131,7 @@ const Account = (() => {
       draw();
       subs.forEach((f) => f(me));
     });
-    if (again) again.addEventListener('click', () => { close(); signIn(); });
+    pop.querySelectorAll('.acctIn').forEach((b) => b.addEventListener('click', () => { const r = waiting; waiting = null; close(); signIn(b.dataset.provider).then((p) => { if (r) r(p); }); }));
     setTimeout(() => document.addEventListener('mousedown', function o(e) { if (!pop) return document.removeEventListener('mousedown', o); if (!pop.contains(e.target) && e.target !== btn) { document.removeEventListener('mousedown', o); close(); } }), 0);
     pop.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { close(); btn.focus(); return; }
@@ -128,11 +147,14 @@ const Account = (() => {
     const first = pop.querySelector('button:not([disabled]), input');
     if (first) first.focus();
   }
-  async function signIn() {
-    btn.disabled = true; btn.innerHTML = `${G} Signing in`;
-    try { me = await Backend.signIn(); draw(); }
+  // With no way chosen, the card of both opens and the answer comes once one is picked (null if it is put away).
+  async function signIn(provider) {
+    if (!provider) return new Promise((res) => { open(); waiting = res; });
+    btn.disabled = true; btn.innerHTML = 'Signing in';
+    try { me = await Backend.signIn(provider); draw(); }
     catch (e) { me = null; draw(); open(e.message); }
     finally { btn.disabled = false; }
+    return me;
   }
   function mount(panel) {
     const brand = panel.querySelector('.brand');

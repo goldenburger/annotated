@@ -90,7 +90,7 @@ const Cloud = (() => {
   async function list({ authorId = null, limit = 60 } = {}) {
     // Who replied, reacted and voted, not only how many, because For you counts different people rather
     // than raw activity, and needs to know what you have already joined in on.
-    let qy = c().from('annotations').select(`*, ${PROFILE}, comments(author_id), reactions(emoji, user_id), poll_votes(user_id)`).order('created_at', { ascending: false }).limit(limit);
+    let qy = c().from('annotations').select(`*, ${PROFILE}, comments(author_id, body, gif, created_at, ${COMMENT_PROFILE}), reactions(emoji, user_id), poll_votes(user_id)`).order('created_at', { ascending: false }).limit(limit);
     if (authorId) qy = qy.eq('author_id', authorId);
     const { data, error } = await qy;
     if (error) throw error;
@@ -105,6 +105,11 @@ const Cloud = (() => {
       voices.delete(a.author_id);
       r.voices = [...voices];
       r.pollVotes = (a.poll_votes || []).length;
+      // The first reply by someone else, shown as one line under the card, which makes a feed read as a place
+      // where people answer each other. A reply that is only a GIF says so.
+      const first = (a.comments || []).filter((x) => x && x.author_id !== a.author_id && x.author)
+        .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))[0];
+      if (first) r.firstReply = { name: first.author.display_name || '@' + (first.author.handle || 'someone'), text: (first.body || '').trim() || (first.gif ? 'a GIF' : '') };
       return r;
     });
   }

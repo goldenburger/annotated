@@ -1029,9 +1029,9 @@ async function drawBrowse({ quick = false } = {}) {
   if (!me && signIn && kind === 'profile') {
     note = records.length ? 'Signed out, these are saved only on this computer. Sign in to publish them under your name.' : '';
     emptyNote = 'Your profile is everything you publish, under your name, with a link people can follow. Sign in to start one. Anything you save before then shows here too.';
-    action = { label: 'Sign in with Google', onClick: signIn };
+    action = { label: 'Sign in', onClick: signIn };
   }
-  if (!me && signIn && kind === 'home' && tabs && tabs.current === 'following') action = { label: 'Sign in with Google', onClick: signIn };
+  if (!me && signIn && kind === 'home' && tabs && tabs.current === 'following') action = { label: 'Sign in', onClick: signIn };
   // Said once, when copies of annotations deleted online have just been taken off this computer.
   if (pruned.dropped) note = `${pruned.dropped === 1 ? 'One annotation was' : pruned.dropped + ' annotations were'} deleted online, so ${pruned.dropped === 1 ? 'it is' : 'they are'} gone from here too.${note ? ' ' + note : ''}`;
   AnnotationPage.renderBrowse($('#browseMode'), {

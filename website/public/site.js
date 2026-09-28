@@ -39,13 +39,20 @@ addEventListener('storage', (e) => {
 });
 // One account on both. Signed out here, the sign-in buttons name the account the extension uses. Signed in here
 // as someone else, a line says so and offers to switch (recording of 2026-09-25 at 03:54).
+// Signing in on the website: with a way already chosen (a button that says Google or X), go; otherwise a small
+// card offers both. Google picks the extension's account when there is one (backend-web.js).
+function chooseSignIn(provider, text = 'Sign in to publish, follow people and join in.') {
+  if (provider === 'google' || provider === 'x') return Backend.signIn({ provider }).catch((e) => AnnotationPage.signInPrompt({ text: 'Sign-in did not start. ' + e.message }));
+  AnnotationPage.signInPrompt({ text, onSignIn: (p) => chooseSignIn(p) });
+  return Promise.resolve();
+}
 const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 function matchExtension(me) {
   const ext = Backend.extUser && Backend.extUser();
   document.querySelectorAll('.webSignIn').forEach((b) => {
     if (!b.dataset.plain) b.dataset.plain = b.innerHTML;
     b.innerHTML = ext && ext.name ? `Sign in as ${firstName(ext.name)}` : b.dataset.plain;
-    b.setAttribute('aria-label', ext && ext.name ? `Sign in with Google as ${ext.name}` : 'Sign in with Google');
+    b.setAttribute('aria-label', ext && ext.name ? `Sign in as ${ext.name}` : 'Sign in with Google or X');
   });
   const old = document.querySelector('.acctMismatch'); if (old) old.remove();
   if (!me || !ext || ext.id === me.id) return;
@@ -79,7 +86,7 @@ function matchExtension(me) {
     // page" landed on an empty feed and the example was one small link away (recording of 2026-09-25 at 05:34).
     // The feed is at /?feed, a link in the header.
     {
-      const signInNow = () => Backend.signIn().catch(() => {});
+      const signInNow = () => chooseSignIn();
       const visitor = query.get('preview') === 'visitor';
       const meta = session ? (session.user.user_metadata || {}) : {};
       const me = session ? { name: meta.full_name || meta.name || '', avatar: meta.avatar_url || meta.picture || '' } : null;
@@ -123,7 +130,7 @@ function matchExtension(me) {
   let hasSession = false; try { hasSession = !!localStorage.getItem('annotated-auth'); } catch { /* no storage */ }
   page.innerHTML = `<div class="skel" aria-busy="true" aria-label="Loading">
     <header class="sitebar"><a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
-      <nav class="sitenav" aria-hidden="true"><span class="navBtn">Feed</span>${hasSession ? '<span class="navBtn"><span class="avatar xs"></span> You</span>' : '<span class="navBtn">Sign in<span class="wideOnly"> with Google</span></span>'}</nav></header>
+      <nav class="sitenav" aria-hidden="true"><span class="navBtn">Feed</span>${hasSession ? '<span class="navBtn"><span class="avatar xs"></span> You</span>' : '<span class="navBtn">Sign in</span>'}</nav></header>
     <div class="skelBody"><div class="skelCol"><i class="sk1"></i><i class="sk2"></i><i class="sk3"></i><i class="sk4"></i><i class="sk5"></i></div>
     <div class="skelRail"><i></i><i></i></div></div></div>`;
   await loadReading();
@@ -132,7 +139,7 @@ function matchExtension(me) {
   const handleOf = new Map();
   const linkFor = (id) => `/@${handleOf.get(id) || 'annotated'}/${encodeURIComponent(id)}`;
   const remember = (records) => records.forEach((r) => handleOf.set(r.id, (r.author && r.author.handle) || 'annotated'));
-  const signIn = () => Backend.signIn().catch((e) => AnnotationPage.signInPrompt({ text: 'Sign-in did not start. ' + e.message }));
+  const signIn = (p) => chooseSignIn(p);
   // Back is only offered when the page behind you is one of ours. A same origin referrer is how you know,
   // and it is set by every link and every location change this site makes.
   const cameFromHere = () => { try { return new URL(document.referrer).origin === location.origin; } catch { return false; } };
@@ -156,8 +163,8 @@ function matchExtension(me) {
     if (!navEl) return;
     if (!me) {
       const b = document.createElement('button');
-      b.type = 'button'; b.className = 'navBtn webSignIn'; b.innerHTML = 'Sign in<span class="wideOnly"> with Google</span>'; b.setAttribute('aria-label', 'Sign in with Google');
-      b.addEventListener('click', signIn);
+      b.type = 'button'; b.className = 'navBtn webSignIn'; b.innerHTML = 'Sign in'; b.setAttribute('aria-label', 'Sign in with Google or X');
+      b.addEventListener('click', () => signIn());
       navEl.appendChild(b);
       const you = navEl.querySelector('.navProfile'); if (you) you.hidden = true;
     }
@@ -233,7 +240,7 @@ function matchExtension(me) {
     // Your own card counts your annotations. It said 0 beside one of your own (recording of 2026-09-25 at 03:54).
     const [soc, yours] = await Promise.all([discover(), mine ? records : me ? Cloud.list({ authorId: me.id, limit: 100 }).catch(() => []) : []]);
     const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, yours.length) } : null;
-    const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in with Google to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
+    const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
       author: mine ? null : rec.author, mine,

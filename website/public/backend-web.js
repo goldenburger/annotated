@@ -11,9 +11,16 @@ const Backend = (() => {
   // The account the extension is signed in as, when it is installed and tells this page (article.js). Signing in
   // then goes to Google with that account already picked.
   const extUser = () => { const d = document.documentElement.dataset; return d.annotatedUserId ? { id: d.annotatedUserId, name: d.annotatedUserName || '', email: d.annotatedUserEmail || '' } : null; };
-  async function signIn({ hint = null } = {}) {
+  // Google or X. Called with 'x', or { provider, hint }; the hint picks a Google account and means nothing to X.
+  async function signIn(opts = {}) {
+    const o = typeof opts === 'string' ? { provider: opts } : opts || {};
     const back = location.origin + location.pathname + location.search;
-    const email = hint || (extUser() && extUser().email) || '';
+    if (o.provider === 'x') {
+      const { error } = await client.auth.signInWithOAuth({ provider: 'x', options: { redirectTo: back } });
+      if (error) throw error;
+      return;
+    }
+    const email = o.hint || (extUser() && extUser().email) || '';
     const queryParams = email ? { login_hint: email } : { prompt: 'select_account' };
     const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: back, queryParams } });
     if (error) throw error;

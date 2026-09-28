@@ -854,3 +854,26 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .pdFoot .flyAgain .pdFlyer { pointer-events: bounding-box; }
 /* The home page's header stays above planes in flight: one flew across it on a laptop screen (2026-09-26). */
 .landBar { z-index: 70; }
+/* Under the hero's buttons: the demo, one click away, and one plain line of trust (2.34.0). */
+.heroTrust { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 14px 0 0; font-size: 13px; color: var(--ink-3); }
+.heroDemo { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); text-decoration: none; font-weight: 600; }
+.heroDemo:hover { color: var(--ink); }
+.heroDemo .num { font-weight: 500; color: var(--ink-3); }
+.hdPlay { width: 22px; height: 22px; border-radius: 50%; background: var(--hi); position: relative; flex: 0 0 auto; }
+.hdPlay::after { content: ""; position: absolute; left: 8px; top: 6px; border-left: 8px solid var(--hi-ink); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+/* Margin notes: a pencil note in the margin of the page, with a hand-drawn arrow to what it is about. Wide screens
+   with a mouse only, never more than two, and the try-it's goes once the paper is touched (2.34.0). */
+.marginNote { display: none; }
+@media (min-width: 1180px) and (hover: hover) {
+  .marginNote { display: block; position: absolute; z-index: 3; margin: 0; max-width: 190px; pointer-events: none;
+    font: italic 400 17px/1.25 'Newsreader', Georgia, serif; color: var(--ink-3); letter-spacing: .005em; transform: rotate(-3deg);
+    transition: opacity .6s ease; }
+  .marginNote .mnArrow { display: block; width: 70px; height: 46px; color: var(--ink-3); opacity: .8; }
+  .heroCopy { position: relative; }
+  .mnTry { position: relative; margin: 34px 0 0 250px; max-width: 200px; transform: rotate(-3deg); }
+  .mnTry .mnArrow { position: absolute; left: 100%; top: -30px; margin-left: 2px; transform: rotate(-38deg); }
+  .mnGone { opacity: 0; }
+  .landGet { position: relative; }
+  .mnGet { top: -6px; right: 0; max-width: 250px; text-align: right; transform: rotate(2deg); }
+  .mnGet .mnArrow { margin: 0 0 2px auto; transform: rotate(160deg) scaleX(-1); }
+}

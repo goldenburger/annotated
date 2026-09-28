@@ -205,24 +205,52 @@ var Fold = (() => {
     //   snap     quicker, every fold springing a little past flat.
     //   flutter  it catches the air and wobbles before it opens.
     //   spin     it turns once in place as it opens out.
+    // And five more (David, 2026-09-28: more ways of folding, unfolding and flying):
+    //   drift    it sways down like a leaf as it opens, slowly.
+    //   bounce   it opens, lands a touch too big and settles, a small hop.
+    //   peel     one wing opens right through, then the other.
+    //   tumble   it flips over once, end over end, as it opens.
+    //   float    long and gentle, every fold easing out.
+    // Folding into a plane (reverse) takes the same styles, played backwards.
     const STYLE = {
       classic: { f: (o) => o, t: 1 },
       cascade: { f: (o) => Math.pow(o, 1.6), t: 1.35 },
       snap: { f: (o) => o, t: .72, ease: 'cubic-bezier(.34, 1.56, .64, 1)' },
       flutter: { f: (o) => .3 + .7 * o, t: 1.3 },
       spin: { f: (o) => o, t: 1.15 },
+      drift: { f: (o) => .28 + .72 * o, t: 1.45 },
+      bounce: { f: (o) => o * .86, t: 1.05 },
+      peel: { f: (o) => o, t: 1.3, peel: true },
+      tumble: { f: (o) => .12 + .88 * o, t: 1.25 },
+      float: { f: (o) => o, t: 1.7, ease: 'cubic-bezier(.22, .9, .24, 1)' },
     };
+    const botEls = [bot.half, bot.wing, bot.T2, bot.F1l, bot.F1u];
+    const onBottom = (el) => botEls.some((g) => g === el || g.contains(el));
     // Each style's sheet grows only as fast as its halves open: flutter's open from .3 to .58, spin's from 0 to .4.
     const sc = (k, r) => `scale3d(${grow(k)},${grow(k)},${grow(k)}) rotate(${r}deg)`;
     const sheetKf = {
       flutter: [k2(0, { transform: sc(0, 0) }), k2(.08, { transform: sc(0, 8) }), k2(.16, { transform: sc(0, -7) }),
         k2(.24, { transform: sc(0, 4) }), k2(.3, { transform: sc(0, 0) }), k2(.44, { transform: sc(.22, 0) }), k2(.6, { transform: sc(1, 0) }), k2(1, { transform: sc(1, 0) })],
       spin: [k2(0, { transform: sc(0, -200) }), k2(.2, { transform: sc(.22, -90) }), k2(.42, { transform: sc(1, 0) }), k2(1, { transform: sc(1, 0) })],
+      // Side to side as it comes down, the sway dying away as it flattens.
+      drift: [k2(0, { transform: sc(0, 0) + ' translateX(0)' }), k2(.1, { transform: sc(0, 10) + ' translateX(-14px)' }), k2(.2, { transform: sc(0, -8) + ' translateX(12px)' }),
+        k2(.28, { transform: sc(0, 5) + ' translateX(-7px)' }), k2(.44, { transform: sc(.22, -2) + ' translateX(3px)' }), k2(.62, { transform: sc(1, 0) + ' translateX(0)' }), k2(1, { transform: sc(1, 0) + ' translateX(0)' })],
+      // Open, a touch past full size, back under, settled.
+      bounce: [k2(0, { transform: sc(0, 0) }), k2(.2, { transform: sc(.22, 0) }), k2(.4, { transform: sc(1, 0) }), k2(.7, { transform: `scale3d(1.045,1.045,1.045)` }),
+        k2(.84, { transform: `scale3d(.985,.985,.985)` }), k2(1, { transform: sc(1, 0) })],
+      // End over end, once.
+      tumble: [k2(0, { transform: sc(0, 0) + ' rotateX(0deg)' }), k2(.12, { transform: sc(0, 0) + ' rotateX(-180deg)' }), k2(.3, { transform: sc(.22, 0) + ' rotateX(-360deg)' }),
+        k2(.5, { transform: sc(1, 0) + ' rotateX(-360deg)' }), k2(1, { transform: sc(1, 0) + ' rotateX(-360deg)' })],
     };
     const open = (T, reverse = false, style = 'classic') => {
-      const st = (!reverse && STYLE[style]) || STYLE.classic;
+      const st = STYLE[style] || STYLE.classic;
       const runs = steps.map(([el, kf, easing]) => {
-        if (el === sheet && !reverse && sheetKf[style]) kf = sheetKf[style];
+        if (el === sheet && sheetKf[style]) kf = sheetKf[style];
+        else if (st.peel && el !== sheet && el !== under) {
+          // Peel: the top side opens in the first two thirds, the bottom in the last two thirds.
+          const b = onBottom(el), f = (o) => (b ? .34 + .66 * o : .66 * o);
+          kf = kf.map((k) => Object.assign({}, k, { offset: f(k.offset) })); kf[0].offset = 0; kf[kf.length - 1].offset = 1;
+        }
         else if (st.f !== STYLE.classic.f) { kf = kf.map((k) => Object.assign({}, k, { offset: st.f(k.offset) })); kf[0].offset = 0; kf[kf.length - 1].offset = 1; }
         const ease = st.ease && el !== sheet && easing === 'ease-in-out' ? st.ease : easing;
         return el.animate(kf, { duration: T * st.t, easing: ease, fill: 'forwards', direction: reverse ? 'reverse' : 'normal' });
@@ -413,7 +441,16 @@ var Fold = (() => {
   // Send an element away: it folds into a plane where it is and takes off, up and to the right, out of the
   // window, shrinking as it goes. Resolves once it has gone. This is what publishing looks like: the thing
   // leaves, it does not circle and come back. `cancel()` on the result puts everything back at once.
-  function away(el, { s0 = 0 } = {}) {
+  // How it folds and how it leaves vary, so publishing twice in a row does not look the same twice (2.34.0):
+  //   climb   up and to the right, out of the window (as before).
+  //   loop    once round in a loop-the-loop, then away.
+  //   sweep   out to the left first, round, and off over the top.
+  //   zip     straight out, quick.
+  //   glide   a long, low, slow curve out to the right.
+  const FOLDS = ['classic', 'cascade', 'peel', 'snap', 'tumble'];
+  const ROUTES = ['climb', 'loop', 'sweep', 'zip', 'glide'];
+  const anyOf = (a) => a[Math.floor(Math.random() * a.length)];
+  function away(el, { s0 = 0, fold = anyOf(FOLDS), route = anyOf(ROUTES) } = {}) {
     const L = Math.max(el.offsetWidth, el.offsetHeight);
     const plane = buildPlane(el, { startOpen: true, s0: s0 || clamp(140 / L, .2, .5) });
     plane.fshadow.style.opacity = '0';
@@ -422,18 +459,41 @@ var Fold = (() => {
     const gone = new Promise((res) => { settle = res; });
     const t = track(plane, null, () => { el.classList.remove('pl-hidden'); settle(); });
     (async () => {
-      await plane.open(650, true);
+      await plane.open(fold === 'classic' ? 650 : 560, true, fold);
       if (!flying.has(t)) return;
       plane.fshadow.style.opacity = '';
       const vw = document.documentElement.clientWidth;
       const c = plane.centre, h = dir(plane.phi);
       const run = { x: c.x + h.x * 50, y: c.y + h.y * 50 };
       const out = { x: scrollX + vw + 120, y: scrollY - 140 };
-      const pts = line(c, run, 6).concat(bezier(run, { x: run.x + 120, y: run.y + 10 }, { x: out.x - 160, y: out.y + 200 }, out).slice(1));
-      // Up off the page first, then away into the distance (a negative height is further from you).
-      const z = (u) => (u < .3 ? 70 * (u / .3) : 70 - 520 * ((u - .3) / .7) ** 1.4);
-      const f = flight(plane, pts, { acc: .35, dec: 0, z, T: 1100 });
-      plane.carrier.animate([{ opacity: 1 }, { opacity: 1, offset: .75 }, { opacity: 0 }], { duration: 1100, fill: 'forwards' });
+      let pts, T = 1100;
+      if (route === 'loop') {
+        // Round once: up, over the top, down the far side and through where it started, then away.
+        const R = 46, cx = run.x + 30, cy = run.y - R;
+        const ring = Array.from({ length: 25 }, (_, i) => { const a = Math.PI / 2 - (i / 24) * Math.PI * 2; return { x: cx + R * Math.cos(a) * 1.15, y: cy + R * Math.sin(a) * -1 }; });
+        pts = line(c, run, 6).concat(ring.slice(1), bezier(ring[ring.length - 1], { x: run.x + 140, y: run.y - 10 }, { x: out.x - 160, y: out.y + 200 }, out).slice(1));
+        T = 1500;
+      } else if (route === 'sweep') {
+        const left = { x: Math.max(scrollX + 30, c.x - 160), y: c.y - 60 };
+        pts = line(c, run, 5).concat(bezier(run, { x: run.x + 40, y: run.y - 90 }, { x: left.x - 40, y: left.y + 40 }, left).slice(1),
+          bezier(left, { x: left.x + 10, y: left.y - 120 }, { x: out.x - 200, y: out.y + 60 }, out).slice(1));
+        T = 1450;
+      } else if (route === 'zip') {
+        pts = line(c, run, 4).concat(line(run, out, 16).slice(1));
+        T = 760;
+      } else if (route === 'glide') {
+        const low = { x: scrollX + vw + 120, y: c.y - 40 };
+        pts = line(c, run, 6).concat(bezier(run, { x: run.x + 160, y: run.y + 40 }, { x: low.x - 200, y: low.y + 20 }, low).slice(1));
+        T = 1500;
+      } else {
+        pts = line(c, run, 6).concat(bezier(run, { x: run.x + 120, y: run.y + 10 }, { x: out.x - 160, y: out.y + 200 }, out).slice(1));
+      }
+      // Up off the page first, then away into the distance (a negative height is further from you). A glide stays
+      // nearer, going more across than away.
+      const deep = route === 'glide' ? 300 : 520;
+      const z = (u) => (u < .3 ? 70 * (u / .3) : 70 - deep * ((u - .3) / .7) ** 1.4);
+      const f = flight(plane, pts, { acc: route === 'zip' ? .2 : .35, dec: 0, z, T });
+      plane.carrier.animate([{ opacity: 1 }, { opacity: 1, offset: .78 }, { opacity: 0 }], { duration: T, fill: 'forwards' });
       await f;
       if (!flying.has(t)) return;
       flying.delete(t); plane.layer.remove(); settle();
@@ -442,5 +502,25 @@ var Fold = (() => {
     return gone;
   }
 
-  return { on, make, clamp, dir, pageBox, dart, inView, buildPlane, bezier, line, lenOf, pace, flight, landPath, descend, track, crease, handOver, arrive, away, flying, skipAll };
+  // A tiny plane off a button, for a link copied or sent: it lifts from the button, banks right and climbs out
+  // in an arc, a third of a second of drift and gone. Nothing waits for it (2.34.0).
+  function toss(from) {
+    if (!on() || !from || typeof Brand === 'undefined' || !from.getBoundingClientRect) return;
+    const r = from.getBoundingClientRect();
+    if (!r.width) return;
+    const p = document.createElement('span');
+    p.className = 'pl-toss'; p.setAttribute('aria-hidden', 'true'); p.innerHTML = Brand.mark();
+    p.style.left = (r.left + r.width / 2 - 9) + 'px'; p.style.top = (r.top + r.height / 2 - 9) + 'px';
+    document.body.appendChild(p);
+    const dx = 70 + Math.random() * 40, dy = -(80 + Math.random() * 40);
+    const kf = [];
+    for (let i = 0; i <= 12; i++) {
+      const t = i / 12, e = 1 - Math.pow(1 - t, 2);
+      const x = dx * e, y = dy * t * t + 18 * Math.sin(Math.PI * t) * -0.4;
+      kf.push({ offset: t, transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${(-10 - 25 * t).toFixed(1)}deg) scale(${(1 - .35 * t).toFixed(3)})`, opacity: t < .75 ? 1 : (1 - t) * 4 });
+    }
+    const a = p.animate(kf, { duration: 850, easing: 'cubic-bezier(.25,.1,.3,1)', fill: 'forwards' });
+    a.onfinish = () => p.remove(); setTimeout(() => p.remove(), 1500);
+  }
+  return { FOLDS, ROUTES, on, toss, make, clamp, dir, pageBox, dart, inView, buildPlane, bezier, line, lenOf, pace, flight, landPath, descend, track, crease, handOver, arrive, away, flying, skipAll };
 })();

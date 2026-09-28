@@ -73,7 +73,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const socialP = shared ? Cloud.social(id, me && me.id).catch(() => null) : Promise.resolve(null);
     const recordsP = Store.allMeta().catch(() => []);
     const discoveryP = Cloud.discovery(me, {
-      signIn: () => Backend.signIn().then(() => load()).catch(() => {}),
+      signIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}),
       onPerson: (handle) => Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.href = 'feed.html#user=' + encodeURIComponent(data.id); }),
     }).catch(() => null);
     if (shared && author && author.id) {
@@ -104,7 +104,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
-    const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in with Google to comment, react or vote.', onSignIn: () => Backend.signIn().then(() => load()).catch(() => {}) }); return true; } return false; };
+    const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); return true; } return false; };
 
     // Everything is here, so the skeleton comes down and the page goes up in the same breath.
     page.className = '';
@@ -163,9 +163,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       // Saved here but not shared (signed out at the time, or the upload failed): share it now. Signed out,
       // this page signs you in itself. It used to send you to the panel to do that.
       shareNeedsSignIn: !me,
-      onShareNow: !shared && local ? async () => {
+      onShareNow: !shared && local ? async (provider) => {
         if (!me) {
-          try { await Backend.signIn(); } catch { /* cancelled, or the window was closed */ }
+          try { await Backend.signIn(provider); } catch { /* cancelled, or the window was closed */ }
           me = await Backend.profile().catch(() => null);
           if (!me) throw new Error('Sign-in did not finish, so it is still only on this computer.');
         }

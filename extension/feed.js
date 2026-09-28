@@ -10,7 +10,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   // every tag, and the account beside it can change without this page reloading.
   const readMe = async () => { try { me = await Backend.profile(); } catch { me = null; } AnnotationPage.setMe(me); };
   const el = document.getElementById('feed');
-  const signIn = () => Backend.signIn().then(() => load()).catch(() => {});
+  const signIn = (p) => Backend.signIn(p).then(() => load()).catch(() => {});
   let tab = Cloud.savedTab(), pressed = false;
 
   const load = async () => {
@@ -77,7 +77,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       // The panel beside this page already carries Home and your profile.
       siteNav: false,
       // Signed out, your own profile offers signing in right here rather than in the panel.
-      onSignIn: !me && mode === 'profile' && !person ? () => Backend.signIn().catch(() => {}) : null,
+      onSignIn: !me && mode === 'profile' && !person ? (p) => Backend.signIn(p).catch(() => {}) : null,
       getMedia: async (id) => { const r = await Store.get(id).catch(() => null); return r && r.item ? r.item.blob || null : null; },
       onOpen: (id) => { location.href = 'annotation.html#' + encodeURIComponent(id); },
       onTag: (t) => { location.hash = 'tag=' + encodeURIComponent(t); },

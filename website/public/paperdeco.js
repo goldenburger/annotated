@@ -192,6 +192,63 @@ var PaperDeco = (() => {
     (w, h) => `<path class="pdTrail" d="M4 14 C ${w * .3} 0, ${w * .55} 10, ${w * .7} ${h * .5} S ${w - 40} ${h - 16}, ${w - 38} ${h - 22}"/>${ballV(1, w - 44, h - 42, .6)}`,
   ];
 
+  // ---- More planes and more paper (David, 2026-09-28: "draw more versions of our paper planes, unfolding
+  // animations, crumpled paper so you have more assets to design our pages with").
+  // A swallow: swept wings with a forked tail, nose to the right.
+  const swallow = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="60" cy="74" rx="50" ry="5"/>
+    <path class="pdFar" d="M116 30 L16 4 L44 22 L30 28 Z"/><path class="pdFace" d="M116 30 L8 58 L38 42 L22 36 Z"/><path class="pdKeel" d="M116 30 L38 42 L50 58 Z"/>
+    <path class="pdLine" d="M40 44 L86 34"/>${marked ? '<path class="pdMark" d="M42 42 L88 32"/>' : ''}
+    <path class="pdEdge" d="M116 30 L8 58 L38 42 L22 36 Z M116 30 L16 4 L44 22 L30 28 M38 42 L50 58 L116 30"/>`);
+  // A stunt plane: a wide delta with its wingtips turned up.
+  const stunt = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="62" cy="78" rx="52" ry="6"/>
+    <path class="pdFar" d="M116 32 L22 8 L62 30 Z"/><path class="pdFar" d="M22 8 L16 -4 L30 10 Z"/>
+    <path class="pdFace" d="M116 32 L10 62 L62 44 Z"/><path class="pdKeel" d="M10 62 L4 46 L18 58 Z"/><path class="pdKeel" d="M116 32 L62 44 L64 62 Z"/>
+    <path class="pdLine" d="M32 54 L84 40"/>${marked ? '<path class="pdMark" d="M36 52 L86 38"/>' : ''}
+    <path class="pdEdge" d="M116 32 L10 62 L62 44 Z M10 62 L4 46 L18 58 M116 32 L22 8 L62 30 M22 8 L16 -4 L30 10 M62 44 L64 62 L116 32"/>`);
+  // A nose-lock plane: its point folded back into a blunt nose, sturdier and slower.
+  const lockPlane = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="60" cy="92" rx="46" ry="6"/>
+    <path class="pdFace" d="M112 24 L104 36 L20 58 L56 70 Z"/><path class="pdKeel" d="M104 36 L56 70 L66 104 Z"/><path class="pdFar" d="M112 24 L96 26 L104 36 Z"/>
+    <path class="pdLine" d="M44 54 L84 40 M40 60 L70 49"/>${marked ? '<path class="pdMark" d="M48 57 L86 43"/>' : ''}
+    <path class="pdEdge" d="M112 24 L104 36 L20 58 L56 70 Z M104 36 L66 104 L56 70 M112 24 L96 26 L104 36"/>`);
+  // Banking hard, seen a little from below, with the rush of air behind it.
+  const banking = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdTrail" d="M2 64 L34 60 M8 76 L36 72 M16 52 L40 50"/>
+    <g transform="translate(24 -6) rotate(-24 60 60)"><path class="pdKeel" d="M108 20 L20 56 L55 68 Z"/><path class="pdFace" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`);
+  // A plane unfolded flat again: the sheet with its creases showing, the dart's lines still in it.
+  const creased = (x, y, rot = -4, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdu'), W = 104, H = 132;
+    const outline = shape([[0, 0], [W, 1], [W - 1, H], [1, H - 1]], r, 1);
+    let ink = '';
+    for (let i = 0; i < 6; i++) { const yy = 58 + i * 11, len = (i === 5 ? .45 : .72 + r() * .18) * (W - 24); if (i === 2) ink += marker(12, yy, len, r); ink += `<path class="pdInk" d="${scrib(12, yy, len, r)}"/>`; }
+    const creases = `M${W / 2} 0 L${W / 2} ${H} M0 0 L${W / 2} ${W / 2} L${W} 0 M0 ${W * .42} L${W / 2} ${W * .92} L${W} ${W * .42} M${W * .18} ${H} L${W / 2} ${W * .92} M${W * .82} ${H} L${W / 2} ${W * .92}`;
+    return at(x, y, rot, s, `<defs>${pageDefs(id)}</defs><rect x="6" y="9" width="${W}" height="${H}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
+      <path d="${outline}" fill="url(#${id}g)"/><path class="pdFacet" style="opacity:.12" d="M0 0 L${W / 2} ${W / 2} L${W / 2} 0 Z M${W} ${W * .42} L${W / 2} ${W * .92} L${W / 2} ${W / 2} Z"/>${ink}
+      <path class="pdCrease2" d="${creases}"/><path class="pdEdgeSoft" d="${outline}"/>`);
+  };
+  // A crumpled page smoothed out again: flat, but the creases never leave, a web of them across the writing.
+  const smoothed = (x, y, rot = 5, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdm'), W = 112, H = 138;
+    const outline = shape([[0, 2], [W, 0], [W + 1, H - 1], [2, H]], r, 2.2);
+    let ink = '';
+    for (let i = 0; i < 8; i++) { const yy = 16 + i * 14, len = (i === 7 ? .5 : .74 + r() * .18) * (W - 24); if (i === 4) ink += marker(12, yy, len, r); ink += `<path class="pdInk" d="${scrib(12, yy, len, r)}"/>`; }
+    const hubs = Array.from({ length: 4 }, () => [14 + r() * (W - 28), 16 + r() * (H - 32)]);
+    let web = '', facets = '';
+    hubs.forEach((h, k) => {
+      for (let j = 0; j < 4; j++) { const a = r() * Math.PI * 2, L = 18 + r() * 40; web += `M${f1(h[0])} ${f1(h[1])} L${f1(h[0] + Math.cos(a) * L)} ${f1(h[1] + Math.sin(a) * L)} `; }
+      const g = hubs[(k + 1) % 4]; web += `M${f1(h[0])} ${f1(h[1])} L${f1(g[0])} ${f1(g[1])} `;
+      facets += `<path class="pdFacet" style="opacity:${f1(.06 + r() * .1)}" d="M${f1(h[0])} ${f1(h[1])} L${f1(g[0])} ${f1(g[1])} L${f1(h[0] + (r() - .5) * 50)} ${f1(h[1] + (r() - .5) * 50)} Z"/>`;
+    });
+    return at(x, y, rot, s, `<defs>${pageDefs(id)}<clipPath id="${id}k"><path d="${outline}"/></clipPath></defs><rect x="6" y="10" width="${W}" height="${H}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
+      <path d="${outline}" fill="url(#${id}g)"/><g clip-path="url(#${id}k)">${ink}${facets}<path class="pdCrease2" d="${web}"/></g><path class="pdEdgeSoft" d="${outline}"/>`);
+  };
+  // Crumpled in a hurry: a ball with a corner of the page still flat, sticking out, the writing on it.
+  const loose = (x, y, s = 1, seed = Math.random() * 1e9) => {
+    const r = rng(Math.floor(seed)), id = uid('pdl');
+    const flap = `M30 30 L60 10 L68 38 Z`;
+    return at(x, y, 0, s, `<defs>${grad(id + 'f', 0, 0, 1, 1)}</defs>
+      <path d="${flap}" fill="url(#${id}f)"/><path class="pdInk" d="${scrib(42, 20, 18, r)}" transform="rotate(-28 42 20)"/><path class="pdInk" d="${scrib(46, 27, 14, r)}" transform="rotate(-28 46 27)"/><path class="pdEdgeSoft" d="${flap}"/>
+      ${crumple(4, 12, 1, seed + 7)}`);
+  };
+
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const jit = (n) => (Math.random() - .5) * 2 * n;
   // A pile laid out fresh each visit: two to four things from the set, in slots across the box.
@@ -201,6 +258,10 @@ var PaperDeco = (() => {
     (x, y) => ballV(Math.floor(Math.random() * 3), x + 20, y + 30, .85 + jit(.1)),
     (x, y, r) => halfFold(x + 10, y - 6, r * .5, .6),
     (x, y) => landed(x + 10, y - 20, 0, .75),
+    (x, y, r) => swallow(x, y, r, .85 + jit(.1), Math.random() < .5),
+    (x, y, r) => stunt(x, y, r, .8 + jit(.1), Math.random() < .5),
+    (x, y, r) => lockPlane(x, y, r, .8 + jit(.1), Math.random() < .5),
+    (x, y) => loose(x + 14, y + 8, .8),
   ];
   const pile = () => {
     const slots = [[-6, 44, 16], [70, 30, -6], [30, 2, -30], [176, 88, 0]].sort(() => Math.random() - .5).slice(0, 2 + Math.floor(Math.random() * 3));
@@ -215,7 +276,15 @@ var PaperDeco = (() => {
     folded: () => svg(140, 116, folded(8, 8, jit(5), 1)),
     ball: () => svg(64, 56, ballV(Math.floor(Math.random() * 3), 6, 2, 1)),
     trail: () => svg(220, 90, pick(TRAILS)(220, 90)),
-    lone: () => pick([() => svg(120, 110, plane(0, -4, 6 + jit(10), 1, true)), () => svg(130, 80, glider(4, 4, jit(8), 1, true)), () => svg(110, 120, landed(20, 8, 0, 1))])(),
+    lone: () => pick([() => svg(120, 110, plane(0, -4, 6 + jit(10), 1, true)), () => svg(130, 80, glider(4, 4, jit(8), 1, true)), () => svg(110, 120, landed(20, 8, 0, 1)),
+      () => svg(130, 90, swallow(4, 6, jit(8), 1, true)), () => svg(130, 96, stunt(4, 10, jit(8), 1, true)), () => svg(120, 116, lockPlane(0, -2, 4 + jit(8), 1, true)), () => svg(150, 100, banking(0, 0, 0, 1))])(),
+    swallow: () => svg(130, 90, swallow(4, 6, jit(8), 1, Math.random() < .6)),
+    stunt: () => svg(130, 96, stunt(4, 10, jit(8), 1, Math.random() < .6)),
+    lock: () => svg(120, 116, lockPlane(0, -2, 4 + jit(8), 1, Math.random() < .6)),
+    banking: () => svg(150, 100, banking(0, 0, 0, 1)),
+    creased: () => svg(128, 156, creased(10, 8, -4 + jit(5), 1)),
+    smoothed: () => svg(136, 164, smoothed(10, 8, 4 + jit(5), 1)),
+    loose: () => svg(84, 76, loose(6, 2, 1)),
     // The panel's quiet corner: two or three small things, chosen fresh each time.
     corner: () => pick([
       () => svg(170, 90, plane(40, 0, -6, .72, true) + plane(-6, 16, 20, .6) + ball(122, 46, .62)),
@@ -223,6 +292,9 @@ var PaperDeco = (() => {
       () => svg(170, 90, halfFold(20, 2, -8, .52) + plane(66, 18, 10, .62, true) + ballV(0, 130, 46, .56)),
       () => svg(170, 90, strip(4, 30, -6, .7) + landed(116, 6, 0, .55)),
       () => svg(170, 90, stack(10, 12, -4, .62) + plane(90, 10, -12, .6)),
+      () => svg(170, 90, swallow(6, 20, -4, .7, true) + loose(116, 26, .6)),
+      () => svg(170, 90, creased(8, -4, -8, .5) + stunt(70, 26, 6, .66, true)),
+      () => svg(170, 90, lockPlane(24, -6, -8, .66, true) + ballV(1, 120, 44, .6)),
     ])(),
   };
   // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
@@ -234,8 +306,8 @@ var PaperDeco = (() => {
   function desk(root = document.body) {
     if (!root || root.querySelector(':scope > .pdDesk')) return;
     const d = document.createElement('div'); d.className = 'pdDesk'; d.setAttribute('aria-hidden', 'true');
-    const left = make(pick(['pile', 'pile', 'stack', 'strip', 'lone']), 'pdL');
-    const right = make(pick(['sheet', 'halfFold', 'folded', 'stack', 'ball']), 'pdR');
+    const left = make(pick(['pile', 'pile', 'stack', 'strip', 'lone', 'loose', 'swallow']), 'pdL');
+    const right = make(pick(['sheet', 'halfFold', 'folded', 'stack', 'ball', 'creased', 'smoothed']), 'pdR');
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
@@ -243,7 +315,7 @@ var PaperDeco = (() => {
     root.appendChild(d);
   }
   // An empty list: a small drawing above the words saying why it is empty, one of several.
-  const emptyArt = () => pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball()])();
+  const emptyArt = () => pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball(), () => ART.loose() + ART.swallow(), () => ART.creased(), () => ART.smoothed()])();
   function empty(el) {
     if (!el || el.querySelector('.pdEmpty')) return;
     const d = document.createElement('div'); d.className = 'pdEmpty'; d.setAttribute('aria-hidden', 'true');

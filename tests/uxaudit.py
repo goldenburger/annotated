@@ -55,7 +55,7 @@ async def main():
     await pan.click('#browseMode .browseTabs label:has-text("Following") input'); await asyncio.sleep(1)
     f = await pan.evaluate("(document.querySelector('#browseMode .browseAct') || {}).textContent || ''")
     print('10. Following signed out offers:', repr(f))
-    if f != 'Sign in with Google': errs.append(f'Following signed out offered {f!r}')
+    if f != 'Sign in': errs.append(f'Following signed out offered {f!r}')
     await pan.evaluate("localStorage.removeItem('annotated-feed-tab')")
 
     # 8 and 2. Your profile signed out, and its way back from a bare tab.
@@ -63,7 +63,7 @@ async def main():
     prof_ = await pan.evaluate("""() => ({ act: (document.querySelector('#browseMode .browseAct') || {}).textContent || '',
       empty: (document.querySelector('#browseMode .browseEmpty') || {}).textContent || '', back: (document.querySelector('#browseMode .browseBack') || {}).textContent || '' })""")
     print('8. Your profile signed out:', prof_)
-    if prof_['act'] != 'Sign in with Google' or 'under your name' not in prof_['empty']: errs.append(f'Your profile signed out did not explain itself: {prof_}')
+    if prof_['act'] != 'Sign in' or 'under your name' not in prof_['empty']: errs.append(f'Your profile signed out did not explain itself: {prof_}')
     if prof_['back'].strip() != 'Back to Home': errs.append(f"Your profile beside a new tab went back to {prof_['back']!r}")
     await pan.click('#browseMode .browseBack'); await asyncio.sleep(1)
     again = await pan.evaluate("(document.querySelector('#browseMode h2') || {}).textContent || ''")
@@ -113,7 +113,9 @@ async def main():
     if card['head'] != 'Saved' or card['first'] != 'Sign in and publish' or not card['viewQuiet']: errs.append(f'the saved card did not lead with signing in: {card}')
     # Signing in cannot finish here, and the card has to say so rather than sit on Publishing.
     await pa.evaluate("() => { Backend.signIn = async () => { throw new Error('Sign-in was cancelled.'); }; }")
-    await pa.click('#articleMode .pubLater'); await asyncio.sleep(1.5)
+    await pa.click('#articleMode .pubLater'); await asyncio.sleep(.6)
+    # Signing in offers Google or X first (2.34.0); Google is chosen here.
+    await pa.click('.acctPop .acctIn[data-provider="google"]'); await asyncio.sleep(1.2)
     msg = await pa.evaluate("(() => { const e = document.querySelector('#articleMode .pubLaterErr'); return e && !e.hidden ? e.textContent : ''; })()")
     label = await pa.inner_text('#articleMode .pubLater')
     print('   a sign-in that does not finish:', repr(msg), '| the button reads', repr(label))

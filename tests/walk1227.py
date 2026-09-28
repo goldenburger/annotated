@@ -137,7 +137,7 @@ async def main():
       ask = await pg.evaluate("(() => { const a = document.querySelector('.signAsk'); return a ? { text: a.textContent, near: !a.classList.contains('floating') } : null; })()")
       failed = await pg.evaluate("!!document.querySelector('.followErr')")
       print('6. Follow signed out:', ask, '| said it failed:', failed, '| browser dialogs:', dialogs)
-      if not ask or 'Sign in with Google to follow people' not in ask['text'] or not ask['near']: errs.append(f'Follow signed out asked {ask}')
+      if not ask or 'Sign in to follow people' not in ask['text'] or 'Continue with X' not in ask['text'] or not ask['near']: errs.append(f'Follow signed out asked {ask}')
       if failed: errs.append('Follow signed out said it failed')
     if dialogs: errs.append(f'a browser dialog appeared: {dialogs}')
     print('errors:', errs)

@@ -148,7 +148,7 @@ const PanelKit = (() => {
     const cp = container.querySelector('.pcopy');
     if (cp) cp.addEventListener('click', async () => {
       const lab = cp.querySelector('span');
-      try { await navigator.clipboard.writeText(permalink); lab.textContent = 'Link copied'; } catch { lab.textContent = 'Copy failed'; }
+      try { await navigator.clipboard.writeText(permalink); if (typeof Fold !== 'undefined' && Fold.toss) Fold.toss(lab.parentElement); lab.textContent = 'Link copied'; } catch { lab.textContent = 'Copy failed'; }
       setTimeout(() => { lab.textContent = 'Copy link'; }, 2000);
     });
     container.hidden = false;

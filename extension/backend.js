@@ -14,15 +14,10 @@ const Backend = (() => {
     auth: { storage, storageKey: 'annotated-auth', persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, flowType: 'pkce' },
   });
 
-  // Google sign-in: Supabase hands off to Google, Google returns to the extension's own address,
-  // and the one-time code is swapped for a session here.
-  async function signIn() {
-    const redirectTo = chrome.identity.getRedirectURL();
-    const { data, error } = await client.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
-    });
-    if (error) throw error;
+  // Sign-in with Google or X: Supabase hands off to the one chosen, it returns to the extension's own address,
+  // and the one-time code is swapped for a session here. Connecting X to an account already signed in is the
+  // same trip through linkIdentity, so one person keeps one account whichever way they come in.
+  async function roundTrip(data) {
     let back;
     try { back = await chrome.identity.launchWebAuthFlow({ url: data.url, interactive: true }); }
     catch (e) { throw new Error(/cancel|closed|did not approve/i.test(e.message) ? 'Sign-in was cancelled.' : e.message); }
@@ -33,6 +28,25 @@ const Backend = (() => {
     const r = await client.auth.exchangeCodeForSession(code);
     if (r.error) throw r.error;
     return profile();
+  }
+  async function signIn(provider = 'google') {
+    const redirectTo = chrome.identity.getRedirectURL();
+    const x = provider === 'x';
+    const { data, error } = await client.auth.signInWithOAuth({
+      provider: x ? 'x' : 'google',
+      options: { redirectTo, skipBrowserRedirect: true, ...(x ? {} : { queryParams: { prompt: 'select_account' } }) },
+    });
+    if (error) throw error;
+    return roundTrip(data);
+  }
+  // Which ways in this account has, from Supabase's list of its identities: ['google'], ['x'] or both.
+  async function ways() {
+    try { const { data } = await client.auth.getUserIdentities(); return (data && data.identities || []).map((i) => i.provider); } catch { return []; }
+  }
+  async function connectX() {
+    const { data, error } = await client.auth.linkIdentity({ provider: 'x', options: { redirectTo: chrome.identity.getRedirectURL(), skipBrowserRedirect: true } });
+    if (error) throw new Error(/manual linking/i.test(error.message) ? 'Connecting X is not switched on yet.' : error.message);
+    return roundTrip(data);
   }
   async function signOut() { await client.auth.signOut(); }
   // Who was signed in last on this computer. Kept after signing out so lists can still leave you out of them.
@@ -67,5 +81,5 @@ const Backend = (() => {
   // Where shared annotations live on the web: https://annotated-app.netlify.app/@handle/id
   const SITE = 'https://annotated-app.netlify.app';
   const permalink = (id, handle) => `${SITE}/@${handle || 'annotated'}/${encodeURIComponent(id)}`;
-  return { client, signIn, signOut, profile, lastId, onChange, url: SUPABASE_URL, key: SUPABASE_KEY, site: SITE, permalink };
+  return { client, signIn, ways, connectX, signOut, profile, lastId, onChange, url: SUPABASE_URL, key: SUPABASE_KEY, site: SITE, permalink };
 })();

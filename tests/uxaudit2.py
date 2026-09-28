@@ -57,17 +57,17 @@ async def main():
     # 1. One of them on its own page.
     await pg.goto(f'chrome-extension://{extid}/annotation.html#{aid}'); await asyncio.sleep(2)
     ann = await pg.evaluate("""() => ({ toast: !!document.querySelector('.banner'), note: (document.querySelector('.localNote') || {}).textContent || '',
-      btn: (document.querySelector('.shareNow') || {}).textContent || '' })""")
+      btn: [...document.querySelectorAll('.shareNow')].map((b) => b.textContent.trim()).join(' | ') })""")
     print('1. its page:', ann)
     if ann['toast']: errs.append('a second notice said Saved on this computer above the first')
     if 'Only on this computer' not in ann['note'] or 'from the panel' in ann['note']: errs.append(f"the notice read {ann['note']!r}")
-    if ann['btn'] != 'Sign in and publish': errs.append(f"the notice offered {ann['btn']!r}")
+    if ann['btn'] != 'Continue with Google | Continue with X' or 'Sign in to publish' not in ann['note']: errs.append(f"the notice offered {ann['btn']!r}")
     await pg.evaluate("() => { Backend.signIn = async () => { throw new Error('Sign-in was cancelled.'); }; }")
-    await pg.click('.shareNow'); await asyncio.sleep(1.2)
+    await pg.click('.shareNow[data-provider="google"]'); await asyncio.sleep(1.2)
     said = await pg.evaluate("(() => { const e = document.querySelector('.shareErr'); return e && !e.hidden ? e.textContent : ''; })()")
-    label = await pg.inner_text('.shareNow')
+    label = (await pg.inner_text('.shareNow[data-provider="google"]')).strip()
     print('   a sign-in that does not finish:', repr(said), '| the button reads', repr(label))
-    if 'still only on this computer' not in said or label != 'Sign in and publish': errs.append(f'an unfinished sign-in left {said!r} and {label!r}')
+    if 'still only on this computer' not in said or label != 'Continue with Google': errs.append(f'an unfinished sign-in left {said!r} and {label!r}')
     print('errors:', errs)
     await ctx.close()
 

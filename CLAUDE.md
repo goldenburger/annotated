@@ -590,7 +590,7 @@ set ANNOTATED_CHROME=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.ex
   colours, light and dark, voice notes, GIFs, photos and videos, save as GIF, Undo, signed out, the shortcut, live
   streams, For you). Marked words keep dark ink in dark mode, and the section clips sideways so a tip cannot widen a
   phone page. A backup before it is the tag `backup-2026-09-25-before-features` and
-  `E:\claude_codeackupsnnotated-backup-2026-09-25-before-features.zip`.
+  `E:\claude_code\backups\annotated-backup-2026-09-25-before-features.zip`.
 - **Audit of 2026-09-24, fixed** (`tests/walk2148.py` part 4). The try-it's reset empties the box and puts the ending
   away at once and only waits (for the card to sink) before taking the marks off, skipped if a new take began
   (`resetGen`); "Mark a sentence for me" puts a finished take away first. Undo on Yours so far ends when a take is
@@ -1084,7 +1084,16 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 
 - Follow, For you and trending were tested signed out only. Following someone needs a second real account, which
   is now possible because sign-in is published. This is the last part of the product with no evidence behind it.
-- Sign-in with X is skipped because X's API costs money. Google meets "X or Google".
+- **Sign in with X** (2.34.0, `tests/xsignin.py`). Every sign-in offers Continue with Google and Continue with X as equal
+  buttons: the panel's account button opens a card of both (`Account.signIn()` with no provider waits for the choice),
+  and every prompt uses `AnnotationPage.signInPrompt` / `twoWays`, whose `onSignIn` is handed 'google' or 'x'. The
+  extension goes through `Backend.signIn(provider)` (Supabase provider `x`, the same launchWebAuthFlow and PKCE trip as
+  Google, `roundTrip`); the website through `chooseSignIn` in `site.js` and `Backend.signIn({ provider })`. The account
+  menu offers Connect X when the account has only Google (`Backend.ways`, `Backend.connectX` through `linkIdentity`),
+  so one person keeps one account. Handles come from X's `user_name` (the profile trigger already read it). Only
+  "Sign in with X" is used, which X's free tier allows; nothing is posted or read on anyone's behalf. It works only
+  once David has made the X app and put its keys in Supabase (Authentication, Providers, X / Twitter (OAuth 2.0)), and
+  Connect X only with Manual linking switched on (Authentication, Settings). Privacy and terms say Google or X.
 - `ui.css` has many stacked override blocks from review rounds. Consolidating it is safe only with the full test
   suite and screenshots before and after.
 - This Week in Startups clips (checked against the real feed on 2026-09-23). Apple's directory gives a
@@ -1100,7 +1109,32 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - Buzzsprout works. Its earlier refusal was the HeadlessChrome user agent rather than byte ranges, which is why
   `fphosts.py` now sets `REAL_UA` from `tests/_env.py`.
 - Demo: pick strong examples (Jason: "examples matter"), a meaningful paragraph, a good clip, a real podcast moment.
-- Not submitted yet (as of 2026-09-25). The form is at https://annotated.lovable.app/enter: your name (required), X
+- **2.34.0, after watching the other entries** (recordings of 2026-09-28 at 21:38 and 22:04; backup tag
+  `backup-2026-09-28-submitted` and `E:\claude_code\backups\annotated-backup-2026-09-28-submitted.zip`, the submitted
+  version). David's direction: lean into the paper and planes, stay minimal, never blast the viewer. Added, each in its
+  own quiet way (`tests/features234.py`, `tests/planes234.py`):
+  the moment on a clip or podcast card's picture ("1:38:10–1:38:25", length in the tooltip, `.cdur`); the first reply by
+  someone else as one line under a feed card (`firstReply` from `Cloud.list`, which now selects the comments' bodies and
+  authors, `.creply`); folding an annotation's corner to keep it (`AnnotationPage.Folded`, localStorage
+  `annotated-folded`, `.foldBtn` over the corner the card already had, a Folded filter in the feed with its count, the
+  corner shown on folded feed cards); a tiny plane off any Copy link (`Fold.toss`); Watch the demo and "Free and open
+  source. No ads." under the hero (`.heroTrust`); two pencil margin notes on the home page, wide screens with a mouse
+  only (`.marginNote`, Newsreader italic with a drawn arrow; the try-it's goes once the paper is touched).
+  **Paper everywhere there is a sheet** (David: the windows should read as paper, subtly): cards, rail cards, the
+  annotation card, the panel's cards, menus and prompts share a faint grain (`--grain`, an SVG noise), a warm white
+  (`--sheet-warm`), warm edges and wells (`--rule-warm`, `--well-warm`) and the shadow of a sheet lifted off the desk
+  (`--lift`), fainter in dark mode, all in one block at the foot of `ui.css`.
+  **More paper and more motion** (David: more planes, crumpled paper, more ways to fold, unfold and fly): drawings
+  `swallow`, `stunt`, `lock`, `banking`, `creased` (a dart unfolded flat, its creases showing), `smoothed` (a crumpled
+  page smoothed out) and `loose` (crumpled in a hurry, a corner still flat) in `PaperDeco.ART`, used by piles, corners,
+  desks and empty lists; five more ways of opening in `fold.js` (drift, bounce, peel, tumble, float, ten in all, and any
+  of them played backwards folds a plane); Publish folds in one of five styles and leaves by one of five routes
+  (`Fold.FOLDS`, `Fold.ROUTES`: climb, loop, sweep, zip, glide), the annotation page opens one of seven ways, and the
+  front page's examples draw from nine flights.
+- **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
+  https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
+  screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
+  the session's scratchpad, not the repository. The form is at https://annotated.lovable.app/enter: your name (required), X
   handle, site link, and a demo video link (required), and submissions are public. By submitting you confirm the
   build follows the spec. The other entries are listed at https://annotated.lovable.app/entries; the closest in
   September were Alan Shiflett's (annotated.bytetalk.ai) and Peter Mumford's (annotated.petermumford.com), both
