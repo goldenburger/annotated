@@ -937,8 +937,22 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .landChrome { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 20px 40px; align-items: center; margin: 10px 0 34px; padding-top: 22px; border-top: 1px solid var(--rule); }
 .lcH { margin: 0 0 6px; font: 600 clamp(20px, 2.2vw, 26px)/1.2 var(--serif); }
 .lcCopy p { margin: 12px 0 0; font: 400 var(--t-s)/1.55 var(--sans); color: var(--ink-2); max-width: 34em; }
-.lcFrame { margin: 0; border-radius: var(--r-l); overflow: hidden; background: #1b1b1f; border: 1px solid var(--rule); box-shadow: 0 1px 2px rgba(40, 30, 10, .08), 0 14px 34px -12px rgba(40, 30, 10, .28); }
-.lcVideo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #1b1b1f; }
+/* The demo is a print taped into the notebook, like a captured post (.xshot in ui.css): a white border, a hair of tilt,
+   a lifted shadow, two strips of tape and a caption written under it (David, 2026-09-29: it was a screen box on the
+   page). */
+.lcFrame { position: relative; margin: 0; transform: rotate(-.45deg); }
+.lcPrint { background: #fff; padding: 9px; border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(60, 45, 20, .14), 0 8px 18px -8px rgba(60, 45, 20, .26), 0 0 0 1px rgba(60, 45, 20, .06); }
+.lcVideo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #1b1b1f; border-radius: 2px; }
+.lcFrame::before, .lcFrame::after { content: ""; position: absolute; z-index: 2; top: -10px; width: 86px; height: 24px; pointer-events: none;
+  background: linear-gradient(rgba(255, 253, 240, .62), rgba(245, 240, 220, .55)); box-shadow: 0 1px 2px rgba(60, 45, 20, .12);
+  -webkit-mask: linear-gradient(90deg, transparent 0 2px, #000 2px calc(100% - 2px), transparent 0), repeating-linear-gradient(#000 0 3px, transparent 3px 4px); }
+.lcFrame::before { left: 28px; transform: rotate(-4deg); }
+.lcFrame::after { right: 28px; transform: rotate(3deg); }
+.lcFrame figcaption { margin: 10px 4px 0; font: italic 400 13px/1.4 var(--serif); color: var(--ink-3, #5B616E); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lcPrint { background: #2A2D33; } }
+:root[data-theme="dark"] .lcPrint { background: #2A2D33; }
+@media (max-width: 760px) { .lcFrame { transform: none; } }
 @media (max-width: 760px) { .landChrome { grid-template-columns: 1fr; } }
 
 /* The try-it eases to its height inside a box of its own (landing.js smooth). */

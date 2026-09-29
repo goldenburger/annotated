@@ -556,7 +556,8 @@ var Landing = (() => {
         <p>annotated opens as a panel beside whatever you are reading. Select words, write your take, publish. This is the demo, recorded in Chrome, on a post on X.</p>
         <p><a class="heroDemo" href="https://youtu.be/VTbDJ9a-2XE" target="_blank" rel="noopener"><span class="hdPlay" aria-hidden="true"></span>Watch the whole demo <span class="num">2:44</span></a></p></div>
       <figure class="lcFrame">
-        <video class="lcVideo" muted playsinline loop preload="none" poster="/media/panel-demo.jpg" aria-label="The annotated panel beside a post on X: words selected and marked, a take written and tagged, then published."></video></figure>`;
+        <div class="lcPrint"><video class="lcVideo" muted playsinline loop preload="none" poster="/media/panel-demo.jpg" aria-label="The annotated panel beside a post on X: words selected and marked, a take written and tagged, then published."></video></div>
+        <figcaption>From the demo, recorded in Chrome.</figcaption></figure>`;
     root.appendChild(s);
     const v = s.querySelector('video');
     const src = () => { if (!v.src) v.src = '/media/panel-demo.mp4'; };

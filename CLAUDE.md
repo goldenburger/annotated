@@ -1445,6 +1445,9 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   that stays; the old code gave 202 and 378, the new none, planes off or on. Headless Edge, drawing with a software GPU,
   can still stall about 200 ms while the textured paper moves (a 199 ms GPU task in a trace); a real GPU is expected to be
   far quicker, not measured.
+- **2.38.5.** The In Chrome demo on the home page is a print taped into the notebook like a captured post (`.lcPrint`
+  in a tilted `.lcFrame` with two strips of tape and the caption "From the demo, recorded in Chrome." written under it),
+  where it was a screen box with rounded corners (David, 2026-09-29).
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
