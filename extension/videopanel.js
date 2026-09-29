@@ -692,7 +692,7 @@ const VideoPanel = (() => {
           } : null,
         });
       } catch (e) {
-        PanelKit.grounded();
+        PanelKit.grounded(q('.vCompose') || q('.compose'));
         showError('Publishing failed. ' + e.message);
       } finally { compose.setBusy(false); }
     }

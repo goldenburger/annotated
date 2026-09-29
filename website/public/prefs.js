@@ -40,7 +40,9 @@ const Prefs = (() => {
   async function init(b) {
     backend = b;
     try { cur = tidy(await b.load()); } catch { cur = { ...DEFAULTS }; }
-    if (b.watch) b.watch((v) => { cur = tidy(v); apply(); subs.forEach((f) => f(cur)); });
+    // Storage echoes every change made here; the echo is not a change, and announcing it again sent the pen and snap
+    // settings to every tab twice and briefly undid a quicker second change.
+    if (b.watch) b.watch((v) => { const next = tidy(v); if (JSON.stringify(next) === JSON.stringify(cur)) return; cur = next; apply(); subs.forEach((f) => f(cur)); });
     apply();
     return cur;
   }

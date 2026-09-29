@@ -459,13 +459,17 @@ var PaperDeco = (() => {
   (() => {
     try { if (!matchMedia('(hover: hover)').matches) return; } catch { return; }
     let x = -1, y = -1, queued = false, lit = [];
+    const pieces = document.getElementsByClassName('pdPiece');
     const look = () => {
       queued = false;
+      if (!pieces.length && !lit.length) return;
       const now = [];
-      document.querySelectorAll('.paperDeco .pdPiece').forEach((pc) => {
+      for (const pc of pieces) {
         const r = pc.getBoundingClientRect();
-        if (r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) now.push(pc);
-      });
+        // A piece already lit keeps a little room: lifting pulls its shadow in, and the edge it left went dark again.
+        const m = lit.includes(pc) ? 8 : 0;
+        if (r.width && x >= r.left - m && x <= r.right + m && y >= r.top - m && y <= r.bottom + m) now.push(pc);
+      }
       lit.forEach((pc) => { if (!now.includes(pc)) pc.classList.remove('pdOn'); });
       now.forEach((pc) => pc.classList.add('pdOn'));
       lit = now;
@@ -473,7 +477,7 @@ var PaperDeco = (() => {
     const soon = () => { if (!queued) { queued = true; requestAnimationFrame(look); } };
     addEventListener('mousemove', (e) => { x = e.clientX; y = e.clientY; soon(); }, { passive: true });
     addEventListener('scroll', () => { if (x >= 0) soon(); }, { passive: true });
-    document.addEventListener('mouseleave', () => { x = y = -1; soon(); });
+    addEventListener('mouseout', (e) => { if (!e.relatedTarget) { x = y = -1; soon(); } });
   })();
 
   // Every drawing exactly as asked, repeats and all, for /paper.html.

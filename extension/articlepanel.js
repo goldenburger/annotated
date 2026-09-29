@@ -171,7 +171,7 @@ const ArticlePanel = (() => {
     }
 
     async function grab() {
-      if (busy) return;
+      if (busy || publishing) return;
       busy = true;
       q('.grab').disabled = true; q('.grab').textContent = 'Capturing';
       q('.selErr').hidden = true;
@@ -293,7 +293,7 @@ const ArticlePanel = (() => {
           } : null,
         });
       } catch (e) {
-        PanelKit.grounded();
+        PanelKit.grounded(q('.aCompose'));
         q('.selErr').textContent = 'Publishing failed. ' + e.message; q('.selErr').dataset.from = ''; q('.selErr').hidden = false;
       } finally { compose.setBusy(false); }
     }

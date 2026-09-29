@@ -71,8 +71,13 @@ var Landing = (() => {
     // Tabs as tabs: arrows move between them, and choosing one sets the headline's word for good.
     const tabs = [...el.querySelectorAll('.tryTab')];
     const tryBox = el.querySelector('.heroTry');
+    // A real resize (not the one `pick` sends) lets go of the held height, which was in pixels for the old width.
+    addEventListener('resize', (e) => { if (e.isTrusted) tryBox.style.minHeight = ''; });
     const pick = (i, focus) => {
-      const before = tryBox.offsetHeight;
+      const cur = panels.find((x) => !x.hidden), held = cur ? cur.style.minHeight : '';
+      if (cur) cur.style.minHeight = '';
+      const before = cur && cur.querySelector('.tiTake:not([hidden]), .stTake:not([hidden])') ? 0 : tryBox.offsetHeight;
+      if (cur) cur.style.minHeight = held;
       tabs.forEach((b, j) => { b.setAttribute('aria-selected', String(i === j)); b.tabIndex = i === j ? 0 : -1; panels[j].hidden = i !== j; });
       // Grows to a taller tab, and keeps that height when a shorter one is chosen (web.css, .heroTry).
       tryBox.style.minHeight = Math.max(before, parseFloat(tryBox.style.minHeight) || 0) + 'px';
@@ -314,7 +319,7 @@ var Landing = (() => {
     // Its margins, top padding and rule slide in and out with it; they snapped in at once, about 48 pixels.
     const EDGE = ['marginTop', 'marginBottom', 'paddingTop', 'borderTopWidth'];
     const calibrate = () => { if (!el.hidden && !el.style.height) delta = el.offsetHeight - inner.offsetHeight; };
-    const natural = () => (el.hidden ? 0 : inner.offsetHeight + delta);
+    const natural = () => { if (el.hidden) return 0; if (!el.style.height) calibrate(); return inner.offsetHeight + delta; };
     const settle = () => { el.style.height = ''; el.style.transition = ''; el.style.overflow = ''; el.style.overflowClipMargin = ''; EDGE.forEach((k) => { el.style[k] = ''; }); edges = ''; calibrate(); };
     const go = (to, then) => {
       // From where it is now: mid-move that is the moving height, not where the last move was headed.
@@ -322,8 +327,13 @@ var Landing = (() => {
       shown = to;
       if (Math.abs(to - from) < 2) { if (!el.style.height || then) { clearTimeout(done); settle(); } if (then) then(); return; }
       clearTimeout(done);
-      // Edges still sliding keep where they are, or restarting the move would drop them straight to their end.
-      if (edges) { const cs = getComputedStyle(el), now = EDGE.map((k) => cs[k]); EDGE.forEach((k, i) => { el.style[k] = now[i]; }); }
+      if (el.style.height && el.style.transition && el.style.transition !== 'none') {
+        el.style.height = to + 'px';
+        if (edges === 'in') EDGE.forEach((k) => { el.style[k] = ''; });
+        if (edges === 'out') EDGE.forEach((k) => { el.style[k] = '0px'; });
+        done = setTimeout(() => { settle(); if (then) then(); }, 530);
+        return;
+      }
       // Clipped while it moves, so what is coming is revealed rather than laid over the section below; the margin keeps
       // the paper's shadows.
       el.style.transition = 'none'; el.style.height = from + 'px'; el.style.overflow = 'clip'; el.style.overflowClipMargin = '28px';
@@ -335,16 +345,13 @@ var Landing = (() => {
       done = setTimeout(() => { settle(); if (then) then(); }, 530);
     };
     const check = () => { if (el.isConnected && !folding) go(natural()); };
-    if (!off) {
-      new ResizeObserver(check).observe(inner);
-      shown = el.hidden ? 0 : el.offsetHeight;
-      calibrate();
-    }
+    if (!off) new ResizeObserver(check).observe(inner);
     return {
       fold(hide) {
         if (off) { el.hidden = hide; return; }
         if (!hide) {
-          if (folding) { folding = false; clearTimeout(done); check(); return; }
+          // Brought back while folding away: its edges come back with it (they were left at nothing and snapped in 67 px).
+          if (folding) { folding = false; edges = 'in'; clearTimeout(done); check(); return; }
           // Shown at no height before it is painted, or it would flash at full size for a frame.
           if (el.hidden) { el.hidden = false; calibrate(); shown = 0; el.style.height = '0px'; el.style.overflow = 'clip'; EDGE.forEach((k) => { el.style[k] = '0px'; }); edges = 'in'; check(); }
           return;
@@ -564,7 +571,7 @@ var Landing = (() => {
     if (still()) { v.controls = true; v.preload = 'metadata'; src(); return; }
     if (!('IntersectionObserver' in window)) { src(); v.autoplay = true; return; }
     new IntersectionObserver((es) => es.forEach((e) => {
-      if (e.isIntersecting) { src(); v.play().catch(() => {}); } else v.pause();
+      if (e.isIntersecting && e.intersectionRatio >= .35) { src(); v.play().catch(() => {}); } else v.pause();
     }), { threshold: 0.35 }).observe(v);
   }
 

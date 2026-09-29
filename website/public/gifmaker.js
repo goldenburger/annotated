@@ -2,9 +2,11 @@
 // is why this is written out rather than fetched from somewhere. A GIF has no sound and only 256 colours, so
 // it is offered beside the clip rather than instead of it.
 var GifMaker = (() => {
+  // A clip whose download stalls fires no error, and Save as GIF sat on its percentage for good; ten seconds is the limit.
   const once = (el, ev) => new Promise((res, rej) => {
-    const ok = () => { el.removeEventListener('error', bad); res(); };
-    const bad = () => { el.removeEventListener(ev, ok); rej(new Error('The clip could not be read.')); };
+    const t = setTimeout(() => { el.removeEventListener(ev, ok); el.removeEventListener('error', bad); rej(new Error('The clip could not be read.')); }, 10000);
+    const ok = () => { clearTimeout(t); el.removeEventListener('error', bad); res(); };
+    const bad = () => { clearTimeout(t); el.removeEventListener(ev, ok); rej(new Error('The clip could not be read.')); };
     el.addEventListener(ev, ok, { once: true });
     el.addEventListener('error', bad, { once: true });
   });

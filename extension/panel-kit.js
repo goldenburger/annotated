@@ -49,9 +49,12 @@ const PanelKit = (() => {
   // plane and flies off, out of the panel, and the card below appears once it has gone (and once publishing
   // has finished, whichever is later). sendOff is called by each panel as Publish is pressed, with what the
   // annotation says; grounded puts it back if publishing fails. The source keeps its place meanwhile.
-  let inFlight = null;
+  // One flight per tab's panel (the panel document holds one per tab): publishing in two tabs mixed their takes and
+  // cards, and the "Publishing…" line stayed over the other tab's panel (audit after 2.38.7).
+  const flights = new Map();
+  const rootOf = (el) => (el && el.closest && el.closest('#articleMode > *, #postMode > *, #videoMode > *, #podcastMode > *')) || document.body;
   function sendOff(source, summary = null) {
-    grounded();
+    grounded(source);
     if (typeof Fold === 'undefined' || !Fold.on() || !source || !source.offsetWidth) return;
     let el = source, card = null;
     if (summary) {
@@ -77,11 +80,17 @@ const PanelKit = (() => {
     document.body.appendChild(note);
     const gone = Fold.away(el);
     if (card) card.remove();
-    inFlight = { gone, source, note };
+    const root = rootOf(source);
+    note.__root = root;
+    flights.set(root, { gone, source, note });
+    // The line lies on the page, not in the panel, so it hides while its panel does (another tab in front).
+    const keep = () => { if (!note.isConnected) return; note.style.visibility = root.offsetParent || root === document.body ? '' : 'hidden'; requestAnimationFrame(keep); };
+    requestAnimationFrame(keep);
   }
-  function grounded() {
-    if (!inFlight) return;
-    inFlight.gone.cancel(); inFlight.source.style.visibility = ''; inFlight.note.remove(); inFlight = null;
+  function grounded(near) {
+    const root = rootOf(near), f = flights.get(root);
+    if (!f) return;
+    f.gone.cancel(); f.source.style.visibility = ''; f.note.remove(); flights.delete(root);
   }
   // onUndo: offered for UNDO_MS right after publishing, and gone once anything else on the card is pressed. It
   // deletes what was just made and puts the take back where it was, so a slip can be fixed and published again.
@@ -89,7 +98,10 @@ const PanelKit = (() => {
   function published(container, { permalink, xHref, onView, onNew, note = '', local = false, id = null, offline = false, onUndo = null }) {
     const later = local && id && publishLater;
     const out = typeof document !== 'undefined' && document.body.classList.contains('signedOut');
-    if (typeof document !== 'undefined' && !inFlight) document.querySelectorAll('.flyNote').forEach((n) => n.remove());
+    const inFlight = flights.get(rootOf(container)) || null;
+    if (inFlight) flights.delete(rootOf(container));
+    // A line this panel left behind, with no flight of its own to take it away.
+    else if (typeof document !== 'undefined') document.querySelectorAll('.flyNote').forEach((n) => { if (n.__root === rootOf(container)) n.remove(); });
     container.innerHTML = `
       <div class="pubcard fresh" role="status">
         <div class="pubhead"><span class="pubcheck">${Brand.icon('check')}</span><div><b>${local ? 'Saved' : 'Published'}</b><p>${esc(note || 'It has a page of its own now.')}</p></div>${onUndo ? '<button type="button" class="link pubUndo">Undo</button>' : ''}</div>
@@ -141,7 +153,7 @@ const PanelKit = (() => {
         const link = await publishLater(id);
         published(container, { permalink: link, xHref: null, onView, onNew, id });
       } catch (e) {
-        grounded();
+        grounded(container);
         pl.disabled = false; pl.textContent = document.body.classList.contains('signedOut') ? 'Sign in and publish' : 'Publish it now';
         err.textContent = (e && e.message) || 'It could not be published just now.'; err.hidden = false;
       }
@@ -156,7 +168,7 @@ const PanelKit = (() => {
     container.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     if (inFlight) {
       // Shown once the plane has gone, with its check, as it would have been had there been no plane.
-      const { gone, source, note } = inFlight; inFlight = null;
+      const { gone, source, note } = inFlight;
       source.style.visibility = '';
       // The line stays until the card takes its place.
       gone.then(() => note.remove());
@@ -490,11 +502,13 @@ const PanelKit = (() => {
       const next = Math.ceil(Math.max(h + pad + 4, need));
       if (next !== lastH) { lastH = next; cb(next); }
     };
-    let lastH = -1;
-    new MutationObserver(() => requestAnimationFrame(measure)).observe(document.body, { attributes: true, attributeFilter: ['data-pop-need'] });
-    const ro = new ResizeObserver(() => requestAnimationFrame(measure));
+    let lastH = -1, queued = false;
+    // One measurement a frame however many changes arrive in it; each reads the layout of every part of the panel.
+    const soon = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; measure(); }); };
+    new MutationObserver(soon).observe(document.body, { attributes: true, attributeFilter: ['data-pop-need'] });
+    const ro = new ResizeObserver(soon);
     ro.observe(root);
-    new MutationObserver(() => requestAnimationFrame(measure)).observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+    new MutationObserver(soon).observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
     for (const el of root.querySelectorAll('*')) { if (el.parentElement === root) ro.observe(el); }
     measure();
   }

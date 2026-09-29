@@ -7,6 +7,8 @@
   const darkNow = (theme) => theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 
   async function ensure(tabId) {
+    // A page that rebuilt itself took the frame with it; the toolbar button then toggled a frame nobody could see.
+    if (api && host && !host.isConnected) remove();
     if (api) return api;
     if (creating) return creating;
     myTab = tabId;
@@ -71,6 +73,7 @@
     switch (msg && msg.type) {
       case 'float-open': ensure(msg.tabId).then((a) => { if (a) a.expand(); reply({ ok: !!a }); }); return true;
       case 'float-toggle':
+        if (api && host && !host.isConnected) remove();
         if (api && !api.collapsed) { api.collapse(); reply({ ok: true }); return; }
         ensure(msg.tabId).then((a) => { if (a) a.expand(); reply({ ok: !!a }); }); return true;
       case 'float-collapse': if (api) api.collapse(); reply({ ok: true }); return;

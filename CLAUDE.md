@@ -1466,6 +1466,27 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   Each spot (the Feed heading, the left and right margins) also remembers its last plane (`annotated-pd-at-<spot>` in
   localStorage) and never shows its family twice running; the page-wide memory alone let the heading repeat, its last
   plane six or more places back once the margins and piles had been drawn.
+- **Eighth pass of the audit of 2026-09-29** (2.38.8, `tests/audit8.py`; two reviews, one of 2.38.2 to 2.38.7, one of the
+  extension files the earlier passes touched least, and the database advisors, which list only what is known and meant).
+  Extension: signing out offline (an expired token, no network) returned the library's error and kept the session in
+  storage, so it came back once online, on a shared computer as the last person; the session is now removed and
+  listeners told (`signOut` in `backend.js`). `Backend.onChange` is one subscription for every listener with one profile
+  read per change (each listener subscribed and read on its own, two reads per open panel whenever a page of ours
+  opened), and a profile read that fails keeps the last good answer instead of reporting no handle. No capture while a
+  publish is on its way (`publishing` in `grab` and `captureNow`; it paired the take with other words). A publish's plane
+  and "Publishing…" line belong to their own tab's panel (`flights` keyed by `rootOf` in `panel-kit.js`; publishing in
+  two tabs mixed them, and the line stayed over the other tab), hidden while that panel is. A preference is announced
+  once, not again on the storage echo (`prefs.js`). A floating panel the page removed is made again. The small floating
+  button lets go on `pointercancel` and has `touch-action: none`. The floating panel measures its height at most once a
+  frame. Save as GIF gives up after ten seconds on a clip that never answers (`once` in `gifmaker.js`).
+  Home page: a slide under way is retargeted, not restarted (no forced layout and no restart from rest every frame while
+  something grows); Clear all brings the edges back with Yours so far (they stayed at nothing and snapped 67 px); a
+  region takes its first size as it is, so nothing slides open on load (the try-it slid from its empty tabs, Yours so far
+  ended 23 px short and snapped); the try-it's held height leaves out a flight's hold and an open take box, and a real
+  resize lets it go; the demo is fetched and played only once a third of it is in sight (the observer also reports the
+  first pixel). Drawings: a lit piece keeps 8 pixels of room (lifting pulled its edge in and it flickered), the hover
+  keeps a live list and does nothing without drawings, and leaving the window is noticed (`mouseout` with no
+  `relatedTarget`). Not tested: the per-panel flights (the planes are off in tests) and the capture guard.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

@@ -139,7 +139,7 @@ const PostPanel = (() => {
     }
 
     async function grab() {
-      if (busy) return;
+      if (busy || publishing) return;
       if (published) startFresh();
       busy = true;
       q('.pGrab').disabled = true; q('.pGrab').textContent = 'Capturing';
@@ -254,7 +254,7 @@ const PostPanel = (() => {
           } : null,
         });
       } catch (e) {
-        PanelKit.grounded();
+        PanelKit.grounded(q('.pCompose') || q('.compose'));
         q('.pErr').textContent = 'Publishing failed. ' + e.message; q('.pErr').hidden = false;
       } finally { compose.setBusy(false); }
     }
@@ -264,7 +264,7 @@ const PostPanel = (() => {
     if (opts.keep) opts.keep.load().then((k) => { if (k && k.r && !result && !busy) showCaptured(k.r, k.shot); }).catch(() => {});
     return {
       refresh, reset: startFresh,
-      captureNow() { if (busy) return; if (published || result) startFresh(); grab(); },
+      captureNow() { if (busy || publishing) return; if (published || result) startFresh(); grab(); },
       onSelection(sel) {
         if (widening) return;
         const fresh = !!(sel && sel.state && sel.state !== 'empty');

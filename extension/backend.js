@@ -48,7 +48,17 @@ const Backend = (() => {
     if (error) throw new Error(/manual linking/i.test(error.message) ? 'Connecting X is not switched on yet.' : error.message);
     return roundTrip(data);
   }
-  async function signOut() { await client.auth.signOut(); }
+  // Signing out always leaves this computer signed out. The library keeps the stored session when it cannot load it (a
+  // laptop waking offline with an expired token), and it came back once the network did; on a shared computer the
+  // next person could publish as the last. The session is then taken out of storage here, and listeners are told.
+  async function signOut() {
+    let r = null;
+    try { r = await client.auth.signOut(); } catch (e) { r = { error: e }; }
+    if (r && r.error) {
+      try { await chrome.storage.local.remove(['annotated-auth', 'annotated-auth-code-verifier', 'annotated-auth-user']); } catch { /* nothing stored */ }
+      tell(null);
+    }
+  }
   // Who was signed in last on this computer. Kept after signing out so lists can still leave you out of them.
   const LAST = 'annotated-last-id';
   async function lastId() { try { const o = await chrome.storage.local.get(LAST); return o[LAST] || null; } catch { return null; } }
@@ -58,25 +68,40 @@ const Backend = (() => {
     const { data: { session } } = await client.auth.getSession();
     if (!session) return null;
     const u = session.user, meta = u.user_metadata || {};
-    const { data } = await client.from('profiles').select('id, handle, display_name, avatar_url').eq('id', u.id).maybeSingle();
+    const { data, error } = await client.from('profiles').select('id, handle, display_name, avatar_url').eq('id', u.id).maybeSingle();
     try { chrome.storage.local.set({ [LAST]: u.id }); } catch { /* nothing to remember with */ }
-    return {
+    // A read that failed is not a changed handle: the last good answer for this person stands (it redrew every open
+    // panel with no handle, and a publish then got the fallback link).
+    if (error && goodProfile && goodProfile.id === u.id) return goodProfile;
+    const p = {
       id: u.id,
       email: u.email || '',
       name: (data && data.display_name) || meta.full_name || meta.name || (u.email || '').split('@')[0] || 'You',
       handle: (data && data.handle) || '',
       avatar: (data && data.avatar_url) || meta.avatar_url || meta.picture || '',
     };
+    if (!error) goodProfile = p;
+    return p;
   }
+  let goodProfile = null;
   // Only a real change reaches the listener. Supabase tells every open page of ours "signed in" again whenever
   // another of them opens, which in the recording of 2026-09-23 at 03:16 redrew the panel three times while a
   // button was being pressed, and the press was lost each time (Back, and Back to what you were reading).
   const sigOf = (p) => (p ? [p.id, p.handle, p.name, p.avatar].join('|') : '');
+  // One subscription for all of them, and one profile read per change: each listener used to subscribe and read the
+  // profile itself, two reads per open panel whenever any page of ours opened. A newcomer is told who is signed in
+  // straight away, as the library's first event told it before.
+  const subs = [];
+  let subscribed = false, asking = false, again = false;
+  function tell(p) { const s = sigOf(p); subs.forEach((x) => { if (x.last === s) return; x.last = s; try { x.cb(p); } catch (e) { console.warn('annotated:', e); } }); }
+  function ask() {
+    if (asking) { again = true; return; }
+    asking = true;
+    setTimeout(() => profile().then(tell, () => {}).finally(() => { asking = false; if (again) { again = false; ask(); } }), 0);
+  }
   function onChange(cb) {
-    let last;
-    client.auth.onAuthStateChange(() => {
-      setTimeout(() => profile().catch(() => null).then((p) => { const s = sigOf(p); if (s === last) return; last = s; cb(p); }), 0);
-    });
+    subs.push({ cb, last: undefined });
+    if (!subscribed) { subscribed = true; client.auth.onAuthStateChange(() => ask()); } else ask();
   }
   // Where shared annotations live on the web: https://annotated-app.netlify.app/@handle/id
   const SITE = 'https://annotated-app.netlify.app';

@@ -37,7 +37,7 @@ var FloatFrame = (() => {
   .ffResize::after { content: ""; position: absolute; bottom: 4px; width: 8px; height: 8px; border-bottom: 2px solid currentColor; opacity: .35; }
   .ffResize.l::after { left: 4px; border-left: 2px solid currentColor; } .ffResize.r::after { right: 4px; border-right: 2px solid currentColor; }
   .ff.dragging .ffBody, .ff.resizing .ffBody { pointer-events: none; }
-  .ffPill { all: unset; position: fixed; display: flex; align-items: center; gap: 7px; padding: 8px 14px 8px 10px; border-radius: 999px; cursor: pointer;
+  .ffPill { all: unset; touch-action: none; position: fixed; display: flex; align-items: center; gap: 7px; padding: 8px 14px 8px 10px; border-radius: 999px; cursor: pointer;
     background: #16181D; color: #fff; font: 600 13px/1 system-ui, -apple-system, "Segoe UI", sans-serif; box-shadow: 0 8px 24px -6px rgba(0,0,0,.4); }
   .ffPill i { width: 16px; height: 9px; background: #FFE14A; border-radius: 2px 5px 3px 6px; transform: skewX(-14deg) rotate(-4deg); }
   .ffPill:focus-visible { outline: 2px solid #FFE14A; outline-offset: 2px; }
@@ -149,6 +149,8 @@ var FloatFrame = (() => {
       rect.pill = (e.clientY > (b.top + b.bottom) / 2 ? 'b' : 't') + (e.clientX > (b.left + b.right) / 2 ? 'r' : 'l');
       placePill(); save();
     });
+    // A touch the browser takes over as a scroll ends in pointercancel; without this the button went on following the mouse.
+    pill.addEventListener('pointercancel', () => { pd = null; pill.classList.remove('dragging'); });
     pill.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); expand(); } });
     ff.querySelectorAll('.ffX').forEach((b) => b.addEventListener('click', (e) => opts.buttons[Number(b.dataset.i)].onClick(b.getBoundingClientRect(), e)));
     const cl = ff.querySelector('.ffClose');
