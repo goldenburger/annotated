@@ -129,7 +129,8 @@ async def web_part(p, errs):
   pg = await c.new_page(); twice = []
   for k in range(8):
     await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.card.mf'); await asyncio.sleep(.6)
-    kinds = await pg.evaluate("[...document.querySelectorAll('[data-pd-kind]')].map((e) => e.dataset.pdKind).filter((k) => k !== 'trail')")
+    # By the plane drawn, not the kind asked for (2.38.4): the margins are both "lone", each a different plane.
+    kinds = await pg.evaluate("[...document.querySelectorAll('[data-pd-kind]')].map((e) => [...new Set([...e.querySelectorAll('[data-pd-shape]')].map((x) => x.dataset.pdShape))].join('+')).filter(Boolean)")
     if len(kinds) != len(set(kinds)): twice.append(kinds)
   print('drawings on the feed, repeated on', len(twice), 'of 8 visits')
   if twice: errs.append(f'a drawing shows twice on one page: {twice}')
@@ -245,9 +246,9 @@ async def ext_part(p, errs):
     const out = { now: c(m.querySelector('.sideNow')), list: c(m.querySelector('.annside > .sideList')) }; m.remove();
     const d = document.createElement('div'); document.body.appendChild(d); PaperDeco.desk(d);
     out.right = (d.querySelector('.pdR') || {}).innerHTML || ''; d.remove(); return out; }""")
-  print('side view sheets:', side['now'], side['list'], '| right margin is a plane:', 'pdFace' in side['right'] and 'pdPage' not in side['right'])
+  print('side view sheets:', side['now'], side['list'], '| right margin is a plane:', 'data-pd-shape' in side['right'])
   if not side['now'] or not side['list']: errs.append(f'the panel beside an annotation is not on sheets: {side}')
-  if 'pdKeel' not in side['right'] and 'pdFace' not in side['right']: errs.append('the right margin is not a plane')
+  if 'data-pd-shape' not in side['right']: errs.append('the right margin is not a plane')
   # 15. A website that frames the panel, with no floating key, is turned away (security audit of 2026-09-29).
   await ctx.route('https://framer.example/**', lambda r: r.fulfill(status=200, headers={'Content-Type': 'text/html'},
     body=f'<!doctype html><iframe id="f" src="chrome-extension://{sw.url.split("/")[2]}/sidepanel.html" width="400" height="600"></iframe>'))

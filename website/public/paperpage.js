@@ -3,7 +3,8 @@
 (() => {
   const page = document.getElementById('page');
   const DRAW = [
-    ['lone', 'A plane, any of seven'], ['swallow', 'Swallow'], ['stunt', 'Stunt plane'], ['lock', 'Nose-lock plane'], ['banking', 'Banking'],
+    ['dart', 'Dart'], ['glider', 'Glider'], ['swallow', 'Swallow'], ['stunt', 'Stunt plane'], ['lock', 'Nose-lock plane'], ['banking', 'Banking'],
+    ['needle', 'Needle'], ['hammer', 'Hammerhead'], ['topDown', 'From above'], ['headOn', 'Head on'], ['pair', 'A pair'], ['landed', 'Landed nose first'], ['lone', 'Any plane, chosen'],
     ['sheet', 'A sheet, corner curling'], ['halfFold', 'Half folded'], ['folded', 'Folded in half'], ['creased', 'A plane unfolded flat'],
     ['smoothed', 'Crumpled, smoothed out'], ['ball', 'Crumpled ball'], ['loose', 'Crumpled in a hurry'], ['stack', 'A stack, clipped'],
     ['strip', 'A torn strip'], ['trail', 'A trail'], ['pile', 'A pile'], ['corner', 'The panel corner'],
@@ -31,7 +32,8 @@
     <section><h2>Deleting: crumpled into the bin</h2><p><button type="button" class="ghost sm ppTrash">Delete it</button></p><div class="ppStage" id="trashStage">${card()}</div></section>
     <section><h2>Copy link</h2><p class="note">A tiny plane leaves the button.</p><p><button type="button" class="ghost sm ppToss">Copy link</button></p></section>`;
 
-  const draw = (b) => { b.querySelector('.ppPic').innerHTML = PaperDeco.ART[b.dataset.k](); };
+  // Exactly the drawing asked for: the page shows every one, so the rule against repeats is off here.
+  const draw = (b) => { const f = () => PaperDeco.ART[b.dataset.k](); b.querySelector('.ppPic').innerHTML = PaperDeco.exact ? PaperDeco.exact(f) : f(); };
   page.querySelectorAll('.ppArt').forEach((b) => { draw(b); b.addEventListener('click', () => draw(b)); });
 
   const fresh = (id) => { const st = document.getElementById(id); st.innerHTML = card(); return st.querySelector('.ppCard'); };

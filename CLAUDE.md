@@ -1417,6 +1417,34 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   from the start left about 55 pixels of empty paper, and the next section now starts about 100 pixels higher, on the
   first screen of a laptop. Backup before the paper planes pass: `E:\claude_code\backups\annotated-backup-2026-09-29-before-planes.zip`
   and the tag `backup-2026-09-29-before-planes`.
+- **2.38.4, the paper planes redrawn and chosen** (`tests/planevary.py`; backup before it is the tag
+  `backup-2026-09-29-before-planes` and its zip). David: improve the planes' look, add variations, never the same one twice
+  on a page, and not always the same asset. Every plane is now a set of facets drawn by `craft` in `paperdeco.js`, hand
+  drawn like the sheets (edges bowed, not ruled), each facet shaded from its lit edge (`TONE`, and `--pd-deep` for a
+  keel's far side), a lit line along each fold, a soft blurred shadow, and a few lines of the page on the widest wing,
+  sometimes highlighted. Twelve planes (`DEF`, `SHAPES`): dart, glider, swallow, stunt, nose-lock, banking and landed as
+  before, and new, a needle, a hammerhead, one seen from above, one head on, and a pair flying together. Each drawn plane
+  carries `data-pd-shape`. `PaperDeco.choose` leaves out a plane already on the page or drawn in the last two seconds and
+  not yet placed, leaves out the last six this browser showed while two others remain, and weights the rest by how long
+  ago they were shown (`annotated-pd-seen` in localStorage, the last 24). The margins (`lone`), the Feed heading
+  (`heading`), piles and the panel's corner (`fleetAt`) all go through it; a named plane (`swallow`, say) draws itself
+  unless it is on the page already. The same swallow had sat top right and bottom left of the feed because "lone" drew
+  from the same planes as the named kinds while `free` compared only kind names. /paper.html draws every plane as named
+  (`PaperDeco.exact`), D1 to D12 now planes. Over 20 feed visits the right margin showed 10 or 11 different planes and
+  never one twice running.
+- **The recording of 2026-09-29 at 16:31, sharp bouncing** (2.38.4, `tests/nobounce.py`). On the home page, Annotate
+  opened the take box and everything below jumped 200 pixels in one frame (2.38.3 had taken away the 55 spare pixels
+  that used to soften it), and Make the annotation hid Yours so far and brought it back two seconds later, the card's
+  landing and the try-it's reset each another jump. `smooth(el, inner)` in `landing.js`: `inner` keeps its own height and
+  `el` eases to it over half a second (`cubic-bezier(.4, 0, .2, 1)`), clipped while it moves with a 28 pixel margin for
+  the paper's shadows. A ResizeObserver on `inner` starts the move in the frame of the change, before paint (waiting a
+  frame painted the new size once first); a move under way continues from its current height; margins, top padding and
+  rule slide with it (`EDGE`), carried across a restart. The try-it sits in `.heroTryBox` (made in `hero`), Yours so far's
+  contents in `.llIn`, and Yours so far folds away and back (`ease.fold`) instead of `hidden`. Nothing moves with reduced
+  motion. The test reads In Chrome's top every frame and counts a move over 40 pixels between frames under 40 ms apart
+  that stays; the old code gave 202 and 378, the new none, planes off or on. Headless Edge, drawing with a software GPU,
+  can still stall about 200 ms while the textured paper moves (a 199 ms GPU task in a trace); a real GPU is expected to be
+  far quicker, not measured.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

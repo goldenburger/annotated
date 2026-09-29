@@ -61,6 +61,8 @@ var Landing = (() => {
         ${TABS.map((t, i) => `<div class="tryPanel tp-${t.kind}" role="tabpanel" id="panel-${t.kind}" aria-labelledby="tab-${t.kind}" ${i ? 'hidden' : ''}></div>`).join('')}
       </div>`;
     root.appendChild(el);
+    // The try-it sits in a box of its own that eases to its height (set up before anything is mounted in it).
+    { const t = el.querySelector('.heroTry'), box = document.createElement('div'); box.className = 'heroTryBox'; t.replaceWith(box); box.appendChild(t); smooth(box, t); }
     const panels = [...el.querySelectorAll('.tryPanel')];
     const art = typeof TryIt !== 'undefined' && TryIt.mount(panels[0]);
     TABS.slice(1).forEach((t, i) => { if (typeof SceneTry !== 'undefined') SceneTry.mount(panels[i + 1], t.kind); });
@@ -300,12 +302,68 @@ var Landing = (() => {
     }
     return li;
   }
+  // A region that eases to its new height instead of snapping (recording of 2026-09-29 at 16:31: Annotate opened the take
+  // box and everything below jumped 200 pixels in one frame, and Yours so far vanished and came back two seconds later).
+  // `inner` holds everything and keeps its own height; `el` around it eases to that height over half a second, gently at both ends, so the page below
+  // slides rather than jumps. A ResizeObserver reports the new size after layout and before paint, so the move starts
+  // in the frame of the change and the new size is never painted first. `fold(true)` folds it away before hiding it.
+  // With reduced motion nothing moves.
+  function smooth(el, inner) {
+    const off = still() || typeof ResizeObserver === 'undefined';
+    let shown = null, done = 0, folding = false, delta = 0, edges = '';
+    // Its margins, top padding and rule slide in and out with it; they snapped in at once, about 48 pixels.
+    const EDGE = ['marginTop', 'marginBottom', 'paddingTop', 'borderTopWidth'];
+    const calibrate = () => { if (!el.hidden && !el.style.height) delta = el.offsetHeight - inner.offsetHeight; };
+    const natural = () => (el.hidden ? 0 : inner.offsetHeight + delta);
+    const settle = () => { el.style.height = ''; el.style.transition = ''; el.style.overflow = ''; el.style.overflowClipMargin = ''; EDGE.forEach((k) => { el.style[k] = ''; }); edges = ''; calibrate(); };
+    const go = (to, then) => {
+      // From where it is now: mid-move that is the moving height, not where the last move was headed.
+      const from = el.style.height ? el.getBoundingClientRect().height : shown == null ? to : shown;
+      shown = to;
+      if (Math.abs(to - from) < 2) { if (!el.style.height || then) { clearTimeout(done); settle(); } if (then) then(); return; }
+      clearTimeout(done);
+      // Edges still sliding keep where they are, or restarting the move would drop them straight to their end.
+      if (edges) { const cs = getComputedStyle(el), now = EDGE.map((k) => cs[k]); EDGE.forEach((k, i) => { el.style[k] = now[i]; }); }
+      // Clipped while it moves, so what is coming is revealed rather than laid over the section below; the margin keeps
+      // the paper's shadows.
+      el.style.transition = 'none'; el.style.height = from + 'px'; el.style.overflow = 'clip'; el.style.overflowClipMargin = '28px';
+      el.offsetHeight;   // the start is laid out before the move begins
+      const E = '.5s cubic-bezier(.4, 0, .2, 1)';
+      el.style.transition = `height ${E}, margin ${E}, padding ${E}, border-width ${E}`; el.style.height = to + 'px';
+      if (edges === 'in') EDGE.forEach((k) => { el.style[k] = ''; });
+      if (edges === 'out') EDGE.forEach((k) => { el.style[k] = '0px'; });
+      done = setTimeout(() => { settle(); if (then) then(); }, 530);
+    };
+    const check = () => { if (el.isConnected && !folding) go(natural()); };
+    if (!off) {
+      new ResizeObserver(check).observe(inner);
+      shown = el.hidden ? 0 : el.offsetHeight;
+      calibrate();
+    }
+    return {
+      fold(hide) {
+        if (off) { el.hidden = hide; return; }
+        if (!hide) {
+          if (folding) { folding = false; clearTimeout(done); check(); return; }
+          // Shown at no height before it is painted, or it would flash at full size for a frame.
+          if (el.hidden) { el.hidden = false; calibrate(); shown = 0; el.style.height = '0px'; el.style.overflow = 'clip'; EDGE.forEach((k) => { el.style[k] = '0px'; }); edges = 'in'; check(); }
+          return;
+        }
+        if (el.hidden || folding) return;
+        folding = true; edges = 'out';
+        go(0, () => { folding = false; el.hidden = true; settle(); shown = 0; });
+      },
+    };
+  }
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
     box.innerHTML = '<div class="llHead"><h2>Yours so far</h2>' + (typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : '') + '<p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. <button type="button" class="link llMake">Make one above</button>.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
+    { const inner = document.createElement('div'); inner.className = 'llIn'; inner.append(...box.childNodes); box.appendChild(inner); }
     root.appendChild(box);
     const row = box.querySelector('.llRow');
+    const ease = smooth(box, box.querySelector('.llIn'));
+    let drawn = false;
     const list = () => { const y = readYours(); return (Array.isArray(y) ? y : y ? [y] : []).filter((x) => x && typeof x === 'object'); };
     const drawRow = () => { list().forEach((y) => { try { row.appendChild(yoursCard(y)); } catch (e) { console.warn('annotated: a saved card could not be drawn', e); } }); };
     const save = (arr) => { try { localStorage.setItem(YOURS, JSON.stringify(arr.slice(0, 4))); } catch { /* private window */ } };
@@ -316,7 +374,9 @@ var Landing = (() => {
       if (get) get.hidden = installed() || !row.querySelector('.yours:not(.example)');
       while (row.children.length > 4) row.lastElementChild.remove();
       row.style.setProperty('--n', Math.max(1, row.children.length));
-      box.hidden = !row.children.length;
+      // Folded away and back smoothly, never just gone (only the first drawing is immediate).
+      if (drawn) ease.fold(!row.children.length); else box.hidden = !row.children.length;
+      drawn = true;
       // While Undo is offered over an emptied row, the row says so rather than sitting blank under its heading
       // (recording of 2026-09-25 at 03:14, 2:26 to 2:34).
       const empty = box.querySelector('.llEmpty');
@@ -345,7 +405,7 @@ var Landing = (() => {
       lastGone = { gone };
       redraw();
       undoBar.querySelector('span').textContent = said;
-      undoBar.hidden = false; box.hidden = false;
+      undoBar.hidden = false; ease.fold(false);
       box.querySelector('.llEmpty').hidden = !!row.children.length;
       clearTimeout(undoTimer);
       undoTimer = setTimeout(() => { undoBar.hidden = true; lastGone = null; tidy(); }, 6000);

@@ -3,16 +3,6 @@
 // sheet half folded with one line marked, a crumpled ball, a plane leaving a dashed trail. They are drawings
 // only: aria-hidden, no pointer events, no motion of their own, and gone where there is no room for them.
 var PaperDeco = (() => {
-  // One dart, resting, nose to the right, drawn about 110 by 60. Its wing carries a few lines of print and, on the
-  // `marked` ones, a stroke of highlighter, since every plane here is folded from an annotated page.
-  // The same dart as annotated's own mark (brand.js): a wing and a keel meeting at the nose, top right.
-  const plane = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `
-    <ellipse class="pdShadow" cx="62" cy="92" rx="46" ry="6"/>
-    <path class="pdFace" d="M108 20 L20 56 L55 68 Z"/>
-    <path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/>
-    <path class="pdLine" d="M44 52 L84 36 M40 58 L70 46"/>
-    ${marked ? '<path class="pdMark" d="M48 55 L86 40"/>' : ''}
-    <path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/>`);
   // A plane in the air at the end of a dashed trail that loops once.
   const trail = (w = 220, h = 90) => `<path class="pdTrail" d="M4 ${h - 10} C ${w * .25} ${h - 4}, ${w * .32} ${h * .35}, ${w * .5} ${h * .5} S ${w * .62} ${h * .95}, ${w * .7} ${h * .6} S ${w * .82} 10, ${w - 30} 16"/>
     <g transform="translate(${w - 44} -8) rotate(8) scale(.34)"><path class="pdFace" d="M108 20 L20 56 L55 68 Z"/><path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`;
@@ -39,12 +29,6 @@ var PaperDeco = (() => {
     return `${flat.length ? `<g transform="translate(${x} ${y}) scale(${s})">${flat.join('')}</g>` : ''}<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">${body}</g>`;
   };
 
-  // More of them (David, 2026-09-25: the same few were showing up too often).
-  // A glider: long straight wings and a short keel, about 120 by 60.
-  const glider = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="62" cy="70" rx="54" ry="6"/>
-    <path class="pdFar" d="M116 30 L8 8 L60 36 Z"/><path class="pdFace" d="M116 30 L4 52 L60 38 Z"/><path class="pdKeel" d="M116 30 L60 38 L52 54 Z"/>
-    <path class="pdLine" d="M30 46 L78 38"/>${marked ? '<path class="pdMark" d="M34 44 L80 36"/>' : ''}
-    <path class="pdEdge" d="M116 30 L4 52 L60 38 Z M116 30 L8 8 L60 36 M60 38 L52 54 L116 30"/>`);
   // ---- Paper that looks like paper (David, 2026-09-25: the sheets looked like a word processor's icons and the
   // balls like footballs). Hand-made rather than ruled: edges that are never quite straight, a curled corner,
   // shading that runs along a fold, lines written rather than ruled, a highlighter stroke with rough ends, and
@@ -115,9 +99,6 @@ var PaperDeco = (() => {
       <path class="pdEdgeSoft" d="${body}"/><path class="pdEdgeSoft" d="${flapL}"/><path class="pdEdgeSoft" d="${flapR}"/>
       <path class="pdCrease2" d="M${W / 2} ${t + 3} L${W / 2 + 1} ${H - 2}"/>`);
   };
-  // Landed nose first: a dart standing on its nose, tail up.
-  const landed = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="30" cy="104" rx="22" ry="4"/>
-    <g transform="rotate(58 60 60)">${DART}</g>`);
   // A crumpled sheet: an uneven outline, a few curved creases running out from where it was squeezed, the facets
   // between them shaded, a highlight where the light catches it. Made fresh from its seed, so no two are alike.
   const crumple = (x, y, s = 1, seed = Math.random() * 1e9) => {
@@ -203,27 +184,6 @@ var PaperDeco = (() => {
     (w, h) => `<path class="pdTrail" d="M4 14 C ${w * .3} 0, ${w * .55} 10, ${w * .7} ${h * .5} S ${w - 40} ${h - 16}, ${w - 38} ${h - 22}"/>${ballV(1, w - 44, h - 42, .6)}`,
   ];
 
-  // ---- More planes and more paper (David, 2026-09-28: "draw more versions of our paper planes, unfolding
-  // animations, crumpled paper so you have more assets to design our pages with").
-  // A swallow: swept wings with a forked tail, nose to the right.
-  const swallow = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="60" cy="74" rx="50" ry="5"/>
-    <path class="pdFar" d="M116 30 L16 4 L44 22 L30 28 Z"/><path class="pdFace" d="M116 30 L8 58 L38 42 L22 36 Z"/><path class="pdKeel" d="M116 30 L38 42 L50 58 Z"/>
-    <path class="pdLine" d="M40 44 L86 34"/>${marked ? '<path class="pdMark" d="M42 42 L88 32"/>' : ''}
-    <path class="pdEdge" d="M116 30 L8 58 L38 42 L22 36 Z M116 30 L16 4 L44 22 L30 28 M38 42 L50 58 L116 30"/>`);
-  // A stunt plane: a wide delta with its wingtips turned up.
-  const stunt = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="62" cy="78" rx="52" ry="6"/>
-    <path class="pdFar" d="M116 32 L22 8 L62 30 Z"/><path class="pdFar" d="M22 8 L16 -4 L30 10 Z"/>
-    <path class="pdFace" d="M116 32 L10 62 L62 44 Z"/><path class="pdKeel" d="M10 62 L4 46 L18 58 Z"/><path class="pdKeel" d="M116 32 L62 44 L64 62 Z"/>
-    <path class="pdLine" d="M32 54 L84 40"/>${marked ? '<path class="pdMark" d="M36 52 L86 38"/>' : ''}
-    <path class="pdEdge" d="M116 32 L10 62 L62 44 Z M10 62 L4 46 L18 58 M116 32 L22 8 L62 30 M22 8 L16 -4 L30 10 M62 44 L64 62 L116 32"/>`);
-  // A nose-lock plane: its point folded back into a blunt nose, sturdier and slower.
-  const lockPlane = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="60" cy="92" rx="46" ry="6"/>
-    <path class="pdFace" d="M112 24 L104 36 L20 58 L56 70 Z"/><path class="pdKeel" d="M104 36 L56 70 L66 104 Z"/><path class="pdFar" d="M112 24 L96 26 L104 36 Z"/>
-    <path class="pdLine" d="M44 54 L84 40 M40 60 L70 49"/>${marked ? '<path class="pdMark" d="M48 57 L86 43"/>' : ''}
-    <path class="pdEdge" d="M112 24 L104 36 L20 58 L56 70 Z M104 36 L66 104 L56 70 M112 24 L96 26 L104 36"/>`);
-  // Banking hard, seen a little from below, with the rush of air behind it.
-  const banking = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdTrail" d="M2 64 L34 60 M8 76 L36 72 M16 52 L40 50"/>
-    <g transform="translate(24 -6) rotate(-24 60 60)"><path class="pdKeel" d="M108 20 L20 56 L55 68 Z"/><path class="pdFace" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`);
   // A plane unfolded flat again: the dart's creases pressed into the sheet, each fold's facet lit or shaded as the
   // paper still wants to fold back, a corner still lifting, one line of the page marked. Hand-drawn edges throughout.
   const creased = (x, y, rot = -4, s = 1, seed = Math.random() * 1e9) => {
@@ -273,16 +233,128 @@ var PaperDeco = (() => {
 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const jit = (n) => (Math.random() - .5) * 2 * n;
+  // ---- Planes that look folded (2.38.4, David: "improve the look of your paper airplanes" and "add more variations").
+  // Each plane is a set of facets. Every facet is drawn by hand like the paper (edges bowed a little, never ruled),
+  // shaded from the edge the light catches to the side it turns away, with a lit line along each fold and a soft
+  // blurred shadow on the desk. The biggest wing carries a few lines of the page it was folded from, and on the
+  // `marked` ones a stroke of highlighter, since every plane here is an annotated page.
+  const TONE = { face: ['var(--pd-face)', 'var(--pd-far)'], far: ['var(--pd-far)', 'var(--pd-keel)'], keel: ['var(--pd-keel)', 'var(--pd-deep)'] };
+  const inkOn = ({ x, y, len, ang = 0, n = 2, gap = 6 }, r, marked) => {
+    let s = '';
+    for (let i = 0; i < n; i++) { const yy = y + i * gap, L = len * (i === n - 1 && n > 1 ? .62 : .88 + r() * .12); if (marked && i === 0) s += marker(x, yy, L * .8, r); s += `<path class="pdInk" d="${scrib(x, yy, L, r)}"/>`; }
+    return `<g transform="rotate(${ang} ${x} ${y})">${s}</g>`;
+  };
+  const far = (pts) => pts.reduce((m, p) => (Math.hypot(p[0] - pts[0][0], p[1] - pts[0][1]) > Math.hypot(m[0] - pts[0][0], m[1] - pts[0][1]) ? p : m), pts[0]);
+  const craft = (def, marked = false, { shadow = true, key = '' } = {}) => {
+    const r = rng(Math.floor(Math.random() * 1e9)), id = uid('pdp');
+    let defs = soft(id + 's'), body = '';
+    def.facets.forEach((f, i) => {
+      const [a, b] = TONE[f.tone], p0 = f.pts[0], p1 = far(f.pts);
+      defs += `<linearGradient id="${id}g${i}" gradientUnits="userSpaceOnUse" x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}"><stop offset="0" style="stop-color:${a}"/><stop offset="1" style="stop-color:${b}"/></linearGradient>`;
+      const d = shape(f.pts, r, .55);
+      body += `<path d="${d}" fill="url(#${id}g${i})"/>`;
+      if (f.ink) { defs += `<clipPath id="${id}k${i}"><path d="${d}"/></clipPath>`; body += `<g clip-path="url(#${id}k${i})">${inkOn(f.ink, r, marked)}</g>`; }
+      // A firmer edge than the sheets': a plane is small and thin, and with the soft one it faded into the page.
+      body += `<path class="pdEdge" d="${d}"/>`;
+    });
+    (def.folds || []).forEach(([p, q]) => { body += `<path class="pdCreaseLit" d="M${f1(p[0] + .5)} ${f1(p[1] - .7)} L${f1(q[0] + .5)} ${f1(q[1] - .7)}"/>`; });
+    const [sx, sy, srx, sry] = def.shadow;
+    return `<g data-pd-shape="${key}"><defs>${defs}</defs>${shadow ? `<ellipse class="pdShadowSoft" cx="${sx}" cy="${sy}" rx="${srx}" ry="${sry}" filter="url(#${id}s)"/>` : ''}${def.pre || ''}${body}</g>`;
+  };
+  // Nose to the right in every side view, so a pile reads as one fleet.
+  const DEF = {
+    dart: { facets: [{ tone: 'face', pts: [[108, 20], [20, 56], [55, 68]], ink: { x: 34, y: 56, len: 62, ang: -22 } }, { tone: 'keel', pts: [[108, 20], [55, 68], [66, 104]] }],
+      folds: [[[108, 20], [55, 68]]], shadow: [62, 96, 44, 4.5] },
+    glider: { facets: [{ tone: 'far', pts: [[116, 30], [8, 8], [60, 36]] }, { tone: 'face', pts: [[116, 30], [4, 52], [60, 38]], ink: { x: 22, y: 48, len: 80, ang: -11, gap: 5 } }, { tone: 'keel', pts: [[116, 30], [60, 38], [52, 54]] }],
+      folds: [[[116, 30], [60, 38]]], shadow: [62, 72, 52, 4.5] },
+    swallow: { facets: [{ tone: 'far', pts: [[116, 30], [16, 4], [44, 22], [30, 28]] }, { tone: 'face', pts: [[116, 30], [8, 58], [38, 42], [22, 36]], ink: { x: 30, y: 47, len: 70, ang: -13, gap: 5 } }, { tone: 'keel', pts: [[116, 30], [38, 42], [50, 58]] }],
+      folds: [[[116, 30], [38, 42]]], shadow: [60, 76, 48, 4.5] },
+    stunt: { facets: [{ tone: 'far', pts: [[116, 32], [22, 8], [62, 30]] }, { tone: 'far', pts: [[22, 8], [16, -4], [30, 10]] }, { tone: 'face', pts: [[116, 32], [10, 62], [62, 44]], ink: { x: 28, y: 56, len: 76, ang: -16, gap: 5 } },
+      { tone: 'keel', pts: [[10, 62], [4, 46], [18, 58]] }, { tone: 'keel', pts: [[116, 32], [62, 44], [64, 62]] }], folds: [[[116, 32], [62, 44]]], shadow: [62, 80, 50, 4.5] },
+    lock: { facets: [{ tone: 'face', pts: [[112, 24], [104, 36], [20, 58], [56, 70]], ink: { x: 36, y: 60, len: 58, ang: -18 } }, { tone: 'keel', pts: [[104, 36], [56, 70], [66, 104]] }, { tone: 'far', pts: [[112, 24], [96, 26], [104, 36]] }],
+      folds: [[[104, 36], [56, 70]]], shadow: [60, 96, 44, 4.5] },
+    // New: long and thin, built for distance.
+    needle: { facets: [{ tone: 'far', pts: [[124, 34], [14, 22], [66, 35]] }, { tone: 'face', pts: [[124, 34], [8, 46], [66, 37]], ink: { x: 20, y: 43, len: 88, ang: -6, n: 1 } }, { tone: 'keel', pts: [[124, 34], [66, 37], [44, 50]] }],
+      folds: [[[124, 34], [66, 37]]], shadow: [66, 60, 56, 3.5] },
+    // New: a hammerhead, its nose folded into a blunt block.
+    hammer: { facets: [{ tone: 'far', pts: [[104, 22], [30, 6], [70, 32]] }, { tone: 'face', pts: [[106, 36], [12, 60], [66, 42]], ink: { x: 26, y: 55, len: 70, ang: -15, gap: 5 } }, { tone: 'keel', pts: [[106, 36], [66, 42], [72, 60]] },
+      { tone: 'face', pts: [[118, 27], [118, 35], [106, 36], [98, 29], [104, 22]] }], folds: [[[106, 36], [66, 42]], [[104, 22], [106, 36]]], shadow: [66, 80, 50, 4.5] },
+    // New: seen from above, both wings spread, the keel a strip down the middle.
+    topDown: { facets: [{ tone: 'far', pts: [[124, 46], [18, 6], [34, 44]] }, { tone: 'face', pts: [[124, 46], [18, 86], [34, 48]], ink: { x: 38, y: 60, len: 58, ang: 19, gap: 6 } }, { tone: 'keel', pts: [[124, 46], [34, 44], [26, 46], [34, 48]] }],
+      folds: [[[34, 46], [124, 46]]], shadow: [76, 104, 50, 4.5] },
+    // New: head on, coming straight at you, wings in a shallow V over the keel.
+    headOn: { facets: [{ tone: 'keel', pts: [[62, 44], [55, 45], [62, 80], [69, 45]] }, { tone: 'far', pts: [[60, 44], [4, 22], [8, 32], [57, 49]] }, { tone: 'face', pts: [[64, 44], [120, 22], [116, 32], [67, 49]] }],
+      folds: [[[62, 45], [62, 78]]], shadow: [62, 98, 36, 4] },
+  };
+  const craftAt = (key) => (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, craft(DEF[key], marked, { key }));
+  const plane = craftAt('dart'), glider = craftAt('glider'), swallow = craftAt('swallow'), stunt = craftAt('stunt'), lockPlane = craftAt('lock');
+  const needle = craftAt('needle'), hammer = craftAt('hammer'), topDown = craftAt('topDown'), headOn = craftAt('headOn');
+  // Banking hard, seen a little from below, with the rush of air behind it (its underside lit, its top in shade).
+  const banking = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdTrail" d="M2 64 L34 60 M8 76 L36 72 M16 52 L40 50"/>
+    <g transform="translate(24 -6) rotate(-24 60 60)">${craft({ ...DEF.dart, facets: [{ tone: 'keel', pts: DEF.dart.facets[0].pts }, { tone: 'face', pts: DEF.dart.facets[1].pts }] }, false, { shadow: false, key: 'banking' })}</g>`);
+  // Landed nose first: a dart standing on its nose, tail up.
+  const landed = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="30" cy="104" rx="22" ry="4"/>
+    <g transform="rotate(58 60 60)">${craft(DEF.dart, true, { shadow: false, key: 'landed' })}</g>`);
+  // New: two flying together, one a little behind the other, their trails running side by side.
+  const pair = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<g data-pd-shape="pair"><path class="pdTrail" d="M2 70 C 30 66, 44 50, 70 46 M4 50 C 30 44, 60 20, 92 18"/></g>
+    ${at(60, 30, -6, .5, craft(DEF.dart, false, { key: 'pair' }))}${at(84, -2, -10, .56, craft(DEF.glider, true, { key: 'pair' }))}`);
+  const SHAPES = {
+    dart: [120, 110, (m) => plane(0, -4, 6 + jit(10), 1, m)], glider: [130, 80, (m) => glider(4, 4, jit(8), 1, m)], swallow: [130, 90, (m) => swallow(4, 6, jit(8), 1, m)],
+    stunt: [130, 96, (m) => stunt(4, 10, jit(8), 1, m)], lock: [120, 116, (m) => lockPlane(0, -2, 4 + jit(8), 1, m)], needle: [138, 70, (m) => needle(2, 4, jit(6), 1, m)],
+    hammer: [134, 92, (m) => hammer(2, 6, jit(8), 1, m)], topDown: [132, 112, (m) => topDown(2, 2, jit(8), 1, m)], headOn: [126, 106, (m) => headOn(2, 2, jit(6), 1, m)],
+    banking: [150, 100, () => banking(0, 0, 0, 1)], landed: [110, 120, () => landed(20, 8, 0, 1)], pair: [160, 96, () => pair(4, 10, 0, 1)],
+  };
+  // Side views, the ones that lie well in a pile or a corner.
+  const FLEET = ['dart', 'glider', 'swallow', 'stunt', 'lock', 'needle', 'hammer'];
+  const SIDE = { dart: plane, glider, swallow, stunt, lock: lockPlane, needle, hammer };
+
+  // Choosing a plane, so the same one is not always shown (David, 2026-09-29: two alike on one page). A plane already on
+  // the page, or drawn in the last moment and not yet placed, is left out; among the rest, the ones this browser has
+  // not shown lately are much likelier (the last 24 shown, kept in localStorage). /paper.html draws every one on
+  // purpose, inside `exact`.
+  const SEEN = 'annotated-pd-seen';
+  let exactly = false, lately = [];
+  const seen = () => { try { const v = JSON.parse(localStorage.getItem(SEEN) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
+  const shown = (k) => {
+    lately.push([k, Date.now()]);
+    if (exactly) return;
+    try { const s = seen().filter((x) => x !== k); s.push(k); localStorage.setItem(SEEN, JSON.stringify(s.slice(-24))); } catch { /* no storage */ }
+  };
+  const taken = () => {
+    const now = Date.now(); lately = lately.filter(([, t]) => now - t < 2000);
+    const s = new Set(lately.map(([k]) => k));
+    try { document.querySelectorAll('[data-pd-shape]').forEach((e) => s.add(e.dataset.pdShape)); } catch { /* no page */ }
+    return s;
+  };
+  function choose(pool = Object.keys(SHAPES), avoid = []) {
+    if (exactly) { const k = pick(pool); shown(k); return k; }
+    const t = taken(); avoid.forEach((k) => t.add(k));
+    let open = pool.filter((k) => !t.has(k)); if (!open.length) open = pool;
+    const s = seen();
+    // A page draws several planes, so the last visit's are the last few shown: those six are left out while at least
+    // two others remain, or one spot showed the same plane on two visits running.
+    const recent = new Set(s.slice(-6)), fresh = open.filter((k) => !recent.has(k));
+    if (fresh.length >= 2) open = fresh;
+    // Weight by how long ago it was last shown here: never, or long ago, counts most; the last one shown hardly at all.
+    const w = open.map((k) => { const i = s.lastIndexOf(k); return i < 0 ? 36 : Math.min(36, (s.length - i) ** 2); });
+    let x = Math.random() * w.reduce((a, b) => a + b, 0), k = open[open.length - 1];
+    for (let i = 0; i < open.length; i++) { x -= w[i]; if (x < 0) { k = open[i]; break; } }
+    shown(k);
+    return k;
+  }
+  const drawShape = (k, marked = Math.random() < .6) => { const [w, h, fn] = SHAPES[k]; return svg(w, h, fn(marked)); };
+  // A named plane (the Feed heading's, say) draws itself unless it is already on the page, and then another one.
+  const named = (k) => () => { const kk = exactly || !taken().has(k) ? (shown(k), k) : choose(); return drawShape(kk); };
+  const fleetAt = (x, y, r, s, marked) => SIDE[choose(FLEET)](x, y, r, s, marked);
   // A pile laid out fresh each visit: two to four things from the set, in slots across the box.
   const PIECES = [
-    (x, y, r) => plane(x, y, r, .9 + jit(.1), Math.random() < .5),
-    (x, y, r) => glider(x, y, r, .8 + jit(.1), Math.random() < .5),
+    (x, y, r) => fleetAt(x, y, r, .85 + jit(.1), Math.random() < .5),
+    (x, y, r) => fleetAt(x, y, r, .85 + jit(.1), Math.random() < .5),
     (x, y) => ballV(Math.floor(Math.random() * 3), x + 20, y + 30, .85 + jit(.1)),
     (x, y, r) => halfFold(x + 10, y - 6, r * .5, .6),
-    (x, y) => landed(x + 10, y - 20, 0, .75),
-    (x, y, r) => swallow(x, y, r, .85 + jit(.1), Math.random() < .5),
-    (x, y, r) => stunt(x, y, r, .8 + jit(.1), Math.random() < .5),
-    (x, y, r) => lockPlane(x, y, r, .8 + jit(.1), Math.random() < .5),
+    (x, y) => { if (taken().has('landed')) return fleetAt(x, y, 0, .8, false); shown('landed'); return landed(x + 10, y - 20, 0, .75); },
+    (x, y, r) => fleetAt(x, y, r, .82 + jit(.1), Math.random() < .5),
+    (x, y, r) => fleetAt(x, y, r, .82 + jit(.1), Math.random() < .5),
     (x, y) => loose(x + 14, y + 8, .8),
   ];
   const pile = () => {
@@ -303,25 +375,26 @@ var PaperDeco = (() => {
       <path class="pdCrease2" d="M14 12 L20 70 M22 12 L25 70 M30 12 L30 70 M38 12 L35 70 M46 12 L40 70 M54 12 L45 70 M10 26 L60 26 M11 40 L58 40 M13 54 L57 54"/>
       <path class="pdEdge" d="M8 12 L62 12 L55 70 L15 70 Z"/><ellipse class="pdFace" cx="35" cy="12" rx="27" ry="4.5"/><ellipse class="pdEdge" cx="35" cy="12" rx="27" ry="4.5" style="fill:none"/>`, 'pdBin'),
     trail: () => svg(220, 90, pick(TRAILS)(220, 90)),
-    lone: () => pick([() => svg(120, 110, plane(0, -4, 6 + jit(10), 1, true)), () => svg(130, 80, glider(4, 4, jit(8), 1, true)), () => svg(110, 120, landed(20, 8, 0, 1)),
-      () => svg(130, 90, swallow(4, 6, jit(8), 1, true)), () => svg(130, 96, stunt(4, 10, jit(8), 1, true)), () => svg(120, 116, lockPlane(0, -2, 4 + jit(8), 1, true)), () => svg(150, 100, banking(0, 0, 0, 1))])(),
-    swallow: () => svg(130, 90, swallow(4, 6, jit(8), 1, Math.random() < .6)),
-    stunt: () => svg(130, 96, stunt(4, 10, jit(8), 1, Math.random() < .6)),
-    lock: () => svg(120, 116, lockPlane(0, -2, 4 + jit(8), 1, Math.random() < .6)),
-    banking: () => svg(150, 100, banking(0, 0, 0, 1)),
+    // Any plane: one not on the page and not shown here lately (`choose`).
+    lone: () => drawShape(choose()),
+    // Beside the Feed heading: a plane in flight, chosen the same way (it repeated one while the margins changed).
+    heading: () => drawShape(choose(['dart', 'glider', 'swallow', 'stunt', 'lock', 'needle', 'hammer', 'topDown', 'banking', 'pair'])),
+    dart: named('dart'), glider: named('glider'), swallow: named('swallow'), stunt: named('stunt'), lock: named('lock'), banking: named('banking'),
+    needle: named('needle'), hammer: named('hammer'), topDown: named('topDown'), headOn: named('headOn'), pair: named('pair'), landed: named('landed'),
     creased: () => svg(128, 156, creased(10, 8, -4 + jit(5), 1)),
     smoothed: () => svg(136, 164, smoothed(10, 8, 4 + jit(5), 1)),
     loose: () => svg(84, 76, loose(6, 2, 1)),
     // The panel's quiet corner: two or three small things, chosen fresh each time.
     corner: () => pick([
-      () => svg(170, 90, plane(40, 0, -6, .72, true) + plane(-6, 16, 20, .6) + ball(122, 46, .62)),
-      () => svg(170, 90, glider(10, 14, -4, .7, true) + ballV(2, 118, 40, .66)),
-      () => svg(170, 90, halfFold(20, 2, -8, .52) + plane(66, 18, 10, .62, true) + ballV(0, 130, 46, .56)),
-      () => svg(170, 90, strip(4, 30, -6, .7) + landed(116, 6, 0, .55)),
-      () => svg(170, 90, stack(10, 12, -4, .62) + plane(90, 10, -12, .6)),
-      () => svg(170, 90, swallow(6, 20, -4, .7, true) + loose(116, 26, .6)),
-      () => svg(170, 90, creased(8, -4, -8, .5) + stunt(70, 26, 6, .66, true)),
-      () => svg(170, 90, lockPlane(24, -6, -8, .66, true) + ballV(1, 120, 44, .6)),
+      () => svg(170, 90, fleetAt(40, 0, -6, .72, true) + fleetAt(-6, 16, 20, .6) + ball(122, 46, .62)),
+      () => svg(170, 90, fleetAt(10, 14, -4, .7, true) + ballV(2, 118, 40, .66)),
+      () => svg(170, 90, halfFold(20, 2, -8, .52) + fleetAt(66, 18, 10, .62, true) + ballV(0, 130, 46, .56)),
+      () => svg(170, 90, strip(4, 30, -6, .7) + fleetAt(104, 22, -8, .52, false)),
+      () => svg(170, 90, stack(10, 12, -4, .62) + fleetAt(90, 10, -12, .6)),
+      () => svg(170, 90, fleetAt(6, 20, -4, .7, true) + loose(116, 26, .6)),
+      () => svg(170, 90, creased(8, -4, -8, .5) + fleetAt(70, 26, 6, .66, true)),
+      () => svg(170, 90, fleetAt(24, -6, -8, .66, true) + ballV(1, 120, 44, .6)),
+      () => svg(170, 90, pair(10, 0, 0, .8) + ballV(2, 126, 46, .56)),
     ])(),
   };
   // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
@@ -343,9 +416,10 @@ var PaperDeco = (() => {
     // of the theme", so both sides are planes now, a pile on the left or one of the darts, a single plane on the right.
     // No drawing twice on one page: the Feed heading's plane and the two margins each take a kind not already shown
     // (David, 2026-09-29: the same banking plane beside the heading and in the margin).
-    const leftKind = free(['pile', 'pile', 'lone', 'swallow', 'stunt']);
-    const left = make(leftKind, 'pdL');
-    const right = make(free(['lone', 'swallow', 'stunt', 'lock', 'banking'], [leftKind]), 'pdR');
+    // Which plane each shows is decided by `choose`, so the two margins, the Feed heading and anything else on the page
+    // are never the same plane, whatever their kind (David, 2026-09-29: the same swallow top right and bottom left).
+    const left = make(pick(['pile', 'pile', 'lone']), 'pdL');
+    const right = make('lone', 'pdR');
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
@@ -353,12 +427,14 @@ var PaperDeco = (() => {
     root.appendChild(d);
   }
   // An empty list: a small drawing above the words saying why it is empty, one of several.
-  const emptyArt = () => pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball(), () => ART.loose() + ART.swallow(), () => ART.creased(), () => ART.smoothed()])();
+  const emptyArt = () => pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball(), () => ART.loose() + ART.lone(), () => ART.creased(), () => ART.smoothed()])();
   function empty(el) {
     if (!el || el.querySelector('.pdEmpty')) return;
     const d = document.createElement('div'); d.className = 'pdEmpty'; d.setAttribute('aria-hidden', 'true');
     d.innerHTML = emptyArt();
     el.prepend(d);
   }
-  return { make, desk, free, empty, emptyArt, ART, rule, arrival, waiting };
+  // Every drawing exactly as asked, repeats and all, for /paper.html.
+  const exact = (fn) => { exactly = true; try { return fn(); } finally { exactly = false; } };
+  return { make, desk, free, empty, emptyArt, ART, rule, arrival, waiting, choose, exact, SHAPES: Object.keys(SHAPES) };
 })();

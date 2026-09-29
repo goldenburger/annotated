@@ -1586,9 +1586,9 @@ body.embedded > .brand .wmPlane { display: none; }
 .profileFoot .delAll { margin: 0; }
 
 /* Paper on the desk (paperdeco.js): drawings in the site's own paper and ink, quiet, never in the way. */
-:root { --pd-face: #FFFDF7; --pd-far: #F4EFE2; --pd-keel: #E6DFCC; --pd-edge: #CFC7B2; --pd-line: #DDD6C4; --pd-shadow: rgba(28, 36, 51, .07); --pd-trail: #CFC7B2; --pd-mark: var(--hi); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pd-face: #2A2E36; --pd-far: #23272E; --pd-keel: #1D2026; --pd-edge: #4A505C; --pd-line: #3A3F4A; --pd-shadow: rgba(0, 0, 0, .35); --pd-trail: #4A505C; } }
-:root[data-theme="dark"] { --pd-face: #2A2E36; --pd-far: #23272E; --pd-keel: #1D2026; --pd-edge: #4A505C; --pd-line: #3A3F4A; --pd-shadow: rgba(0, 0, 0, .35); --pd-trail: #4A505C; }
+:root { --pd-deep: #D9D0BA; --pd-face: #FFFDF7; --pd-far: #F4EFE2; --pd-keel: #E6DFCC; --pd-edge: #CFC7B2; --pd-line: #DDD6C4; --pd-shadow: rgba(28, 36, 51, .07); --pd-trail: #CFC7B2; --pd-mark: var(--hi); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pd-deep: #16181D; --pd-face: #2A2E36; --pd-far: #23272E; --pd-keel: #1D2026; --pd-edge: #4A505C; --pd-line: #3A3F4A; --pd-shadow: rgba(0, 0, 0, .35); --pd-trail: #4A505C; } }
+:root[data-theme="dark"] { --pd-deep: #16181D; --pd-face: #2A2E36; --pd-far: #23272E; --pd-keel: #1D2026; --pd-edge: #4A505C; --pd-line: #3A3F4A; --pd-shadow: rgba(0, 0, 0, .35); --pd-trail: #4A505C; }
 .paperDeco { display: block; overflow: visible; pointer-events: none; }
 .paperDeco .pdFace { fill: var(--pd-face); }
 .paperDeco .pdFar { fill: var(--pd-far); }
