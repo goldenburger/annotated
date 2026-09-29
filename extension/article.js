@@ -93,6 +93,17 @@
     try { chrome.runtime.sendMessage(m).catch(() => {}); } catch { retire(); }
   };
   const pod = ClipEngine.create({ getVideo: pickAudio, meta: podMeta, send: podSend, audioOnly: true });
+  // The video in a post on X, clipped like a YouTube video (2.36.0). It was saved as a screenshot of the player,
+  // a still of whatever frame it was on (recording of 2026-09-29 at 02:24).
+  const xvPost = () => { const r = PostCore.isStatusUrl(location.href) ? PostCore.extract(document, location) : null; return r && r.el.querySelector('video') ? r : null; };
+  const xvMeta = () => {
+    const r = xvPost();
+    if (!r) return { site: 'x', url: location.href.split('?')[0], videoId: '', title: 'A video on X', channel: '' };
+    const { el, ...rest } = r;
+    const first = (r.text || '').split('\n').find((l) => l.trim()) || '';
+    return { ...rest, site: 'x', videoId: '', title: first.length > 120 ? first.slice(0, 117).trimEnd() + '…' : (first || `${r.author || 'A post'} on X`), channel: r.author || '' };
+  };
+  const xv = ClipEngine.create({ getVideo: () => { const r = xvPost(); return r ? r.el.querySelector('video') : null; }, meta: xvMeta, send: podSend });
   // How this episode can be recorded: 'direct' from the page's player, 'copy' through a second player the
   // audio server allows, or 'tab' by recording the tab's sound. Checked once per episode.
   const routes = new Map();
@@ -175,6 +186,12 @@
       case 'pod-capture': pod.capture(msg.start, msg.end).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message, code: e.code })); return true;
       case 'pod-play-range': pod.playRange(msg.start, msg.end).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message })); return true;
       case 'pod-abort': pod.abort(); pod.stopRange(); reply({ ok: true }); return;
+      case 'xv-info': reply(xv.info()); return;
+      case 'xv-seek': xv.seek(msg.t); reply({ ok: true }); return;
+      case 'xv-preview': xv.preview(msg.start, msg.end); reply({ ok: true }); return;
+      case 'xv-pause': xv.pause(); reply({ ok: true }); return;
+      case 'xv-capture': xv.capture(msg.start, msg.end).then(() => reply({ ok: true })).catch((e) => reply({ ok: false, error: e.message })); return true;
+      case 'xv-abort': xv.abort(); reply({ ok: true }); return;
       case 'a-info': reply({ ...page.info(), textLen: pageTextLen() }); return;
       case 'capture-passage':
         hideHovers();
@@ -190,7 +207,7 @@
       case 'p-info': {
         const r = PostCore.extract(document, location);
         if (!r) { reply({ ok: false, error: 'Waiting for the post to load.' }); return; }
-        const { el, ...rest } = r; reply({ ok: true, ...rest }); return;
+        const { el, ...rest } = r; reply({ ok: true, ...rest, hasVideo: !!el.querySelector('video') }); return;
       }
       // Sent once the screenshot has been taken, so a post folded behind Show more goes back to how it was.
       // The stroke is already on the page by then, drawn before the picture rather than after it.

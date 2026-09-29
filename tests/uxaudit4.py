@@ -50,7 +50,9 @@ async def main():
     r = await pg.evaluate("""(() => { const i = document.querySelector('.cthumb.cwide img'); const b = i.getBoundingClientRect();
       const card = i.closest('.card'); const take = card.querySelector('.ctake');
       const sizes = [...card.querySelectorAll('*')].filter((e) => e.children.length === 0 && e.textContent.trim()).map((e) => parseFloat(getComputedStyle(e).fontSize));
-      return { shown: +(b.width / b.height).toFixed(2), natural: +(i.naturalWidth / i.naturalHeight).toFixed(2), take: parseFloat(getComputedStyle(take).fontSize), most: Math.max(...sizes),
+      const cs = getComputedStyle(i), px = (k) => parseFloat(cs[k]) || 0;
+      // The picture inside its taped white border (2.35), not the border.
+      return { shown: +((b.width - px('paddingLeft') - px('paddingRight')) / (b.height - px('paddingTop') - px('paddingBottom'))).toFixed(2), natural: +(i.naturalWidth / i.naturalHeight).toFixed(2), take: parseFloat(getComputedStyle(take).fontSize), most: Math.max(...sizes),
         why: [...document.querySelectorAll('.cwhy')].map((x) => x.textContent) }; })()""")
     print('1-3.', r)
     if abs(r['shown'] - r['natural']) > .05: errs.append(f"the saved post was reshaped on the card: {r['shown']} for {r['natural']}")

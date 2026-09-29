@@ -9,7 +9,10 @@ const Cloud = (() => {
   const publicUrl = (path) => (path ? c().storage.from(BUCKET).getPublicUrl(path).data.publicUrl : null);
   const EXT = { 'video/webm': 'webm', 'audio/webm': 'webm', 'audio/mpeg': 'mp3', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif', 'video/mp4': 'mp4', 'video/quicktime': 'mov' };
   const toBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
-  const person = (p) => (p ? { id: p.id, name: p.display_name || p.handle || 'Someone', handle: p.handle || '', avatar: p.avatar_url || '' } : null);
+  // A profile picture only from where sign-in puts it (Google, X, our own storage), so a picture cannot be used to
+  // log who looks at a profile (security audit of 2026-09-29).
+  const AVATAR_OK = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|twimg\.com|supabase\.co)\//i;
+  const person = (p) => (p ? { id: p.id, name: String(p.display_name || p.handle || 'Someone'), handle: String(p.handle || ''), avatar: AVATAR_OK.test(p.avatar_url || '') ? p.avatar_url : '' } : null);
   // Named links, because annotations connect to profiles in more than one way (author, reactions, votes).
   const PROFILE = 'author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url)';
   const COMMENT_PROFILE = 'author:profiles!comments_author_id_fkey(id, handle, display_name, avatar_url)';
@@ -54,8 +57,25 @@ const Cloud = (() => {
   }
 
   // A database row as the pages expect a record. Files become their public links.
+  // Anything an author could write straight into their row is made safe to draw (security audit of 2026-09-29): a
+  // `source` of the wrong shape threw inside the feed's render and blanked it for every reader, and addresses the
+  // author chose for the picture or the clip (shot, poster, mediaUrl) let their server log every reader's address.
+  // Those only ever come from our own storage paths below, as publishing strips them (`publish` above).
+  const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
+  const str = (v) => (typeof v === 'string' ? v : v == null ? '' : String(v));
+  const thumbOk = (u) => /^https:\/\/i\.ytimg\.com\//.test(str(u));
+  function cleanSource(src) {
+    const s0 = isObj(src) ? { ...src } : {};
+    ['blob', 'poster', 'shot', 'mediaUrl'].forEach((k) => { delete s0[k]; });
+    if (s0.thumb && !thumbOk(s0.thumb)) delete s0.thumb;
+    ['text', 'title', 'author', 'handle', 'quote', 'show', 'url', 'fragmentUrl', 'videoId', 'site', 'channel', 'posted'].forEach((k) => { if (k in s0) s0[k] = str(s0[k]); });
+    s0.meta = isObj(s0.meta) ? { ...s0.meta } : {};
+    ['title', 'site', 'url', 'description', 'image', 'byline'].forEach((k) => { if (k in s0.meta) s0.meta[k] = str(s0.meta[k]); });
+    ['start', 'end', 'duration'].forEach((k) => { if (k in s0 && !Number.isFinite(Number(s0[k]))) delete s0[k]; else if (k in s0) s0[k] = Number(s0[k]); });
+    return s0;
+  }
   function toRecord(a) {
-    const item = { ...(a.source || {}), kind: a.kind };
+    const item = { ...cleanSource(a.source), kind: a.kind };
     if (a.poster_path) item.poster = publicUrl(a.poster_path);
     if (a.shot_path) item.shot = publicUrl(a.shot_path);
     if (a.media_path) item.mediaUrl = publicUrl(a.media_path);
@@ -107,7 +127,7 @@ const Cloud = (() => {
       r.pollVotes = (a.poll_votes || []).length;
       // The first reply by someone else, shown as one line under the card, which makes a feed read as a place
       // where people answer each other. A reply that is only a GIF says so.
-      const first = (a.comments || []).filter((x) => x && x.author_id !== a.author_id && x.author)
+      const first = (a.comments || []).filter((x) => x && x.author_id !== a.author_id && x.author && ((x.body || '').trim() || x.gif))
         .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))[0];
       if (first) r.firstReply = { name: first.author.display_name || '@' + (first.author.handle || 'someone'), text: (first.body || '').trim() || (first.gif ? 'a GIF' : '') };
       return r;

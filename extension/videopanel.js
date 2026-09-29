@@ -87,11 +87,12 @@ const VideoPanel = (() => {
 
     PanelKit.setStep(root, 1);
     PanelKit.initTips(root);
-    if (opts.switchTo) PanelKit.modeSwitch(root, 'audio', opts.switchTo.onClick);
+    if (opts.switchTo) PanelKit.modeSwitch(root, opts.switchTo.current || 'audio', opts.switchTo.onClick, opts.switchTo.modes);
     let info = null, sel = null, view = { start: 0, len: 60 }, drag = null, capturing = false, lastVideoId = null, lastSeek = 0;
     let result = null, isPublished = false, pubRef = null, anim = null, collapsed = false, edgeTimer = null, lastX = 0;
     // One address at a time. Capturing again throws the last recording away, so its address goes with it.
     let madeUrl = null;
+    const where = (i) => i.site === 'x' ? (i.handle ? `${i.handle} on X` : 'A post on X') : i.channel ? `${i.channel} on YouTube` : 'YouTube';
     const blobUrl = (b) => { if (madeUrl) URL.revokeObjectURL(madeUrl); madeUrl = URL.createObjectURL(b); return madeUrl; };
 
     /* ---------- view window: zooms so the clip is about a third of the track ---------- */
@@ -524,6 +525,8 @@ const VideoPanel = (() => {
       const url = blobUrl(m.blob);
       result = { kind: 'video', blob: m.blob, url, start: m.start, end: m.end, duration: info.duration, poster: m.poster, title: m.title || info.title,
         videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '', height: m.height || 0 };
+      // A video in a post on X keeps the post it came from, which is where its link goes.
+      if (info.site === 'x') Object.assign(result, { site: 'x', url: info.url, author: info.author || '', handle: info.handle || '', text: info.text || '', posted: info.posted || '' });
       // The visible preview stays at the start. The checks scrub a hidden copy instead.
       const pv = q('.vPreview');
       pv.style.visibility = 'hidden';
@@ -688,7 +691,7 @@ const VideoPanel = (() => {
             q('.vMeta').textContent = info.show || host || 'Podcast';
             wave = null; waveAsked = false;
           } else { film = null; filmAsked = false; }
-          if (!isAudio) q('.vMeta').textContent = info.channel ? `${info.channel} on YouTube` : 'YouTube';
+          if (!isAudio) q('.vMeta').textContent = where(info);
           log(`${isAudio ? 'Episode' : 'Video ' + info.videoId}, ${fmt(info.duration)}${isAudio ? '' : `, source ${info.width}x${info.height}`}`);
         }
         if (!isAudio && !filmAsked && ad.frames) {
@@ -724,7 +727,7 @@ const VideoPanel = (() => {
         if (ov && !isAudio) { const l = info.live ? 'Stream so far' : 'Whole video'; if (ov.textContent !== l) ov.textContent = l; }
         // Titles and channels can arrive after the video does. Keep the header current.
         if (info.title && q('.vTitle').textContent !== info.title) q('.vTitle').textContent = info.title;
-        if (!isAudio) { const mt = info.channel ? `${info.channel} on YouTube` : 'YouTube'; if (q('.vMeta').textContent !== mt) q('.vMeta').textContent = mt; }
+        if (!isAudio) { const mt = where(info); if (q('.vMeta').textContent !== mt) q('.vMeta').textContent = mt; }
         if (isAudio && !waveAsked && ad.peaks) {
           waveAsked = true;
           ad.peaks().then((w) => { if (w) { wave = w; drawWave(); log(`Waveform ready, ${w.data.length} points`); } }).catch((e) => log('No waveform. ' + e.message));

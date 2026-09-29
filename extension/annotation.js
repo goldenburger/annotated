@@ -114,7 +114,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       permalink: permalinkOf(id, author),
       backIsSource: from === 'publish',
       backLabel: from === 'publish'
-        ? ({ video: 'Back to the video', post: 'Back to the post', audio: 'Back to the episode' }[rec.item.kind] || 'Back to the article')
+        ? rec.item.site === 'x' ? 'Back to the post' : ({ video: 'Back to the video', post: 'Back to the post', audio: 'Back to the episode' }[rec.item.kind] || 'Back to the article')
         : 'Back',
       // Only arriving from Publish. Opened later from a list or trending, it used to say Published again.
       showBanner: mine && from === 'publish' && !(local && local.seen),

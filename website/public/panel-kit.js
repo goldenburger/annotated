@@ -232,12 +232,12 @@ const PanelKit = (() => {
 
   // Pages with both audio and text: a switch under the header picks which one to annotate.
   let msn = 0;
-  function modeSwitch(root, current, onSwitch) {
+  function modeSwitch(root, current, onSwitch, modes) {
     const head = root.querySelector('.phead');
     const el = document.createElement('div');
     const name = 'ms-' + (++msn);
     el.className = 'modeSeg seg'; el.setAttribute('role', 'radiogroup'); el.setAttribute('aria-label', 'What to annotate on this page');
-    el.innerHTML = [['audio', 'podcast', 'Clip the audio'], ['text', 'article', 'Highlight text']].map(([v, ic, l]) =>
+    el.innerHTML = (modes || [['audio', 'podcast', 'Clip the audio'], ['text', 'article', 'Highlight text']]).map(([v, ic, l]) =>
       `<label><input type="radio" name="${name}" value="${v}" ${v === current ? 'checked' : ''}><span>${Brand.icon(ic)} ${l}</span></label>`).join('');
     head.after(el);
     el.querySelectorAll('input').forEach((i) => i.addEventListener('change', () => { if (i.value !== current) onSwitch(i.value); }));

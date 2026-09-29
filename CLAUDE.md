@@ -1140,6 +1140,43 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   David's word; the install one stays. **/paper.html** (`paperpage.js`, not linked, noindex) shows every drawing (D1 to
   D17, press to redraw) and plays every opening (O1 to O10) and every fold and flight (F1 to F5, R1 to R5), numbered so
   David can name favourites.
+- **2.35, every window a torn notebook sheet** (David's example of 2026-09-29, `tests/paper2341.py`). Each window's
+  `::before` is the sheet, cut to a gentle tear by a mask of four tileable edges (`--tear-top/bot/left/right`, 7 pixels
+  deep; none read as a plain box, deeper read as perforation), with baked grain and very soft wrinkles
+  (`extension/paper/grain.png`, `wrinkle.png`, copied by `sync_website.py`; they were SVG filters rendered on every
+  paint). Its `::after` is the shadow, the same mask blurred, never `filter: drop-shadow` on the window, which repainted
+  the whole element. The larger sheets (feed cards, an annotation's card and its comments, the home page's sections)
+  have binder holes in a 34 pixel margin. No outline inside a sheet, no crease. Paper is `#FEFCF8`, David's "1% whiter"
+  after "a tiny bit more tan". Popups (account menu, Display settings, the claim form) keep `--sp: 0` and an opaque
+  back, since their sheet overflowed the window. A captured post sits on the sheet as a taped print (`.xshot`: white
+  border, tape, a slight tilt), because a screenshot edge against torn paper read as too sharp. A clone inside a plane
+  carries no sheet (`.pl-copy::before/::after`). The header's `.scrolled` has hysteresis (on past 40, off under 8), since
+  toggling at 24 changed the height and looped, which is why Publish was "not stable" in `undo.py`. Deleting crumples
+  the card into a bin (`Fold.trash`, run beside the delete by `crumpleWhile`, the card put back if the delete fails).
+  "Other things it does" is now **Features**.
+- **Audit of 2026-09-29** (2.36.0). Security: a shared annotation's `source` goes through `Cloud.cleanSource` (no blob,
+  poster, shot or media address from the row, a thumb only from `i.ytimg.com`, strings and numbers coerced), avatars
+  only from Google, X or Supabase (`AVATAR_OK`), so nobody can put a tracking picture in everyone's feed, and one card
+  that cannot be drawn is left out rather than breaking the feed. Migration 21: a comment's time must be finite and
+  within 30 days (an '-infinity' broke an annotation's comments for every reader, and backdated rows skipped the
+  comment pace), and Most talked about takes its title from a source's first annotation, so a third account cannot
+  retitle it. Bugs: `Account.signIn` could wait forever when the card closed, the fold corner went missing with the
+  sheet, a first reply that was only a photo showed empty, a menu opened on a card hid under the comments sheet (z 19).
+  Performance: baked textures, clip previews' blob addresses given back on redraw (`previewBlobs`), the panel's Home
+  asks for its list and rails together, a tab change refreshes the panel once (it was twice), `Folded` keeps a Set, and
+  the page script stops sending empty selection updates. Not done: the session tokens stay in `chrome.storage.local`,
+  as every extension keeps them. Whether Supabase links an X sign-in to an existing Google account by email was not
+  checked.
+- **A video in a post on X is clipped** (2.36.0, `tests/xvideo.py`; the recording of 2026-09-29 at 02:24 got a
+  screenshot of the player). On a status page whose main post has a `<video>`, the panel opens the YouTube trimmer on it
+  (`makeXVideo` in `sidepanel.js`, the `xv-*` messages and a second `ClipEngine` in `article.js`), with a switch between
+  Clip the video and Quote the post (`PanelKit.modeSwitch` now takes its modes). The mode is decided once per post, when
+  the video reports its length; words chosen with the Annotate button, or a live video, go to the post panel, and the
+  Annotate button pressed while the trimmer is open switches to it. The record is `kind: 'video'` with `site: 'x'`, the
+  post's `url`, `author`, `handle` and `text`, and no `videoId`, so its source bar reads X, it links to the post, and
+  duplicates and "Same video" go by the post's address. The trimmer has no filmstrip, since X has no storyboard. A GIF
+  on X plays an MP4 straight from video.twimg.com, which may not allow its frames to be read; that and the real x.com
+  are not yet checked.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

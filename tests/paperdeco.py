@@ -69,7 +69,7 @@ async def main():
     # 5. The annotation page: its card's folded corner, the dart resting on the empty comments, the toast's mark.
     ann = await ctx.new_page(); await ann.set_viewport_size({'width': 1280, 'height': 900})
     await ann.goto(f'chrome-extension://{extid}/annotation.html#d1'); await ann.wait_for_selector('.annCard'); await asyncio.sleep(1)
-    a = await ann.evaluate("""({ fold: getComputedStyle(document.querySelector('.annBody .annCard'), '::after').backgroundImage.includes('gradient'),
+    a = await ann.evaluate("""({ fold: getComputedStyle(document.querySelector('.annBody .annCard .foldBtn')).backgroundImage.includes('gradient'),  // the corner is the fold button since 2.35
       resting: !!document.querySelector('.cList li.empty .pdWaiting'),
       mark: (() => { const d = document.createElement('span'); d.className = 'toastCheck'; d.innerHTML = Brand.mark(); return !!d.querySelector('.wmPlaneSvg'); })() })""")
     print('5.', a)

@@ -1914,7 +1914,7 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
    menu open rises above everything (a sheet is its own layer now, because of its shadow). */
 .annBody .annCard { z-index: 3; }
 .annBody section.comments { z-index: 1; }
-.card.mf:has(.menu:not([hidden])), .railcard:has(.menu:not([hidden])), .annCard:has(.menu:not([hidden])), section:has(> * .menu:not([hidden])) { z-index: 20; }
+section.comments:has(.menu:not([hidden])) { z-index: 19; }
 /* The panel's Home and lists are sheets too: the start tools on one page, the list on another (2.35.0). */
 #browseMode .startBlock, #browseMode .sideList, .mirrorStart { position: relative; isolation: isolate; padding: 14px 12px; margin: 12px 3px 16px; --sp: 7px;
   filter: drop-shadow(0 1px 1px var(--sheet-shadow)) drop-shadow(0 4px 6px color-mix(in srgb, var(--sheet-shadow) 60%, transparent)); }
@@ -1940,3 +1940,24 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
           mask: var(--tear-top) top left / 240px 9px repeat-x, var(--tear-bot) bottom left / 240px 7px repeat-x, var(--tear-left) top left / 9px 240px repeat-y, var(--tear-right) top right / 7px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat; }
 .card.mf::after, .annBody .annCard::after, .ftDemo::after, .landGet::after, .annBody section.comments::after { left: -34px !important; }
 .acctPop::after, .dmPop::after, .menu::after, .signAsk::after { inset: 0 !important; }
+/* Bug audit of 2026-09-29. */
+/* The folding corner is drawn on the button itself now, since the card's ::after became its shadow. */
+.annBody .annCard .foldBtn { background: var(--corner) !important; width: 20px; height: 20px; top: 0; right: 0; border-radius: 0 var(--r-l) 0 3px;
+  box-shadow: -1px 1px 2px rgba(60, 45, 20, .14); transition: width .25s cubic-bezier(.3,.7,.2,1), height .25s cubic-bezier(.3,.7,.2,1); }
+.annBody .annCard .foldBtn:hover { width: 26px; height: 26px; }
+.annBody .annCard.folded .foldBtn { width: 34px; height: 34px; background: linear-gradient(225deg, var(--paper) 0 50%, var(--hi-lift) 50% 100%) !important; box-shadow: -2px 2px 4px rgba(60, 45, 20, .18); }
+/* A folded feed card shows its corner as the top layer of its sheet. */
+.card.mf.folded::before { background: linear-gradient(225deg, var(--paper) 0 13px, var(--hi-lift) 13px 21px, transparent 21px) right 14px top 14px / 21px 21px no-repeat,
+  radial-gradient(circle at 13px 15px, var(--hole) 0 5.5px, var(--hole-rim) 6.2px, transparent 7.6px) left top / 30px 34px repeat-y,
+  var(--wrinkle) center / 600px 600px, var(--grain-light), var(--sheet-paper) !important;
+  background-size: 21px 21px, 30px 34px, 600px 600px, 160px 160px, auto !important; }
+/* Popups that scroll keep an opaque paper behind them (the sheet on ::before scrolls away inside a scroller), and
+   their paper and shadow sit inside the box so they add no scrollbars. */
+.dmPop, dialog#annotated-claim, .acctPop { background: var(--sheet-paper) !important; --sp: 0px; }
+.dmPop::after, dialog#annotated-claim::after, .acctPop::after, .menu::after, .signAsk::after { transform: none !important; inset: 0 !important; }
+dialog#annotated-claim::before, dialog#annotated-claim::after { inset: 0 !important; }
+/* A sheet with a menu open rises above the other sheets but stays under the site bar. */
+.card.mf:has(.menu:not([hidden])), .railcard:has(.menu:not([hidden])), .annCard:has(.menu:not([hidden])) { z-index: 19; }
+/* The paper's textures are pictures drawn once, not SVG filters re-rendered for every sheet at every size (performance
+   audit of 2026-09-29). They are the same filters, baked by scripts in the session notes, so the paper looks the same. */
+:root { --wrinkle: url("paper/wrinkle.png"); --grain-light: url("paper/grain.png"); }

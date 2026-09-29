@@ -42,3 +42,6 @@ html:has(> body > .pl-layer) { overflow-x: hidden; }
 .pl-toss { position: fixed; z-index: 2147483000; width: 18px; height: 18px; pointer-events: none; will-change: transform, opacity; }
 .pl-toss svg { width: 18px; height: 18px; display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.18)); }
 .pl-bin svg { width: 88px; height: auto; }
+/* Plane pieces are clipped copies of a card; their own torn mask and blurred shadow are hidden under the sheet anyway (performance audit 2026-09-29). */
+.pl-copy::after { display: none !important; }
+.pl-copy::before { -webkit-mask: none !important; mask: none !important; }

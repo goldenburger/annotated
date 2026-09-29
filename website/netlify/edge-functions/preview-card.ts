@@ -26,7 +26,7 @@ export default async (req: Request, context: Context) => {
     const src = a.source || {};
     const who = (a.author && a.author.display_name) || "Someone";
     const sourceTitle = a.kind === "post" ? `${src.author || "A post"} on X` : a.kind === "article" ? ((src.meta && src.meta.title) || "an article") : (src.title || "a clip");
-    const place = a.kind === "article" ? (src.meta && src.meta.site) : a.kind === "audio" ? src.show : a.kind === "video" ? "YouTube" : "";
+    const place = a.kind === "article" ? (src.meta && src.meta.site) : a.kind === "audio" ? src.show : a.kind === "video" ? (src.site === "x" ? "X" : "YouTube") : "";
     const take = a.take_text || `${who} annotated ${sourceTitle}`;
     const desc = `${who} on ${sourceTitle}${place ? `, ${place}` : ""}. annotated`;
     const pub = (p: string) => `${base}/storage/v1/object/public/media/${p.split("/").map(encodeURIComponent).join("/")}`;

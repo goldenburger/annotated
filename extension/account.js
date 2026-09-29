@@ -28,9 +28,13 @@ const Account = (() => {
   }
   // A sign-in asked for from elsewhere in the panel waits here until a way in is chosen, or the card is put away.
   let waiting = null;
-  function close() { if (pop) { pop.remove(); pop = null; } if (waiting && !me) { const r = waiting; waiting = null; r(null); } }
+  // Putting the card away answers whoever is waiting, with whoever is signed in by then (bug audit of 2026-09-29: it
+  // answered only when signed out, so a sign-in finished elsewhere left "Sign in and publish" waiting for ever).
+  // open() puts the old card away without answering, since the new card keeps the question open.
+  const answer = (p) => { if (waiting) { const r = waiting; waiting = null; r(p); } };
+  function close(keep = false) { if (pop) { pop.remove(); pop = null; } if (!keep) answer(me); }
   function open(errText) {
-    close();
+    close(true);
     // The menu and the help screen put each other away, where they opened one over the other (recording of
     // 2026-09-25 at 15:38, 0:39).
     if (document.body.classList.contains('welcoming') && typeof PanelKit !== 'undefined' && PanelKit.closeWelcome) {
@@ -131,7 +135,12 @@ const Account = (() => {
       draw();
       subs.forEach((f) => f(me));
     });
-    pop.querySelectorAll('.acctIn').forEach((b) => b.addEventListener('click', () => { const r = waiting; waiting = null; close(); signIn(b.dataset.provider).then((p) => { if (r) r(p); }); }));
+    // A way in chosen: the question stays open until that sign-in ends, and the caller hears how it ended, failed
+    // included, so a button waiting on it can say so (it sat on Publishing when the card came back for a retry).
+    pop.querySelectorAll('.acctIn').forEach((b) => b.addEventListener('click', () => {
+      const r = waiting; waiting = null; close(true);
+      signIn(b.dataset.provider).then((p) => { if (r) r(p || null); }, () => { if (r) r(null); });
+    }));
     setTimeout(() => document.addEventListener('mousedown', function o(e) { if (!pop) return document.removeEventListener('mousedown', o); if (!pop.contains(e.target) && e.target !== btn) { document.removeEventListener('mousedown', o); close(); } }), 0);
     pop.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { close(); btn.focus(); return; }
@@ -149,7 +158,11 @@ const Account = (() => {
   }
   // With no way chosen, the card of both opens and the answer comes once one is picked (null if it is put away).
   async function signIn(provider) {
-    if (!provider) return new Promise((res) => { open(); waiting = res; });
+    if (!provider) {
+      if (me) return Promise.resolve(me);
+      // Asked again while a card already waits: both askers get the one answer.
+      return new Promise((res) => { const prev = waiting; waiting = null; open(); waiting = prev ? (p) => { prev(p); res(p); } : res; });
+    }
     btn.disabled = true; btn.innerHTML = 'Signing in';
     try { me = await Backend.signIn(provider); draw(); }
     catch (e) { me = null; draw(); open(e.message); }
@@ -162,7 +175,7 @@ const Account = (() => {
     btn = document.createElement('button');
     btn.type = 'button'; btn.className = 'acctBtn';
     brand.insertBefore(btn, brand.querySelector('.gearBtn') || brand.querySelector('.helpBtn') || brand.querySelector('.x') || null);
-    btn.addEventListener('click', () => (me ? (pop ? close() : open()) : signIn()));
+    btn.addEventListener('click', () => (pop ? close() : me ? open() : signIn()));
     // The button waits, unseen but keeping its place, until the panel knows who is signed in. It said Sign in for a
     // second to someone signed in (recording of 2026-09-25 at 06:58, 2:02). Three seconds at most.
     btn.classList.add('acctPending');
@@ -170,7 +183,7 @@ const Account = (() => {
     setTimeout(known, 3000);
     draw();
     Backend.profile().then((p) => { me = p; draw(); known(); }).catch(known);
-    Backend.onChange((p) => { me = p; draw(); known(); });
+    Backend.onChange((p) => { me = p; draw(); known(); if (p && waiting) { close(); } });
   }
   return { mount, signIn, close, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
 })();

@@ -290,8 +290,8 @@ async function deleteAnnotation(id) {
   if (rec && rec.cloud) {
     // A shared annotation can only be deleted everywhere while signed in. Otherwise it would reappear from the shared copy.
     const me = await Backend.profile().catch(() => null);
-    if (!me) { alert('This annotation is shared. Sign in from the panel first, so it is deleted everywhere.'); return; }
-    try { await Cloud.remove(id, me.id); } catch (e) { alert('It could not be deleted online, so it was kept. ' + e.message); return; }
+    if (!me) { alert('This annotation is shared. Sign in from the panel first, so it is deleted everywhere.'); return false; }
+    try { await Cloud.remove(id, me.id); } catch (e) { alert('It could not be deleted online, so it was kept. ' + e.message); return false; }
   }
   await Store.del(id);
   const url = chrome.runtime.getURL('annotation.html') + '#' + id;
@@ -329,6 +329,21 @@ function makeVideo(tid) {
     abort: () => sendTo(tid, { type: 'abort' }).catch(() => {}),
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
   return { kind: 'video', el, api };
+}
+
+// The video in a post on X, with the same trimmer as YouTube. X has no storyboard, so the trimmer is plain.
+function makeXVideo(tid, url) {
+  const el = document.createElement('div');
+  $('#videoMode').appendChild(el);
+  const api = VideoPanel.create(el, {
+    seek: (t) => sendTo(tid, { type: 'xv-seek', t }).catch(() => {}),
+    preview: (start, end) => sendTo(tid, { type: 'xv-preview', start, end }).catch(() => {}),
+    pause: () => sendTo(tid, { type: 'xv-pause' }).catch(() => {}),
+    capture: (start, end) => sendTo(tid, { type: 'xv-capture', start, end }),
+    abort: () => sendTo(tid, { type: 'xv-abort' }).catch(() => {}),
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked,
+    switchTo: { current: 'video', modes: [['video', 'clip', 'Clip the video'], ['post', 'post', 'Quote the post']], onClick: (v) => switchMode(tid, url, v) } });
+  return { kind: 'video', x: true, url, el, api };
 }
 
 // Which mode a page with audio is shown in, when someone switches it by hand.
@@ -991,14 +1006,13 @@ async function drawBrowse({ quick = false } = {}) {
   }
   if (kind === 'home') {
     title = 'Home';
-    let shared = [];
-    if (!quick) try { shared = await Cloud.list({ limit: 60 }); } catch { /* signed out, or no connection */ }
+    // The list and the rails are asked for together (performance audit), where one waited for the other.
+    const [shared, socAsked] = quick ? [[], null] : await Promise.all([
+      Cloud.list({ limit: 60 }).catch(() => []), Cloud.discovery(me, {}).catch(() => null)]);
     const seen = new Set(shared.map((r) => r.id));
     const merged = [...shared.map((r) => ({ ...r, mine: !!(me && r.author && r.author.id === me.id) })),
       ...local.filter((r) => !seen.has(r.id))];
-    let soc = null;
-    if (!quick) try { soc = await Cloud.discovery(me, {}); } catch { /* the rails are not needed here */ }
-    soc = soc || { followed: new Set(), people: [], trending: { sources: [], tags: [] } };
+    const soc = socAsked || { followed: new Set(), people: [], trending: { sources: [], tags: [] } };
     const t = Cloud.homeTabs(merged, soc, me, merged.filter((r) => r.mine || !r.author));
     const cur = Cloud.startTab(t, browseTab, browsePressed);
     records = t[cur].records; note = t[cur].note || ''; emptyNote = t[cur].empty || '';
@@ -1213,12 +1227,47 @@ async function refresh() {
       busyRefresh = false; return openBrowse('home', { byHand: false });
     }
     if (isPost(tab.url)) {
-      const url = tab.url.split('?')[0];
-      if (p && (p.kind !== 'post' || p.url !== url)) { drop(tab.id); p = null; }
+      const url = tab.url.split('?')[0], key = tab.id + ' ' + url;
+      if (p && (!(p.kind === 'post' || p.x) || p.url !== url)) { drop(tab.id); p = null; }
+      // A post with a video is clipped like a YouTube video (2.36.0), unless words in it were chosen with the
+      // Annotate button or the person picked Quote the post. It is decided once, when the video can say how long it is.
+      let mode = modeOverride.get(key);
+      if (!mode && (!p || p.kind === 'post')) {
+        if (!p) {
+          try { await inject(tab.id, ['post-core.js', 'article-core.js', 'capture-engine.js', 'article.js'], 'aping'); }
+          catch { return show(null, 'Reload the X tab, then open this panel again.'); }
+        }
+        const pi = await sendTo(tab.id, { type: 'p-info' }).catch(() => null);
+        if (pi && pi.ok && !pi.hasVideo) mode = 'post';
+        else if (pi && pi.ok) {
+          const xi = await sendTo(tab.id, { type: 'xv-info' }).catch(() => null);
+          const ai = !p && await sendTo(tab.id, { type: 'a-info' }).catch(() => null);
+          if (ai && ai.autoCapture) mode = 'post';
+          else if (xi && xi.ok && isFinite(xi.duration) && xi.duration > 0) mode = 'video';
+          else if (xi && xi.ok && xi.duration === Infinity) mode = 'post';
+        }
+        if (mode) modeOverride.set(key, mode);
+      }
+      if (mode === 'video') {
+        if (p && !p.x) { drop(tab.id); p = null; }
+        const info = await sendTo(tab.id, { type: 'xv-info' }).catch(() => null);
+        if (!info || !info.ok) { modeOverride.set(key, 'post'); if (p) { drop(tab.id); p = null; } }
+        else {
+          if (!p) { p = makeXVideo(tab.id, url); panels.set(tab.id, p); }
+          show(tab.id);
+          if (isFinite(info.duration) && info.duration > 0) p.api.update(info);
+          return;
+        }
+      }
       if (p) return show(tab.id);
       try { await inject(tab.id, ['post-core.js', 'article-core.js', 'capture-engine.js', 'article.js'], 'aping'); }
       catch { return show(null, 'Reload the X tab, then open this panel again.'); }
       p = makePost(tab.id, url); panels.set(tab.id, p);
+      // The post has a video: say so, and offer to clip it instead.
+      sendTo(tab.id, { type: 'p-info' }).then((pi) => {
+        if (pi && pi.ok && pi.hasVideo && panels.get(tab.id) === p && !p.el.querySelector('.modeSeg'))
+          PanelKit.modeSwitch(p.el, 'post', (v) => switchMode(tab.id, url, v), [['video', 'clip', 'Clip the video'], ['post', 'post', 'Quote the post']]);
+      }).catch(() => {});
       show(tab.id);
       await p.api.refresh();
       // Opened by the page's Annotate button: capture straight away, with the selected words.
@@ -1373,6 +1422,7 @@ chrome.runtime.onMessage.addListener((m, sender) => {
   // On a post page, the Annotate button captures the post with the selected words as its quote.
   if (m.type === 'sel-update' && p.kind === 'post') return p.api.onSelection(m.sel);
   if (m.type === 'annotate-request' && p.kind === 'post') return p.api.captureNow();
+  if (m.type === 'annotate-request' && p.x) { switchMode(sender.tab.id, p.url, 'post'); return; }
   if (p.kind !== 'video' && p.kind !== 'audio') return;
   if (m.type === 'pod-range-done') { if (p.tabRec) p.tabRec.finish(); return; }
   if (m.type === 'capture-done') {
@@ -1386,9 +1436,8 @@ chrome.tabs.onActivated.addListener(() => {
   // Another tab closes help that was opened by hand. The first welcome stays until it is answered.
   let seen = false; try { seen = localStorage.getItem('annotated-welcome-seen') === '1'; } catch { /* no storage */ }
   if (seen) leaveHelp();
-  refresh();
+  // The refresh itself comes from the listener at the foot of this file (performance audit: it ran twice).
 });
-chrome.tabs.onUpdated.addListener((id, change) => { if (change.url) refresh(); });
 chrome.tabs.onRemoved.addListener((id) => {
   drop(id);
   rowNames.delete(id);

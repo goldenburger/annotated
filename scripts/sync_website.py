@@ -11,6 +11,7 @@ pub = ROOT / 'website' / 'public'
 for f in SHARED:
     shutil.copy(ROOT / 'extension' / f, pub / f)
 shutil.copytree(ROOT / 'extension' / 'fonts', pub / 'fonts', dirs_exist_ok=True)
+shutil.copytree(ROOT / 'extension' / 'paper', pub / 'paper', dirs_exist_ok=True)
 shutil.copy(ROOT / 'extension' / 'vendor' / 'supabase.js', pub / 'vendor' / 'supabase.js')
 
 # A browser that has been here before keeps the old scripts and stylesheets, so after a deploy it runs last

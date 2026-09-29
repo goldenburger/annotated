@@ -13,15 +13,27 @@ const AnnotationPage = (() => {
   // browser, newest first; the feed's Folded filter lists them (2.34.0).
   const Folded = (() => {
     const K = 'annotated-folded';
-    const read = () => { try { const v = JSON.parse(localStorage.getItem(K) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
-    const write = (v) => { try { localStorage.setItem(K, JSON.stringify(v.slice(0, 500))); } catch { /* nowhere to keep it */ } };
+    // Read once and kept, since has() is asked once per card (performance audit of 2026-09-29); another tab's change
+    // is picked up through the storage event.
+    let cache = null;
+    const read = () => { if (cache) return cache.slice(); try { const v = JSON.parse(localStorage.getItem(K) || '[]'); cache = Array.isArray(v) ? v : []; } catch { cache = []; } cache.set = new Set(cache); return cache.slice(); };
+    const write = (v) => { cache = null; try { localStorage.setItem(K, JSON.stringify(v.slice(0, 500))); } catch { /* nowhere to keep it */ } };
+    try { addEventListener('storage', (e) => { if (e.key === K) cache = null; }); } catch { /* no window */ }
     return {
-      has: (id) => read().includes(id),
+      has: (id) => { read(); return cache.set.has(id); },
       ids: () => read(),
       toggle: (id) => { const v = read(); const i = v.indexOf(id); if (i >= 0) v.splice(i, 1); else v.unshift(id); write(v); return i < 0; },
     };
   })();
 
+  // Deleting: the sheet crumples into the bin while the delete runs, and comes back if the delete fails (it used to
+  // crumple first and stay hidden after a refused delete, and a second press ran a second delete; bug audit 2026-09-29).
+  async function crumpleWhile(el, del) {
+    const anim = typeof Fold !== 'undefined' && Fold.trash && el ? Fold.trash(el).catch(() => {}) : Promise.resolve();
+    let ok = true;
+    try { const r = await del(); if (r === false) ok = false; } catch { ok = false; }
+    if (!ok && el) { await anim; el.style.visibility = ''; }
+  }
   function relTime(t) {
     const s = Math.round((Date.now() - t) / 1000);
     if (s < 45) return 'Just now';
@@ -50,14 +62,14 @@ const AnnotationPage = (() => {
   }
   const xUrl = (item, take, permalink) => `https://x.com/intent/post?text=${encodeURIComponent(xText(item, take))}&url=${encodeURIComponent(permalink)}`;
   // The video id comes from whoever published it, so it is encoded rather than trusted to be eleven letters.
-  const srcUrlOf = (item) => item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
+  const srcUrlOf = (item) => item.kind === 'video' && item.site === 'x' ? item.url : item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
     : item.kind === 'post' || item.kind === 'audio' ? item.url : item.fragmentUrl;
   const titleOf = (item) => item.kind === 'video' || item.kind === 'audio' ? item.title : item.kind === 'post' ? `${item.author} on X` : item.meta.title;
   const kindLabel = (item) => ({ video: 'Video', post: 'Post', article: 'Article', audio: 'Podcast' }[item.kind] || 'Article');
   // What the thing this was taken from is called, for the control that opens it. Back is a different job and
   // wears a different label, because one button doing both under the name Back sent people to X when they
   // meant to return to the list they came from.
-  const sourceLabel = (item) => ({ video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[item.kind] || 'Read the article');
+  const sourceLabel = (item) => item.kind === 'video' && item.site === 'x' ? 'See the post on X' : ({ video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[item.kind] || 'Read the article');
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
   // A plain day, 2026-09-17, is read as midnight in Greenwich, and shown in local time it came out a day early
   // anywhere west of there. A date with a time in it is a real moment, and local time is right for that.
@@ -458,7 +470,7 @@ const AnnotationPage = (() => {
     // of the page screenshot, which is usually blank margin, so the card showed an empty white box, and the
     // screenshot is already on the page just above it.
     const source = isAudio ? srcBar(item.show || 'Podcast', '', 'Listen to the episode')
-      : isPost ? '' : isVideo ? srcBar('YouTube', item.channel || '', `Watch from ${fmt(item.start)}`) : `
+      : isPost ? '' : isVideo && item.site === 'x' ? srcBar('X', item.handle || item.author || '', 'See the post') : isVideo ? srcBar('YouTube', item.channel || '', `Watch from ${fmt(item.start)}`) : `
       ${safeImg(item.meta.image) ? cardOpen : cardOpen.replace('class="srccard', 'class="srccard noimg')}
         ${safeImg(item.meta.image) ? `<img src="${esc(safeImg(item.meta.image))}" alt="">` : ''}
         <span class="scard"><span class="skind">${kindIcon(item)} ${esc(item.meta.site)}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
@@ -745,7 +757,7 @@ const AnnotationPage = (() => {
         del.innerHTML = `<span class="delAsk">Delete this annotation? This cannot be undone.</span>
           <span><button type="button" class="quiet delNo">Keep it</button><button type="button" class="quiet danger delYes">${Brand.icon('trash')} Delete</button></span>`;
         del.hidden = false;
-        del.querySelector('.delYes').addEventListener('click', async () => { if (typeof Fold !== 'undefined' && Fold.trash) await Fold.trash(q('.annCard')).catch(() => {}); hooks.onDelete(); });
+        del.querySelector('.delYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(q('.annCard'), () => hooks.onDelete()); });
         del.querySelector('.delNo').addEventListener('click', () => { del.hidden = true; });
       });
     }
@@ -987,7 +999,7 @@ const AnnotationPage = (() => {
   }
   const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '') || (t && t.gif ? 'A GIF' : '')
     || (t && t.upload ? (t.upload.kind === 'video' ? 'A video' : 'A photo') : '');
-  const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || '')
+  const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || it.url || '')
     : it.kind === 'audio' ? 'a:' + (it.url || '')
       : it.kind === 'post' ? 'p:' + (it.id || it.url || '')
         : 'd:' + ((it.meta && it.meta.url) || '')).replace(/^\w:$/, '');
@@ -996,7 +1008,7 @@ const AnnotationPage = (() => {
 
   function sameSourceDoc(a, b) {
     if (a.kind !== b.kind) return false;
-    if (a.kind === 'video') return a.videoId === b.videoId;
+    if (a.kind === 'video') return (a.videoId || a.url) === (b.videoId || b.url);
     if (a.kind === 'audio') return a.url === b.url;
     if (a.kind === 'post') return (a.id && a.id === b.id) || a.url === b.url;
     return (a.meta.url || '') === (b.meta.url || '');
@@ -1019,6 +1031,8 @@ const AnnotationPage = (() => {
   // keeps a long feed from pulling every clip down (the free plan has five gigabytes of downloads a month).
   // Play with sound, the button over the picture, puts it on hold for good.
   let previewIo = null;
+  // Clip previews made from a file on this computer are given back when the list is drawn again (performance audit).
+  let previewBlobs = [];
   function wirePreviews(root, records, getMedia) {
     // A picture that cannot be fetched, a video's poster gone or a show's artwork moved, leaves the card
     // without one rather than showing an empty black box where it was.
@@ -1027,6 +1041,7 @@ const AnnotationPage = (() => {
       if (img.complete && img.naturalWidth === 0 && img.src) drop(); else img.addEventListener('error', drop, { once: true });
     });
     if (previewIo) previewIo.disconnect();
+    previewBlobs.forEach((u) => { try { URL.revokeObjectURL(u); } catch { /* gone */ } }); previewBlobs = [];
     const still = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const vids = [...root.querySelectorAll('video.cpv')];
     if (!vids.length || still || typeof IntersectionObserver === 'undefined') return;
@@ -1037,8 +1052,8 @@ const AnnotationPage = (() => {
         const r = records.find((x) => x.id === v.dataset.id);
         if (!r) return;
         let src = safeLink(r.item.mediaUrl);
-        if (!src && r.item.blob) src = URL.createObjectURL(r.item.blob);
-        if (!src && r.item.hasMedia && getMedia) { const b = await getMedia(r.id).catch(() => null); if (b) { r.item.blob = b; src = URL.createObjectURL(b); } }
+        if (!src && r.item.blob) { src = URL.createObjectURL(r.item.blob); previewBlobs.push(src); }
+        if (!src && r.item.hasMedia && getMedia) { const b = await getMedia(r.id).catch(() => null); if (b) { r.item.blob = b; src = URL.createObjectURL(b); previewBlobs.push(src); } }
         if (!src || !v.isConnected) return;
         v.src = src;
         v.addEventListener('playing', () => v.closest('.cthumb').classList.add('live'), { once: true });
@@ -1093,7 +1108,7 @@ const AnnotationPage = (() => {
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
           </div>
         </div>
-        <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => {
+        <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => { try {
           const it = r.item;
           // Three takes on one post used to repeat the author and the post three times over. The source is
           // named once and the takes below it just say they are on the same thing. The quote still differs
@@ -1117,7 +1132,7 @@ const AnnotationPage = (() => {
           const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
           const brief = (it.end - it.start) < 10;
           const range = `${fmt(it.start, brief)} to ${fmt(it.end, brief)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
-          const snippet = it.kind === 'video' ? `YouTube${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
+          const snippet = it.kind === 'video' ? `${it.site === 'x' ? 'X' : 'YouTube'}${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
             : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
             // The words the person picked out are the point of the annotation, so the card shows those and
             // falls back to the post itself only when the whole post was taken.
@@ -1154,6 +1169,8 @@ const AnnotationPage = (() => {
             </span>
           </div>
           </li>`;
+          // One card that cannot be drawn is left out, rather than taking the whole feed down (security audit of 2026-09-29).
+          } catch (e) { return ''; }
         }).join('') : (() => {
           // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
           // the panel" under For you to someone with two annotations saved, which are on their profile.
@@ -1387,7 +1404,7 @@ const AnnotationPage = (() => {
     if (sd) sd.addEventListener('click', () => {
       const p = sd.parentElement;
       p.innerHTML = 'Delete this annotation? <button type="button" class="link sdYes">Delete</button> <button type="button" class="link sdNo">Keep</button>';
-      p.querySelector('.sdYes').addEventListener('click', async () => { if (typeof Fold !== 'undefined' && Fold.trash) await Fold.trash(container.querySelector('.sideNow') || p).catch(() => {}); onDelete(current.id); });
+      p.querySelector('.sdYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(container.querySelector('.sideNow') || p, () => onDelete(current.id)); });
       p.querySelector('.sdNo').addEventListener('click', () => renderSide(container, { current, records, youId, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware }));
     });
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));
@@ -1396,7 +1413,7 @@ const AnnotationPage = (() => {
   // True when two captures are the same clip or the same passage.
   function sameSource(a, b) {
     if (a.kind !== b.kind) return false;
-    if (a.kind === 'video') return a.videoId === b.videoId && Math.abs(a.start - b.start) < 0.3 && Math.abs(a.end - b.end) < 0.3;
+    if (a.kind === 'video') return (a.videoId || a.url) === (b.videoId || b.url) && Math.abs(a.start - b.start) < 0.3 && Math.abs(a.end - b.end) < 0.3;
     if (a.kind === 'audio') return a.url === b.url && Math.abs(a.start - b.start) < 0.3 && Math.abs(a.end - b.end) < 0.3;
     // The same post quoting different words is a different annotation.
     if (a.kind === 'post') return ((a.id && a.id === b.id) || a.url === b.url) && (a.quote || '') === (b.quote || '');

@@ -519,7 +519,7 @@ var ArticlePage = (() => {
     // The second click. Takes the rest of the sentence for this capture only, and then has nothing left to offer.
     moreBtn.addEventListener('mousedown', (e) => e.preventDefault());
     moreBtn.addEventListener('click', () => { setExact(false); moreBtn.hidden = true; });
-    const hideButton = () => { host.style.display = 'none'; };
+    const hideButton = () => { if (host.style.display !== 'none') host.style.display = 'none'; };
 
     // The lines of writing in a block, as boxes. A line box stops where its words stop, so these say where
     // there is writing and where there is paper.
@@ -642,8 +642,13 @@ var ArticlePage = (() => {
         const tw = n && typeof PostCore !== 'undefined' && PostCore.isXHost(loc().hostname) && PostCore.postOf(n);
         if (tw) sel.postBy = PostCore.read(tw, location).author || '';
       } catch { /* not a post */ }
+      // An empty selection after an empty selection says nothing new, and every click on any page used to wake the
+      // extension's background to hear it (performance audit of 2026-09-29). A new panel asks for the state anyway.
+      if (sel.state === 'empty' && lastSentEmpty) return;
+      lastSentEmpty = sel.state === 'empty';
       send({ type: 'sel-update', sel });
     }
+    let lastSentEmpty = false;
 
     const onSel = () => {
       clearTimeout(timer);
