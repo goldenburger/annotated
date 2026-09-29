@@ -97,6 +97,8 @@ const AnnotationPage = (() => {
   // meant to return to the list they came from.
   const sourceLabel = (item) => item.kind === 'video' && item.site === 'x' ? 'See the post on X' : ({ video: 'Watch the original', post: 'See the post on X', audio: 'Listen to the episode' }[item.kind] || 'Read the article');
   const TAGS = ['Hot take', 'Fact check', 'Steelman', 'Receipts', 'Explainer'];
+  // A published take may be changed for fifteen minutes, and is then marked Edited (migration 28).
+  const EDIT_MS = 15 * 60 * 1000;
   // A plain day, 2026-09-17, is read as midnight in Greenwich, and shown in local time it came out a day early
   // anywhere west of there. A date with a time in it is a real moment, and local time is right for that.
   const dayOnly = (iso) => /^\d{4}-\d{2}-\d{2}$/.test(String(iso || '').trim());
@@ -179,6 +181,7 @@ const AnnotationPage = (() => {
           : `<a class="wmBtn" href="https://annotated-app.netlify.app/" target="_blank" rel="noopener" aria-label="annotated's home page" title="annotated's home page">${Brand.wordmark()}</a>`}
         ${siteNav ? `<nav class="sitenav" aria-label="Site">
           <button type="button" class="navBtn navFeed" ${active === 'home' ? 'aria-current="page"' : ''}>Feed</button>
+          <button type="button" class="navBtn navAct" aria-label="Activity" title="Activity" ${active === 'activity' ? 'aria-current="page"' : ''} hidden>${Brand.icon('bell')}<span class="actDot" aria-hidden="true" hidden></span></button>
           <button type="button" class="navBtn navProfile" ${active === 'profile' ? 'aria-current="page"' : ''}>${av('xs')} You</button>
         </nav>` : ''}
       </header>
@@ -432,7 +435,8 @@ const AnnotationPage = (() => {
     // saying Saved on this computer sat right above it and said the same thing.
     const showBanner = opts.showBanner !== false && !opts.localOnly;
     let stats = opts.stats || { annotations: mineCount(records, opts.youId) || 1, followers: 0 };
-    const isVideo = item.kind === 'video', isPost = item.kind === 'post', isAudio = item.kind === 'audio';
+    const isQuote = !!(opts.quoteOf || opts.quoted);
+    const isVideo = !isQuote && item.kind === 'video', isPost = !isQuote && item.kind === 'post', isAudio = !isQuote && item.kind === 'audio';
     const srcUrl = safeLink(srcUrlOf(item)) || '#', title = titleOf(item);
     // Clip addresses made for the previous annotation shown here are released first.
     (container._urls || []).forEach((u) => URL.revokeObjectURL(u));
@@ -471,7 +475,7 @@ const AnnotationPage = (() => {
         <canvas class="waveCanvas" role="img" aria-label="Waveform of the clip. Click to jump."></canvas>
         <audio class="clipAudio" controls preload="auto"></audio>
       </figure>` : '';
-    const media = isAudio ? audioCard : isPost
+    const media0 = isAudio ? audioCard : isPost
       ? (item.display === 'embed' || !item.shot ? postCard
         : item.display === 'both' ? postCard + `<div class="mediaTools">${shotBtn('See the saved screenshot')}</div>` : postShot)
       : isVideo ? `
@@ -498,13 +502,17 @@ const AnnotationPage = (() => {
     // An article's card carries the site's own picture or none. It used to fall back to the top left corner
     // of the page screenshot, which is usually blank margin, so the card showed an empty white box, and the
     // screenshot is already on the page just above it.
-    const source = isAudio ? srcBar(item.show || 'Podcast', '', 'Listen to the episode')
+    const source0 = isAudio ? srcBar(item.show || 'Podcast', '', 'Listen to the episode')
       : isPost ? '' : isVideo && item.site === 'x' ? srcBar('X', item.handle || item.author || '', 'See the post') : isVideo ? srcBar('YouTube', item.channel || '', `Watch from ${fmt(item.start)}`) : `
       ${safeImg(item.meta.image) ? cardOpen : cardOpen.replace('class="srccard', 'class="srccard noimg')}
         ${safeImg(item.meta.image) ? `<img src="${esc(safeImg(item.meta.image))}" alt="">` : ''}
         <span class="scard"><span class="skind">${kindIcon(item)} ${esc(siteLabel(item))}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
       ${cardClose}`;
 
+    const media = isQuote ? quotedBlock(opts.quoted) : media0;
+    const source = isQuote ? '' : source0;
+    const canEdit = !!hooks.onEdit && (opts.localOnly || Date.now() - created < EDIT_MS);
+    const hasMore = canEdit || hooks.onDelete || hooks.onPin || hooks.onBlock;
     const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onFeed: hooks.onAll, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
     main.classList.add('ann', 'loading');
     main.innerHTML = `
@@ -540,7 +548,7 @@ const AnnotationPage = (() => {
             <button type="button" class="avatar asLink profileLink ${(opts.author || me).avatar ? 'hasImg' : ''}" aria-label="${opts.author && !opts.mine ? esc(pName(opts.author)) + "'s profile" : 'Your profile'}">${opts.author ? pInner(opts.author) : avInner()}</button>
             <div><div class="name"><button type="button" class="asLink profileLink">${esc(pName(opts.author))}</button> <span class="uname">${esc(pHandle(opts.author))}</span>
               ${opts.author && !opts.mine && opts.social && opts.social.onFollow && opts.social.youId ? `<button type="button" class="ghost sm followBtn inline" data-id="${esc(opts.author.id)}" ${opts.social.followsAuthor ? 'data-on="1"' : ''}>Follow</button>` : ''}</div>
-              <time class="when" datetime="${new Date(created).toISOString()}">${relTime(created)}</time></div>
+              <time class="when" datetime="${new Date(created).toISOString()}">${relTime(created)}</time>${opts.edited ? `<span class="edited" title="Edited ${esc(new Date(opts.edited).toLocaleString())}">Edited</span>` : ''}${opts.pinned ? `<span class="pinMark">${Brand.icon('pin')} Pinned</span>` : ''}</div>
             <span class="tagSlot">${take.tag ? `<button type="button" class="tag tagLink" title="See all ${esc(take.tag)} annotations">${esc(take.tag)}</button>` : ''}</span>
           </header>
           <p class="take" ${take.text ? '' : 'hidden'}>${esc(take.text || '')}</p>
@@ -560,11 +568,14 @@ const AnnotationPage = (() => {
           <div class="reactHost" hidden></div>
           <div class="actions">
             <button type="button" class="ghost sm reactBtn" aria-label="Add a reaction">${Brand.icon('smile')} React</button>
+            ${hooks.onQuote && !opts.localOnly ? `<button type="button" class="ghost sm quoteBtn" aria-expanded="false">${Brand.icon('quote')} Annotate this</button>` : ''}
             <span class="mwrap" ${opts.localOnly ? 'hidden' : ''}><button type="button" class="ghost sm shareBtn">${Brand.icon('share')} Share</button></span>
-            ${hooks.onEdit || hooks.onDelete ? `<span class="mwrap"><button type="button" class="quiet moreBtn" aria-label="More options">${Brand.icon('more', 'lg')}</button></span>` : ''}
+            ${hasMore ? `<span class="mwrap"><button type="button" class="quiet moreBtn" aria-label="More options">${Brand.icon('more', 'lg')}</button></span>` : ''}
             ${opts.localOnly ? '' : `<button type="button" class="claim">${Brand.icon('flag')} File a claim</button>`}
           </div>
           <div class="delWrap" hidden></div>
+          <div class="blockSay note" role="status" hidden></div>
+          <div class="quoteBox" hidden></div>
         </article>
         <section class="comments" aria-label="Comments">
           <h3 class="cTitle">Comments</h3>
@@ -646,9 +657,99 @@ const AnnotationPage = (() => {
       }
       setTimeout(() => { lab.textContent = 'Save as GIF'; gifBtn.disabled = false; }, 4000);
     });
-    if (q('.moreBtn')) menu(q('.moreBtn'), `
-      ${hooks.onEdit ? `<button type="button" role="menuitem" class="editBtn" data-close>${Brand.icon('edit')} Edit your take</button>` : ''}
-      ${hooks.onDelete ? `<button type="button" role="menuitem" class="delBtn danger" data-close>${Brand.icon('trash')} Delete</button>` : ''}`);
+    const editLeft = () => Math.max(1, Math.ceil((EDIT_MS - (Date.now() - created)) / 60000));
+    const moreMenu = q('.moreBtn') ? menu(q('.moreBtn'), `
+      ${canEdit ? `<button type="button" role="menuitem" class="editBtn" data-close>${Brand.icon('edit')} <span>Edit your take${opts.localOnly ? '' : ` <span class="note editLeft">for ${editLeft()} more min</span>`}</span></button>` : ''}
+      ${hooks.onPin ? `<button type="button" role="menuitem" class="pinBtn" data-close>${Brand.icon('pin')} <span class="pinText">${opts.pinned ? 'Unpin from your profile' : 'Pin to your profile'}</span></button>` : ''}
+      ${hooks.onBlock ? `<button type="button" role="menuitem" class="muteBtn" data-close>${Brand.icon('mute')} <span class="muteText">${opts.blockKind === 'mute' ? 'Unmute' : 'Mute'} ${esc(pName(opts.author))}</span></button>
+        <button type="button" role="menuitem" class="blockBtn danger" data-close>${Brand.icon('block')} <span class="blockText">${opts.blockKind === 'block' ? 'Unblock' : 'Block'} ${esc(pName(opts.author))}</span></button>` : ''}
+      ${hooks.onDelete ? `<button type="button" role="menuitem" class="delBtn danger" data-close>${Brand.icon('trash')} Delete</button>` : ''}`) : null;
+    // The minutes left to edit are counted when the menu opens.
+    if (moreMenu && canEdit && !opts.localOnly) q('.moreBtn').addEventListener('click', () => {
+      const left = moreMenu.querySelector('.editLeft'), eb = moreMenu.querySelector('.editBtn');
+      if (Date.now() - created >= EDIT_MS) { if (eb) eb.remove(); return; }
+      if (left) left.textContent = `for ${editLeft()} more min`;
+    });
+    // Pin: one of your own at the top of your profile.
+    let pinned = !!opts.pinned;
+    if (hooks.onPin) moreMenu.querySelector('.pinBtn').addEventListener('click', async () => {
+      const want = !pinned;
+      let ok = false;
+      try { ok = await hooks.onPin(want); } catch { ok = false; }
+      const say = q('.blockSay');
+      if (ok === false) { say.textContent = 'That did not save. Check your connection and try again.'; say.hidden = false; return; }
+      pinned = want;
+      moreMenu.querySelector('.pinText').textContent = pinned ? 'Unpin from your profile' : 'Pin to your profile';
+      const when = q('.who .when');
+      const mark = q('.who .pinMark');
+      if (pinned && !mark && when) when.insertAdjacentHTML('afterend', `<span class="pinMark">${Brand.icon('pin')} Pinned</span>`);
+      if (!pinned && mark) mark.remove();
+      say.textContent = pinned ? 'Pinned. It sits first on your profile.' : 'Unpinned.'; say.hidden = false;
+      setTimeout(() => { say.hidden = true; }, 4000);
+    });
+    // Mute hides someone from you; block also keeps them off your annotations. Each can be undone from the same menu.
+    let blockKind = opts.blockKind || null;
+    const drawBlockMenu = () => {
+      moreMenu.querySelector('.muteText').textContent = `${blockKind === 'mute' ? 'Unmute' : 'Mute'} ${pName(opts.author)}`;
+      moreMenu.querySelector('.blockText').textContent = `${blockKind === 'block' ? 'Unblock' : 'Block'} ${pName(opts.author)}`;
+    };
+    const setBlock = async (kind) => {
+      const say = q('.blockSay'), name = pName(opts.author);
+      let ok = false;
+      try { ok = await hooks.onBlock(kind); } catch { ok = false; }
+      if (ok === false) { say.textContent = 'That did not save. Check your connection and try again.'; say.hidden = false; return; }
+      blockKind = kind; drawBlockMenu();
+      say.textContent = kind === 'block' ? `You blocked ${name}. They can't reply to, react to or follow your annotations, and you won't see theirs.`
+        : kind === 'mute' ? `You muted ${name}. You won't see their annotations or activity. They are not told.` : `${name} is no longer muted or blocked.`;
+      say.hidden = false;
+      const fb = q('.followBtn'); if (fb && kind === 'block') fb.remove();
+    };
+    if (hooks.onBlock) {
+      moreMenu.querySelector('.muteBtn').addEventListener('click', () => setBlock(blockKind === 'mute' ? null : 'mute'));
+      moreMenu.querySelector('.blockBtn').addEventListener('click', () => setBlock(blockKind === 'block' ? null : 'block'));
+    }
+    // The annotation a quote answers opens as itself.
+    const qd = q('.quoted[data-open]');
+    if (qd && hooks.onOpen) {
+      const go = () => hooks.onOpen(qd.dataset.open);
+      qd.addEventListener('click', (e) => { if (!e.target.closest('a')) go(); });
+      qd.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    }
+    // Annotate this: your own take on this annotation, published as an annotation of your own that answers it.
+    if (q('.quoteBtn')) {
+      const qb = q('.quoteBtn'), box = q('.quoteBox');
+      qb.addEventListener('click', () => {
+        const open = box.hidden;
+        qb.setAttribute('aria-expanded', String(open));
+        if (!open) { box.hidden = true; return; }
+        let tag = null;
+        box.innerHTML = `
+          <p class="kindLabel">Your take on ${esc(pName(opts.author))}'s annotation</p>
+          <textarea class="quoteText" rows="3" maxlength="500" aria-label="Your take on this annotation" placeholder="What do you think of this?"></textarea>
+          <div class="tags" role="radiogroup" aria-label="Tag (optional)">${TAGS.map((t) => `<button type="button" class="tagbtn" role="radio" aria-checked="false">${t}</button>`).join('')}</div>
+          <p class="error quoteErr" role="alert" hidden></p>
+          <div class="row"><button type="button" class="ghost quoteCancel">Cancel</button><button type="button" class="strong quotePost">Publish</button></div>`;
+        box.hidden = false;
+        const ta = box.querySelector('.quoteText');
+        EmojiKit.autocomplete(ta);
+        box.querySelectorAll('.tagbtn').forEach((b) => b.addEventListener('click', () => {
+          const on = b.getAttribute('aria-checked') !== 'true';
+          box.querySelectorAll('.tagbtn').forEach((x) => x.setAttribute('aria-checked', 'false'));
+          b.setAttribute('aria-checked', String(on)); tag = on ? b.textContent : null;
+        }));
+        box.querySelector('.quoteCancel').addEventListener('click', () => { box.hidden = true; qb.setAttribute('aria-expanded', 'false'); qb.focus(); });
+        const postIt = async () => {
+          const text = ta.value.trim(), err = box.querySelector('.quoteErr'), btn = box.querySelector('.quotePost');
+          if (!text) { err.textContent = 'Write your take first.'; err.hidden = false; ta.focus(); return; }
+          err.hidden = true; btn.disabled = true; btn.textContent = 'Publishing…';
+          try { await hooks.onQuote({ text, tag }); }
+          catch (e) { err.textContent = (e && e.message) || 'It could not be published just now.'; err.hidden = false; btn.disabled = false; btn.textContent = 'Publish'; }
+        };
+        box.querySelector('.quotePost').addEventListener('click', postIt);
+        ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) postIt(); });
+        ta.focus();
+      });
+    }
 
     const waits = [];
     if (isVideo) {
@@ -745,7 +846,7 @@ const AnnotationPage = (() => {
     }));
 
     // Edit your take and tag in place. The capture itself stays as it was.
-    if (hooks.onEdit) {
+    if (canEdit) {
       const box = q('.editBox');
       q('.editBtn').addEventListener('click', () => {
         let tag = take.tag || null;
@@ -775,6 +876,7 @@ const AnnotationPage = (() => {
           // An edit that did not save leaves the box open with the words in it.
           try { await hooks.onEdit({ text, tag }); } catch { take.text = was.text; take.tag = was.tag; return; }
           q('.take').textContent = text;
+          if (!opts.localOnly && !q('.who .edited')) q('.who .when').insertAdjacentHTML('afterend', '<span class="edited">Edited</span>');
           q('.tagSlot').innerHTML = tag ? `<button type="button" class="tag tagLink" title="See all ${esc(tag)} annotations">${esc(tag)}</button>` : '';
           bindTag();
           close();
@@ -868,18 +970,58 @@ const AnnotationPage = (() => {
     const keys = new WeakMap(); let keyN = 0;
     const keyOf = (c) => { if (!keys.has(c)) keys.set(c, String(++keyN)); return keys.get(c); };
     const byKey = (k) => comments.find((x) => keyOf(x) === k);
+    // Replies to replies, one level deep (migration 28): a reply sits under the comment it answers, oldest first, and
+    // only a comment already saved can be answered. Kept only on this computer there is nobody to answer.
+    const parentOf = (c) => c.parent || (c.parentDb ? comments.find((x) => x.dbId === c.parentDb) || null : null);
+    const kidsOf = (p) => comments.filter((c) => parentOf(c) === p).sort((a, b) => a.t - b.t);
+    const canReply = !opts.localOnly && !!hooks.onComments;
+    const oneComment = (c, isReply) => `
+        <li class="cmt${isReply ? ' cReplyItem' : ''}">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
+          <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-k="${keyOf(c)}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-k="${keyOf(c)}"></div>
+            ${!isReply && canReply && c.dbId ? `<button type="button" class="link cReplyBtn" data-k="${keyOf(c)}" aria-expanded="false">Reply</button><div class="cReplyBox" data-k="${keyOf(c)}" hidden></div>` : ''}
+            ${!isReply && kidsOf(c).length ? `<ul class="cReplies">${kidsOf(c).map((k) => oneComment(k, true)).join('')}</ul>` : ''}</div></li>`;
     const drawComments = () => {
       q('.cTitle').textContent = comments.length ? `Comments (${comments.length})` : 'Comments';
-      const list = comments.slice().sort((a, b) => b.t - a.t);
+      const list = comments.filter((c) => !parentOf(c)).sort((a, b) => b.t - a.t);
       const shown = showAll ? list : list.slice(0, SHOW);
-      q('.cList').innerHTML = list.length ? shown.map((c) => `
-        <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
-          <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-k="${keyOf(c)}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-k="${keyOf(c)}"></div></div></li>`).join('')
+      q('.cList').innerHTML = list.length ? shown.map((c) => oneComment(c, false)).join('')
         : `<li class="empty">${typeof PaperDeco !== 'undefined' ? PaperDeco.waiting() : ''}No comments yet. Start the conversation.</li>`;
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
       more.textContent = showAll ? 'Show fewer comments' : `Show all ${list.length} comments`;
+      q('.cList').querySelectorAll('.cReplyBtn').forEach((b) => b.addEventListener('click', () => {
+        const box = q(`.cReplyBox[data-k="${b.dataset.k}"]`), parent = byKey(b.dataset.k);
+        if (!box || !parent) return;
+        const open = box.hidden;
+        b.setAttribute('aria-expanded', String(open));
+        if (!open) { box.hidden = true; return; }
+        box.innerHTML = `<textarea class="cReplyText" rows="2" maxlength="1000" aria-label="Reply to ${esc(pName(parent.author && !parent.mine ? parent.author : null))}" placeholder="Reply to ${esc(pName(parent.author && !parent.mine ? parent.author : null))}"></textarea>
+          <div class="cRow"><button type="button" class="ghost sm cReplyCancel">Cancel</button><button type="button" class="strong sm cReplyPost">Reply</button></div>`;
+        box.hidden = false;
+        const ta = box.querySelector('.cReplyText');
+        EmojiKit.autocomplete(ta);
+        box.querySelector('.cReplyCancel').addEventListener('click', () => { box.hidden = true; b.setAttribute('aria-expanded', 'false'); b.focus(); });
+        const send = () => {
+          const txt = ta.value.trim();
+          if (!txt) { ta.focus(); return; }
+          const added = { text: txt, gif: null, upload: null, t: Date.now(), mine: true, parent, parentDb: parent.dbId };
+          comments.push(added);
+          drawComments();
+          Promise.resolve(hooks.onComments(comments.slice(), { added })).catch(() => false).then((ok) => {
+            if (!current()) return;
+            if (ok === false) {
+              const k = comments.indexOf(added); if (k >= 0) comments.splice(k, 1);
+              drawComments();
+              const again = q(`.cReplyBtn[data-k="${keyOf(parent)}"]`);
+              if (again) { again.click(); const t2 = q(`.cReplyBox[data-k="${keyOf(parent)}"] .cReplyText`); if (t2) t2.value = added.text; }
+            }
+          });
+        };
+        box.querySelector('.cReplyPost').addEventListener('click', send);
+        ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); });
+        ta.focus();
+      }));
       q('.cList').querySelectorAll('.cReact').forEach((host) => {
         const c = byKey(host.dataset.k);
         if (!c) return;
@@ -893,7 +1035,9 @@ const AnnotationPage = (() => {
       q('.cList').querySelectorAll('.cDel').forEach((b) => b.addEventListener('click', () => {
         const i = comments.findIndex((c) => keyOf(c) === b.dataset.k);
         if (i < 0) return;
+        const kids = kidsOf(comments[i]);
         const [gone] = comments.splice(i, 1);
+        kids.forEach((k) => { const j = comments.indexOf(k); if (j >= 0) comments.splice(j, 1); });
         drawComments();
         // A few seconds to take it back; only then does it leave (or when the page closes first).
         const bar = document.createElement('div');
@@ -910,14 +1054,14 @@ const AnnotationPage = (() => {
           clearTimeout(t); pendingDeletes.delete(commit); bar.remove();
           if (localDel) return;
           const ok = hooks.onComments ? await Promise.resolve(hooks.onComments(comments.slice(), { removed: gone })).catch(() => false) : true;
-          if (ok === false && current()) { comments.push(gone); drawComments(); }
+          if (ok === false && current()) { comments.push(gone, ...kids); drawComments(); }
         };
         pendingDeletes.add(commit);
         t = setTimeout(commit, 6000);
         bar.querySelector('.cUndoBtn').addEventListener('click', () => {
           if (done) return; done = true;
           clearTimeout(t); pendingDeletes.delete(commit); bar.remove();
-          comments.push(gone); drawComments();
+          comments.push(gone, ...kids); drawComments();
           // Kept only on this computer, the list is saved again with it back (any change meanwhile saved it without).
           if (hooks.onComments) hooks.onComments(comments.slice(), { restored: gone });
         });
@@ -989,7 +1133,8 @@ const AnnotationPage = (() => {
       drawComments();
       if (!hooks.onComments) return;
       Promise.resolve(hooks.onComments(comments.slice(), { added })).catch(() => false).then((ok) => {
-        if (ok !== false || !current()) return;
+        if (!current()) return;
+        if (ok !== false) { if (added.dbId && canReply && ![...container.querySelectorAll('.cReplyText')].some((t) => t.value)) drawComments(); return; }
         const k = comments.indexOf(added); if (k >= 0) comments.splice(k, 1);
         drawComments();
         if (!q('.cText').value) q('.cText').value = added.text || '';
@@ -1068,6 +1213,17 @@ const AnnotationPage = (() => {
       ? `<figure class="cmtUp"><video controls preload="metadata" src="${esc(src)}" ${u.alt ? `aria-label="${esc(u.alt)}"` : ''}></video></figure>`
       : `<figure class="cmtUp"><img src="${esc(src)}" alt="${esc(u.alt || '')}" loading="lazy" ${u.w && u.h ? `width="${Number(u.w)}" height="${Number(u.h)}"` : ''}></figure>`;
   }
+  // The annotation a quote answers, drawn small inside it: who, their take, and what they annotated. Gone, it says so.
+  function quotedBlock(q) {
+    if (!q) return `<p class="note quotedGone">${Brand.icon('info')} The annotation this answered was deleted.</p>`;
+    const it = q.item || {}, words = String(it.text || it.quote || '').replace(/\s+/g, ' ').trim();
+    return `<div class="quoted" role="link" tabindex="0" data-open="${esc(q.id)}" aria-label="Open ${esc(pName(q.author))}'s annotation">
+      <div class="qWho">${pAv(q.author, 'sm')}<b>${esc(pName(q.author))}</b> <span class="uname">${esc(pHandle(q.author))}</span>${q.created ? ` <time>${relTime(q.created)}</time>` : ''}${q.take && q.take.tag ? ` <span class="tag">${esc(q.take.tag)}</span>` : ''}</div>
+      ${q.take && q.take.text ? `<p class="qTake">${esc(q.take.text)}</p>` : ''}
+      ${words ? `<p class="qQuote"><mark>${esc(words.length > 220 ? words.slice(0, 219) + '…' : words)}</mark></p>` : ''}
+      <div class="qSrc">${kindIcon(it)} <span>${esc(titleOf(it) || '')}</span></div>
+    </div>`;
+  }
   const takeLine = (t) => (t && t.text) || (t && t.poll && t.poll.question) || (t && t.voice ? 'Voice note' : '') || (t && t.gif ? 'A GIF' : '')
     || (t && t.upload ? (t.upload.kind === 'video' ? 'A video' : 'A photo') : '');
   const srcKey = (it) => (it.kind === 'video' ? 'v:' + (it.videoId || it.url || '')
@@ -1140,8 +1296,10 @@ const AnnotationPage = (() => {
   if (typeof addEventListener === 'function') addEventListener('pagehide', () => [...pendingDeletes].forEach((f) => f()));
   // A feed's filter and sort, kept while the page lives (keyed by what the feed shows).
   const feedChoice = new Map();
-  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null, total = null }) {
+  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null, total = null, pinnedId = null, hideAuthors = null }) {
     stopClock(container);
+    // Muted and blocked people are left out of the feed (a profile you open still shows).
+    if (hideAuthors && hideAuthors.size && mode !== 'profile') records = records.filter((r) => !(r.author && hideAuthors.has(r.author.id)));
     const keep = `${mode}|${tag || ''}|${person ? person.id : ''}`;
     let { filter, sort } = feedChoice.get(keep) || { filter: 'all', sort: 'new' };
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
@@ -1157,6 +1315,9 @@ const AnnotationPage = (() => {
       const folded = Folded.ids();
       const list = records.filter((r) => (!tag || r.take.tag === tag) && (filter === 'all' || (filter === 'folded' ? folded.includes(r.id) : r.item.kind === filter)));
       if (!ranked) list.sort((a, b) => (sort === 'hot' ? buzz(b) - buzz(a) : 0) || b.created - a.created);
+      // A profile's pinned annotation comes first, under Newest (Most discussed is a ranking of its own).
+      const pinAt = mode === 'profile' && pinnedId && sort === 'new' ? list.findIndex((r) => r.id === pinnedId) : -1;
+      if (pinAt > 0) list.unshift(list.splice(pinAt, 1)[0]);
       const scope = records.filter((r) => !tag || r.take.tag === tag);
       const counts = { all: scope.length, video: 0, audio: 0, article: 0, post: 0 };
       scope.forEach((r) => { counts[r.item.kind] = (counts[r.item.kind] || 0) + 1; });
@@ -1235,13 +1396,15 @@ const AnnotationPage = (() => {
           // A post's screenshot already shows its marked words, so the line under it names the post and does not quote
           // it again (UX pass of 2026-09-29).
           const inkQuote = !thumb && it.kind === 'article' && it.text ? `<span class="cquote"><span class="cqInk">${esc(cut(it.text, 220))}</span></span>` : '';
-          const media = inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num" title="${esc(fmt(it.end - it.start))} long">${fmt(it.start)}–${fmt(it.end)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
+          // An annotation of an annotation shows the one it answers, small, in place of a picture.
+          const qd = r.quoted || null, isQ = !!(r.quoteOf || qd);
+          const media = isQ ? (qd ? `<span class="cquoted">${pAv(qd.author, 'xs')}<span><b>${esc(pName(qd.author))}</b> ${esc(cut(takeLine(qd.take) || titleOf(qd.item || {}) || '', 160))}</span></span>` : '<span class="cquoted gone">The annotation this answered was deleted.</span>') : inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num" title="${esc(fmt(it.end - it.start))} long">${fmt(it.start)}–${fmt(it.end)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
           // The card is a link to the annotation rather than a button, so Play with sound can be a real button on
           // the picture inside it.
           return `<li class="cardItem"><div class="card mf ${thumb ? '' : 'nothumb'}${Folded.has(r.id) ? ' folded' : ''}" role="link" tabindex="0" data-id="${esc(r.id)}">
             <span class="cbody">
               ${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}
-              <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
+              <span class="cmeta">${mode === 'profile' && pinnedId === r.id ? `<span class="cpin">${Brand.icon('pin')} Pinned</span>` : ''}${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(takeLine(r.take))}</span>
               ${media}
               <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || (it.kind === 'post' && thumb) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
@@ -1392,14 +1555,52 @@ const AnnotationPage = (() => {
   // The full list is called Feed on the website and in the extension alike, so the panel's Home opens "the feed"
   // (recording of 2026-09-25 at 06:58, 3:44: the extension's page said Home, the website's the same list Feed).
   const fullLabel = (title) => (/profile/i.test(title) ? 'Open your profile as a full page' : /^home$/i.test(title) ? 'Open the feed as a full page' : `Open ${title} as a full page`);
-  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null, sigExtra = '' }) {
+  // Activity (notifications): who replied, reacted, followed or annotated your annotations, newest first. What came
+  // since you last looked is marked new. Every word came from other people, so it is all escaped.
+  const ACT = { comment: 'commented on your annotation', reply: 'replied to your comment', reaction: 'reacted to your annotation', follow: 'followed you', quote: 'annotated your annotation' };
+  function renderActivity(container, { items = [], lastSeen = 0, loading = false, failed = false, signedOut = false, onOpen, onPerson, onBack, backTo = 'Back', onRetry = null, onSignIn = null, frame = null }) {
     stopClock(container);
-    // For you arrives ranked, so its order is kept. Everything else is newest first.
+    container.dataset.sig = '';
+    // On the website it sits in the site's own frame, header and all.
+    if (frame) { const { main } = shell(container, { active: 'activity', siteNav: true, ...frame }); main.classList.add('ann', 'actPage'); container = main; }
+    const row = (a) => {
+      const what = ACT[a.kind] || 'was here';
+      const extra = a.kind === 'reaction' ? ` ${esc(a.snippet)}` : '';
+      const said = (a.kind === 'comment' || a.kind === 'reply' || a.kind === 'quote') && a.snippet ? `<span class="actSaid">${esc(a.snippet)}</span>` : '';
+      const on = a.annotationId && a.take && a.kind !== 'quote' ? `<span class="note actOn">On “${esc(a.take.length > 80 ? a.take.slice(0, 79) + '…' : a.take)}”</span>` : '';
+      return `<li class="actItem${a.at > lastSeen ? ' new' : ''}"><button type="button" class="actRow" data-kind="${esc(a.kind)}" data-id="${esc(a.annotationId || '')}" data-handle="${esc((a.who && a.who.handle) || '')}">
+        ${pAv(a.who, 'sm')}<span class="actText"><span><b>${esc(pName(a.who))}</b> ${esc(what)}${extra}</span>${said}${on}<time class="note">${relTime(a.at)}</time></span>
+      </button></li>`;
+    };
+    container.innerHTML = `<div class="annside browse activity${frame ? ' paperSheet' : ''}">
+      ${onBack ? `<button type="button" class="ghost sm browseBack" title="${esc(backTo)}">${Brand.icon('arrowLeft')}<span>${esc(backTo)}</span></button>` : ''}
+      <div class="browseHead"><h2>Activity</h2></div>
+      ${signedOut ? `<p class="note">Sign in to see who replied to, reacted to or followed you.</p>${onSignIn ? twoWays('actSignIn') : ''}`
+        : loading ? '<p class="note" role="status">Loading…</p>'
+        : failed ? `<p class="note" role="alert">This did not load.</p>${onRetry ? '<button type="button" class="ghost sm actRetry">Try again</button>' : ''}`
+        : items.length ? `<ul class="actList">${items.map(row).join('')}</ul>`
+        : `<div class="browseEmpty">${emptyArt('nothing')}<p class="note">Nothing yet. When someone replies to, reacts to or follows you, it shows up here.</p></div>`}
+    </div>`;
+    const bk = container.querySelector('.browseBack');
+    if (bk) bk.addEventListener('click', () => onBack());
+    const rt = container.querySelector('.actRetry');
+    if (rt) rt.addEventListener('click', () => onRetry());
+    container.querySelectorAll('.actSignIn').forEach((b) => b.addEventListener('click', () => onSignIn && onSignIn(b.dataset.provider)));
+    container.querySelectorAll('.actRow').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.id) onOpen(b.dataset.id); else if (b.dataset.handle && onPerson) onPerson(b.dataset.handle);
+    }));
+  }
+  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null, sigExtra = '', pinnedId = null, hideAuthors = null }) {
+    stopClock(container);
+    // For you arrives ranked, so its order is kept. Everything else is newest first, your pinned one first of all.
+    if (hideAuthors && hideAuthors.size) records = records.filter((r) => !(r.author && hideAuthors.has(r.author.id)));
     const list = tabs && tabs.current === 'foryou' ? records.slice() : records.slice().sort((a, b) => b.created - a.created);
+    const pinAt = pinnedId ? list.findIndex((r) => r.id === pinnedId) : -1;
+    if (pinAt > 0 && !(tabs && tabs.current === 'foryou')) list.unshift(list.splice(pinAt, 1)[0]);
     // Drawn again only when something on it would change. Redrawing the same list replaced the button under the
     // pointer, and "Open your profile as a full page" took two seconds to answer (recording of 2026-09-25 at 14:08,
     // 2:30 to 2:32).
-    const sig = JSON.stringify([title, note, emptyNote, tabs && tabs.current, backTo, !!onBack, action && action.label, !!onDeleteAll, sigExtra, list.map((r) => [r.id, takeLine(r.take), r.why || '', onlyHere(r)])]);
+    const sig = JSON.stringify([title, note, emptyNote, tabs && tabs.current, backTo, !!onBack, action && action.label, !!onDeleteAll, sigExtra, pinnedId, list.map((r) => [r.id, takeLine(r.take), r.why || '', onlyHere(r)])]);
     if (container.dataset.sig === sig && container.querySelector('.annside.browse')) return;
     container.dataset.sig = sig;
     // The way back says where it goes, like the one beside the feed. An arrow on its own left people guessing.
@@ -1411,7 +1612,7 @@ const AnnotationPage = (() => {
       ${note ? `<p class="note browseNote">${esc(note)}</p>` : ''}
       <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
         <span class="rlKind">${kindIcon(r.item)}</span>
-        <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
+        <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}${pinnedId === r.id ? `<span class="cpin">${Brand.icon('pin')} Pinned</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
         </button></li>`).join('') : `<li class="browseEmpty">${emptyArt('nothing')}<p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
       ${onFull ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
@@ -1523,5 +1724,5 @@ const AnnotationPage = (() => {
     return a.text === b.text && (a.meta.url || '') === (b.meta.url || '');
   }
 
-  return { signInPrompt, twoWays, Folded, GMARK, XMARK, renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
+  return { renderActivity, EDIT_MS, signInPrompt, twoWays, Folded, GMARK, XMARK, renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
 })();

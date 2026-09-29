@@ -48,6 +48,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     if (mode === 'home' && !tag && !kept) { const entry = { p: early, at: Date.now(), ok: false }; homeList = entry; early.then((l) => { if (l && l.length) entry.ok = true; }); }
     await meP;
     const authorId = userId || (mode === 'profile' && me ? me.id : null);
+    // A profile's pinned annotation, and your mutes and blocks for the feed (migration 28).
+    const pinP = mode === 'profile' && authorId ? Cloud.pinnedOf(authorId).catch(() => null) : Promise.resolve(null);
+    const hideP = mode === 'home' && me ? Cloud.blocks(me.id).catch(() => new Map()) : Promise.resolve(new Map());
     const person0 = userId && !(me && userId === me.id) ? userId : null;
     const socP = Cloud.discovery(me, {
       personId: person0,
@@ -77,6 +80,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const person = person0 ? (shared[0] && shared[0].author) || { id: userId, name: 'Someone', handle: '' } : null;
 
     const soc = await socP;
+    const [pinnedId, hideMap] = await Promise.all([pinP, hideP]);
     // On your own profile this card sits beside a list of everything you have, so it counts the same things.
     // On Home it counts what you published, because that is what everyone else can see.
     const youCount = mineOnly ? records.length : records.filter((r) => r.mine).length;
@@ -92,7 +96,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     if (my !== loadGen) return;
     el.className = '';   // also clears the busy mark a tab switch puts there
     AnnotationPage.renderFeed(el, {
-      records, yours, tag, mode, person, social,
+      records, yours, tag, mode, person, social, pinnedId, hideAuthors: new Set(hideMap.keys()),
       // The panel beside this page already carries Home and your profile.
       siteNav: false,
       // Signed out, your own profile offers signing in right here rather than in the panel.

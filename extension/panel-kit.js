@@ -369,7 +369,7 @@ const PanelKit = (() => {
 
   // Home and your own profile, beside the wordmark, in every mode. They used to appear only once you had
   // published something, so there was no way back to what you had already made while you were capturing.
-  function topLinks(panel, { onHome, onProfile } = {}) {
+  function topLinks(panel, { onHome, onProfile, onActivity } = {}) {
     const brand = panel.querySelector('.brand');
     if (!brand || brand.querySelector('.homeBtn')) return;
     const make = (cls, icon, label, fn) => {
@@ -385,6 +385,20 @@ const PanelKit = (() => {
       || brand.querySelector('.gearBtn') || brand.querySelector('.helpBtn') || brand.querySelector('.x');
     brand.insertBefore(make('homeBtn', 'home', 'Home', onHome), right || null);
     brand.insertBefore(make('youBtn', 'user', 'Your profile', onProfile), right || null);
+    // Activity (2.40.0): who replied, reacted or followed, with a dot when something came since you last looked.
+    if (onActivity) {
+      const b = make('actBtn', 'bell', 'Activity', onActivity);
+      b.insertAdjacentHTML('beforeend', '<span class="actDot" aria-hidden="true" hidden></span>');
+      brand.insertBefore(b, right || null);
+    }
+  }
+  // How many things came since you last looked; nought hides the dot.
+  function activityDot(n) {
+    const b = document.querySelector('.brand .actBtn');
+    if (!b) return;
+    b.querySelector('.actDot').hidden = !n;
+    const label = n ? `Activity, ${n} new` : 'Activity';
+    b.setAttribute('aria-label', label); b.dataset.tooltip = label;
   }
 
   // Display menu: how annotated appears, plus a few preferences. Lives under the gear in the top bar.
@@ -562,5 +576,5 @@ const PanelKit = (() => {
     return '';
   }
 
-  return { fragmentFrom, clamp, esc, fmt, status, published, sendOff, grounded, setPublishLater: (fn) => { publishLater = fn; }, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
+  return { activityDot, fragmentFrom, clamp, esc, fmt, status, published, sendOff, grounded, setPublishLater: (fn) => { publishLater = fn; }, phead, setStep, modeSwitch, illo, tipButton, initTips, topLinks, compactOnScroll, welcome, closeWelcome, displayMenu, reportHeight, clampQuote, dupWarn, crop, fragmentNote, initDebug, makeLog };
 })();

@@ -80,7 +80,7 @@ function matchExtension(me) {
   // which is instant, and a visitor's front page is drawn before the database is asked anything. It used to
   // wait on the profile and the whole feed, which left a blank page for a second, and for good when the
   // database could not be reached.
-  const frontPage = !parts.length && !query.has('tag') && !query.has('feed');
+  const frontPage = !parts.length && !query.has('tag') && !query.has('feed') && !query.has('activity');
   if (frontPage && typeof Landing !== 'undefined') {
     let session = null;
     // Only who it is is needed here, so the stored session is read directly. getSession first refreshes a token
@@ -116,7 +116,7 @@ function matchExtension(me) {
   }
   // The feed's list and who you are are asked for while the page's code loads, not one after another. The feed
   // sat blank for two to four seconds (recording of 2026-09-25 at 03:54, 1:30 and 2:06).
-  let earlyList = !parts.length && !query.has('tag') ? Cloud.list({ limit: 100 }).catch(() => null) : null;
+  let earlyList = !parts.length && !query.has('tag') && !query.has('activity') ? Cloud.list({ limit: 100 }).catch(() => null) : null;
   // A list is asked for again before it is called empty: a request that failed once drew "0 annotations" and
   // "Nothing here yet" on a profile with three (recording of 2026-09-25 at 23:23, 2:51). null means it did not load.
   const listOrNull = async (opts, first = null) => {
@@ -162,7 +162,38 @@ function matchExtension(me) {
   };
 
   // Signed out: a sign-in button in the header. Signed in: sign out lives on your own profile.
+  // Activity (migration 28): when you last looked is kept in this browser, per account.
+  const seenKey = () => 'annotated-activity-seen:' + (me && me.id);
+  const lastSeen = () => { try { return Number(localStorage.getItem(seenKey())) || 0; } catch { return 0; } };
+  let actAsked = null;
+  function bell() {
+    const b = page.querySelector('.navAct');
+    if (!b || !me) return;
+    b.hidden = false;
+    b.onclick = () => { location.href = '/?activity'; };
+    if (query.has('activity')) return;
+    const since = lastSeen() || Date.now() - 30 * 86400000;
+    actAsked = actAsked || Cloud.activity(since).catch(() => []);
+    actAsked.then((items) => { const d = page.querySelector('.navAct .actDot'); if (d) d.hidden = !items.length; if (items.length) page.querySelector('.navAct').setAttribute('aria-label', `Activity, ${items.length} new`); });
+  }
+  async function activityPage() {
+    document.title = 'Activity | annotated';
+    const frame = { ...nav, onFeed: nav.onAll };
+    if (!me) { AnnotationPage.renderActivity(page, { signedOut: true, onSignIn: signIn, frame }); headerAccount(); return; }
+    const seen = lastSeen();
+    AnnotationPage.renderActivity(page, { loading: true, frame }); headerAccount();
+    let items = null;
+    try { items = await Cloud.activity(); } catch { items = null; }
+    items = items || null;
+    if (items) items.forEach((a) => { if (a.annotationId && me.handle) handleOf.set(a.annotationId, a.kind === 'quote' ? (a.who && a.who.handle) || 'annotated' : me.handle); });
+    AnnotationPage.renderActivity(page, { items: items || [], failed: !items, lastSeen: seen, frame, onRetry: activityPage,
+      onOpen: (id) => { location.href = linkFor(id); }, onPerson: (h) => { location.href = '/@' + h; } });
+    headerAccount();
+    if (items) try { localStorage.setItem(seenKey(), String(Date.now())); } catch { /* no storage */ }
+  }
+
   function headerAccount() {
+    bell();
     // Signed out, there is no "you" to show in the side rail.
     if (!me) page.querySelectorAll('.rail .railcard').forEach((c) => { if (c.querySelector('.who')) c.remove(); });
     const navEl = page.querySelector('.sitenav');
@@ -182,6 +213,7 @@ function matchExtension(me) {
     // A tab press draws from the list and rails already read (For you, Following and Everyone are one list).
     const kept = again && homeRead && homeRead.tag === tag && Date.now() - homeRead.at < 60000 ? homeRead : null;
     const socP = kept ? Promise.resolve(kept.soc) : discover();
+    const hideP = me ? Cloud.blocks(me.id).catch(() => new Map()) : Promise.resolve(new Map());
     const got = kept ? kept.got : await listOrNull({ limit: 100, ...(tag ? { tag } : {}) }, first);
     if (quiet && !got) return;
     if (!kept && got) socP.then((soc) => { homeRead = { tag, got, soc, at: Date.now() }; });
@@ -200,7 +232,8 @@ function matchExtension(me) {
       social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag, false, true); } };
     }
     document.title = tag ? `${tag} | annotated` : 'annotated';
-    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn, loadFailed: !got, onRetry: () => home(tag) });
+    const hideAuthors = new Set((await hideP).keys());
+    AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, hideAuthors, ...nav, onSignIn: me ? null : signIn, loadFailed: !got, onRetry: () => home(tag) });
     headerAccount();
     // Signed in, the front page is the feed, with the try-it one line away.
   }
@@ -213,6 +246,7 @@ function matchExtension(me) {
     if (!p) return notFound('Nobody has that handle.');
     const socP = discover({ personId: p.id });
     const totalP = Cloud.countBy(p.id).catch(() => null);
+    const pinP = Cloud.pinnedOf(p.id).catch(() => null);
     const got = await listOrNull({ authorId: p.id, limit: 80 });
     if (quiet && !got) return;
     const records = got || [];
@@ -241,7 +275,7 @@ function matchExtension(me) {
       if (!failed.length) location.reload();
       return failed;
     } : null;
-    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav, loadFailed: !got, onRetry: () => profile(handle), total: await totalP });
+    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav, loadFailed: !got, onRetry: () => profile(handle), total: await totalP, pinnedId: await pinP });
     headerAccount();
     if (me && me.id === p.id) {
       const out = document.createElement('button');
@@ -254,6 +288,8 @@ function matchExtension(me) {
   async function annotation(id) {
     let rec = null, failed = false;
     const scP = Cloud.social(id, me && me.id).catch(() => null), socP = discover();
+    const pinP = me ? Cloud.pinnedOf(me.id).catch(() => null) : Promise.resolve(null);
+    const blocksP = me ? Cloud.blocks(me.id).catch(() => new Map()) : Promise.resolve(new Map());
     try { rec = await Cloud.get(id); } catch { failed = true; }
     if (failed) return didNotLoad(() => annotation(id));
     if (!rec) return notFound('This annotation was deleted, or the link is wrong.');
@@ -263,6 +299,8 @@ function matchExtension(me) {
     let records = [];
     try { records = await Cloud.list({ authorId: rec.author && rec.author.id, limit: 40 }); } catch {}
     remember(records); handleOf.set(id, (rec.author && rec.author.handle) || 'annotated');
+    if (rec.quoted) handleOf.set(rec.quoted.id, (rec.quoted.author && rec.quoted.author.handle) || 'annotated');
+    const [pinnedId, blockMap] = await Promise.all([pinP, blocksP]);
     if (Cloud.markOpened) Cloud.markOpened(id);
     const title = AnnotationPage.titleOf(rec.item);
     document.title = `${rec.take.text || title} | annotated`;
@@ -275,6 +313,8 @@ function matchExtension(me) {
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
       author: mine ? null : rec.author, mine,
+      edited: rec.edited || null, quoteOf: rec.quoteOf || null, quoted: rec.quoted || null,
+      pinned: !!(mine && pinnedId === id), blockKind: !mine && rec.author ? blockMap.get(rec.author.id) || null : null,
       permalink: location.origin + linkFor(id),
       // The source has its own control now, so this one is free to mean what it says. It is offered only
       // when the page behind you is one of ours, which a same origin referrer is how you know.
@@ -294,19 +334,27 @@ function matchExtension(me) {
         if (change.restored) return true;   // Undo of a delete that never left this page
         if (needSignIn()) return false;
         try {
-          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload); change.added.dbId = await change.added.adding; }
+          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload, change.added.parentDb); change.added.dbId = await change.added.adding; }
           // Gone already (its annotation was deleted meanwhile, taking it along) is deleted.
           if (change.removed) { if (change.removed.adding) await change.removed.adding.catch(() => {}); if (change.removed.dbId) await Cloud.deleteComment(change.removed.dbId).catch((e) => { if (!/not yours to delete/i.test((e && e.message) || '')) throw e; }); }
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
           return true;
         } catch (e) { alert('That did not save. ' + (e.message || '')); return false; }
       },
+      onQuote: async (take) => {
+        if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: signIn }); throw new Error('Sign in first, then publish.'); }
+        const r = await Cloud.quote({ id, item: rec.item }, take);
+        if (!r) throw new Error('Sign in first, then publish.');
+        location.href = `/@${me.handle}/${encodeURIComponent(r.id)}`;
+      },
+      onBlock: me && !mine && rec.author ? async (kind) => { try { await Cloud.setBlock(me.id, rec.author.id, kind); return true; } catch (e) { console.warn('annotated', e); return false; } } : null,
       onReactions: async (list, change) => { if (!change) return; if (needSignIn()) return false; try { await Cloud.react(id, me.id, change.emoji, change.on); return true; } catch (e) { alert(/lot of|as many/i.test(e.message || '') ? e.message : 'That did not save. Check your connection and try again in a moment.'); return false; } },
       onPollVote: async (vote) => { if (needSignIn()) return false; try { await Cloud.vote(id, me.id, vote); return true; } catch { alert('That vote did not save. Check your connection and try again in a moment.'); return false; } },
       onClaim: (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }),
       ...(mine ? {
+        onPin: async (on) => { try { await Cloud.pin(me.id, on ? id : null); return true; } catch (e) { console.warn('annotated', e); return false; } },
         onDelete: async () => { await Cloud.remove(id, me.id); location.href = '/@' + me.handle; },
-        onEdit: async ({ text, tag }) => { try { await Cloud.edit(id, { text, tag }); } catch (e) { alert(e.message && /not yours/i.test(e.message) ? e.message : 'That edit did not save. Check your connection and try again in a moment.'); throw e; } document.title = `${text || title} | annotated`; },
+        onEdit: async ({ text, tag }) => { try { await Cloud.edit(id, { text, tag }); } catch (e) { alert(e.message && /not yours|fifteen minutes/i.test(e.message) ? e.message : 'That edit did not save. Check your connection and try again in a moment.'); throw e; } document.title = `${text || title} | annotated`; },
       } : {}),
     });
     headerAccount();
@@ -348,11 +396,12 @@ function matchExtension(me) {
 
   if (parts[0] && parts[0].startsWith('@') && parts[1]) await annotation(parts[1]);
   else if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1));
+  else if (query.has('activity')) await activityPage();
   else await home(query.get('tag'));
   // A list is read again when you come back to its tab, since the panel or another tab may have changed it. The
   // profile went on showing an annotation the panel had just deleted (recording of 2026-09-25 at 14:08, 2:28).
   // An annotation's own page is left alone, where a comment may be half written.
-  if (!(parts[0] && parts[0].startsWith('@') && parts[1])) {
+  if (!(parts[0] && parts[0].startsWith('@') && parts[1]) && !query.has('activity')) {
     let hiddenAt = 0;
     document.addEventListener('visibilitychange', async () => {
       if (document.hidden) { hiddenAt = Date.now(); return; }

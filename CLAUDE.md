@@ -1582,6 +1582,32 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   and why (Sam, Priya, Leo) have Open Peeps faces (`website/public/peeps/`); the real people whose posts are quoted keep
   their initial, since a drawn face would put words to a likeness. The scripts that made the files live in the session's
   scratchpad (`assets/make.py`, `split.py`, `doodles.js`). The ninth and tenth passes ship in this release.
+- **Borrowed from X** (2.40.0, `tests/xfeatures.py` on the website and `tests/xfeatures_ext.py` in the extension, migration 28;
+  David's pick on 2026-09-29 from a list of X's features; backup before it: tag `backup-2026-09-29-before-xfeatures` on
+  2.39.0 and `E:\claude_code\backups\annotated-backup-2026-09-29-before-xfeatures.zip`; built in the worktree
+  `annotated-x` on the branch `xfeatures`). **Pin**: your own annotation's menu has Pin to your profile, one at a time
+  (`profiles.pinned_id`, only your own, cleared when it is deleted; `Cloud.pin`, `pinnedOf`); a profile lists it first
+  under Newest, marked Pinned (`pinnedId` on `renderFeed` and `renderBrowse`). **Replies to replies**, one level deep:
+  `comments.parent_id` (a trigger holds it to the same annotation and one level), Reply under a saved comment, replies
+  drawn under it oldest first along a pencil line (`parentOf`, `kidsOf`, `.cReplies`), deleting a comment takes its
+  replies (the database cascades). **Annotate this**: your take on an annotation, published as an annotation of your own
+  that names it (`annotations.quote_of`, `Cloud.quote`, which copies the source but none of its files), then opened; it
+  draws the one it answers as a small card that opens it (`quotedBlock`, `.quoted`, `QUOTED` embed in `get` and `list`),
+  or says it was deleted; a feed card shows it in place of a picture (`.cquoted`). **Mute and block** from someone
+  else's annotation's menu (`blocks` table, private, `Cloud.blocks`, `setBlock`): both leave that person out of Home and
+  the feed (`hideAuthors`) and out of Activity; a block also stops their replies, reactions, votes, quotes and follows
+  on your work in the database (`is_blocked` in triggers) and ends follows either way. **The edit window**: a take and
+  its tag change for fifteen minutes after publishing (the menu says the minutes left), then show Edited
+  (`annotations.edited_at`, enforced in `annotations_times`); before this an author could rewrite a take at any time,
+  after people had answered. An annotation kept only here can still be edited any time. **Activity**: a bell in the
+  panel's top bar and the website's header with a dot when something came since you last looked (`checkActivity`, every
+  two minutes and on any change; `annotatedActivitySeen:<uid>` in the extension's storage, `annotated-activity-seen:<uid>`
+  in the website's), opening a list of replies, comments, reactions, follows and annotations of yours, new ones washed
+  in highlighter (`AnnotationPage.renderActivity`, the `activity` function, `/?activity` on the website). Icons pin,
+  bell, quote, block and mute are in `brand.js`. The privacy policy says what is kept. Checked only against stand-in
+  databases; migration 28 was checked live in blocks that roll back. Not done: the panel's published card does not offer
+  Pin, the home page's own header has no bell, the edit window counts from when a local copy was captured (so a take
+  published long after capture loses Edit early), and nobody is emailed about activity.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

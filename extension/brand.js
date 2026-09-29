@@ -7,6 +7,12 @@ const Brand = (() => {
     edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/>',
     trash: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
     flag: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+    // A thumbtack, a bell, a speech mark, a hand held up and a crossed eye (2.40.0: pin, activity, annotate this, block, mute).
+    pin: '<path d="M9 3.5h6l-1 5 3 3.5H7l3-3.5z"/><path d="M12 12v8.5"/>',
+    bell: '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+    quote: '<path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-8l-4 3.5V16H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M9 9.5v2.5M9 9.5h1.5M13.5 9.5v2.5M13.5 9.5H15"/>',
+    block: '<circle cx="12" cy="12" r="8"/><path d="M6.5 6.5l11 11"/>',
+    mute: '<path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6z"/><circle cx="12" cy="12" r="2.5"/><path d="M4 4l16 16"/>',
     play: '<path d="M7 4.5v15l12-7.5z"/>',
     mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
     stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',

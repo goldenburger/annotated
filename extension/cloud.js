@@ -19,6 +19,7 @@ const Cloud = (() => {
   // Named links, because annotations connect to profiles in more than one way (author, reactions, votes).
   const PROFILE = 'author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url)';
   const COMMENT_PROFILE = 'author:profiles!comments_author_id_fkey(id, handle, display_name, avatar_url)';
+  const QUOTED = 'quoted:annotations!annotations_quote_of_fkey(id, kind, take_text, tag, source, shot_path, poster_path, created_at, author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url))';
 
   async function upload(uid, id, name, blob) {
     const type = (blob.type || 'application/octet-stream').split(';')[0];
@@ -101,10 +102,21 @@ const Cloud = (() => {
         upload: a.upload && a.upload.path ? { url: publicUrl(a.upload.path), kind: a.upload.kind === 'video' ? 'video' : 'image', w: a.upload.w || 0, h: a.upload.h || 0, alt: a.upload.alt || '' } : null },
       paths: { media: a.media_path, poster: a.poster_path, shot: a.shot_path, voice: a.voice_path },
       counts: a.counts || null,
+      // Changed within its edit window (migration 28), and the annotation it answers, if any.
+      edited: a.edited_at ? Date.parse(a.edited_at) : null,
+      quoteOf: typeof a.quote_of === 'string' ? a.quote_of : null,
+      quoted: isObj(a.quoted) && a.quoted.id ? quotedCard(a.quoted) : null,
     };
   }
+  // A small copy of the annotation another one answers: enough to draw it as a card, never its files but its picture.
+  function quotedCard(q) {
+    const item = { ...cleanSource(q.source), kind: q.kind };
+    if (q.shot_path) item.shot = publicUrl(q.shot_path);
+    if (q.poster_path) item.poster = publicUrl(q.poster_path);
+    return { id: str(q.id), created: Date.parse(q.created_at), author: person(q.author), item, take: { text: str(q.take_text), tag: q.tag ? str(q.tag) : null } };
+  }
   async function get(id) {
-    const { data, error } = await c().from('annotations').select(`*, ${PROFILE}`).eq('id', id).maybeSingle();
+    const { data, error } = await c().from('annotations').select(`*, ${PROFILE}, ${QUOTED}`).eq('id', id).maybeSingle();
     if (error) throw error;
     if (!data) return null;
     return toRecord(data);
@@ -136,7 +148,7 @@ const Cloud = (() => {
     // than raw activity, and needs to know what you have already joined in on.
     // Every comment's author (for who joined in), but the words of only the first few (eleventh audit pass): the whole
     // text of every reply on sixty annotations came down with each list, only to show one line.
-    let qy = c().from('annotations').select(`*, ${PROFILE}, comments(author_id), first:comments(author_id, body, gif, created_at, ${COMMENT_PROFILE}), reactions(emoji, user_id), poll_votes(user_id)`)
+    let qy = c().from('annotations').select(`*, ${PROFILE}, ${QUOTED}, comments(author_id), first:comments(author_id, body, gif, created_at, ${COMMENT_PROFILE}), reactions(emoji, user_id), poll_votes(user_id)`)
       .order('created_at', { ascending: false }).limit(limit)
       .order('created_at', { referencedTable: 'first', ascending: true }).limit(6, { referencedTable: 'first' });
     if (authorId) qy = qy.eq('author_id', authorId);
@@ -176,7 +188,7 @@ const Cloud = (() => {
   async function social(id, myId) {
     const [cm, rx, pv] = await Promise.all([
       // Comment reactions come with the comments, one round trip where there used to be two (audit of 2026-09-24).
-      c().from('comments').select(`id, body, gif, upload, created_at, author_id, ${COMMENT_PROFILE}, comment_reactions(emoji, user_id)`).eq('annotation_id', id).order('created_at'),
+      c().from('comments').select(`id, parent_id, body, gif, upload, created_at, author_id, ${COMMENT_PROFILE}, comment_reactions(emoji, user_id)`).eq('annotation_id', id).order('created_at'),
       c().from('reactions').select('emoji, user_id').eq('annotation_id', id),
       c().from('poll_votes').select('option_index, user_id').eq('annotation_id', id),
     ]);
@@ -187,7 +199,7 @@ const Cloud = (() => {
       ? { data: (cm.data || []).flatMap((x) => x.comment_reactions.map((r) => ({ comment_id: x.id, emoji: r.emoji, user_id: r.user_id }))) }
       : cIds.length ? await c().from('comment_reactions').select('comment_id, emoji, user_id').in('comment_id', cIds) : { data: [] };
     const comments = (cm.data || []).map((x) => ({
-      dbId: x.id, text: x.body, gif: x.gif || null, t: Date.parse(x.created_at),
+      dbId: x.id, parentDb: x.parent_id || null, text: x.body, gif: x.gif || null, t: Date.parse(x.created_at),
       upload: x.upload && x.upload.path ? { url: publicUrl(x.upload.path), kind: x.upload.kind === 'video' ? 'video' : 'image', w: x.upload.w || 0, h: x.upload.h || 0, alt: x.upload.alt || '' } : null, author: person(x.author), mine: !!myId && x.author_id === myId,
       reactions: groupReactions((crx.data || []).filter((r) => r.comment_id === x.id), myId),
     }));
@@ -198,8 +210,10 @@ const Cloud = (() => {
   }
 
   // Writes. Each one only touches the signed-in person's own rows.
-  const addComment = async (id, uid, text, gif, up) => {
+  const addComment = async (id, uid, text, gif, up, parentDb) => {
     const row = { annotation_id: id, author_id: uid, body: text || '' };
+    // A reply to a reply names the comment it answers (one level deep, migration 28).
+    if (parentDb) row.parent_id = parentDb;
     // GIPHY's address for it, rather than a copy of the file, which is what their terms ask for.
     if (gif) row.gif = { id: gif.id, url: gif.url, preview: gif.preview, w: gif.w, h: gif.h, alt: gif.alt };
     // A photo or video goes in the commenter's own folder, beside nothing of the annotation's author, because
@@ -231,7 +245,7 @@ const Cloud = (() => {
     ? c().from('poll_votes').delete().match({ annotation_id: id, user_id: uid })
     : c().from('poll_votes').upsert({ annotation_id: id, user_id: uid, option_index: index }));
   const edit = async (id, { text, tag }) => {
-    const { data } = await must(c().from('annotations').update({ take_text: text || '', tag: tag || null }).eq('id', id).select('id'));
+    const { data } = await must(c().from('annotations').update({ take_text: text || '', tag: tag || null }).eq('id', id).select('id, edited_at'));
     if (!data || !data.length) throw new Error('That is not yours to change, so nothing was saved.');
   };
   // The row first, then the files. The other way round, a row that then refused to delete was left live
@@ -291,6 +305,59 @@ const Cloud = (() => {
   }
   // How many a person has published, counted by the database rather than by downloading them (ninth audit pass).
   const countBy = async (authorId) => { const { count, error } = await c().from('annotations').select('id', { count: 'exact', head: true }).eq('author_id', authorId); if (error) throw error; return count || 0; };
+  // Pinning: one annotation of your own at the top of your profile (migration 28). null unpins.
+  async function pin(uid, id) {
+    const { data, error } = await c().from('profiles').update({ pinned_id: id || null }).eq('id', uid).select('pinned_id');
+    if (error) throw error;
+    if (!data || !data.length) throw new Error('That did not save. Sign in again and try once more.');
+    return data[0].pinned_id || null;
+  }
+  async function pinnedOf(profileId) {
+    const { data, error } = await c().from('profiles').select('pinned_id').eq('id', profileId).maybeSingle();
+    if (error) throw error;
+    return (data && data.pinned_id) || null;
+  }
+  // Annotating an annotation: a take of your own on someone's annotation, keeping what it was about, without its
+  // files (those belong to its author and go when it does). It is drawn with the one it answers as a card.
+  async function quote(orig, take) {
+    const me = await Backend.profile();
+    if (!me) return null;
+    const words = String(take.text || '').trim();
+    const slug = (words || 'annotation').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'annotation';
+    const id = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+    const { blob, poster, shot, mediaUrl, shotThumb, ...source } = orig.item || {};
+    const row = { id, author_id: me.id, kind: (orig.item && orig.item.kind) || 'article', take_text: words, tag: take.tag || null, source, quote_of: orig.id };
+    const { error } = await c().from('annotations').insert(row);
+    if (error) throw new Error(/annotate this/i.test(error.message) ? 'You can\'t annotate this.' : 'Could not save the annotation: ' + error.message);
+    held = null;
+    return { id, author: me };
+  }
+  // Mute and block (migration 28). Your own list only, held for the page's life and asked again when it changes.
+  let blocksHeld = null;
+  async function blocks(uid) {
+    if (!uid) return new Map();
+    if (blocksHeld && blocksHeld.uid === uid) return blocksHeld.map;
+    const { data, error } = await c().from('blocks').select('target_id, kind').eq('user_id', uid);
+    if (error) return new Map();
+    const map = new Map((data || []).map((r) => [r.target_id, r.kind]));
+    blocksHeld = { uid, map };
+    return map;
+  }
+  async function setBlock(uid, target, kind) {
+    const q = kind ? c().from('blocks').upsert({ user_id: uid, target_id: target, kind }) : c().from('blocks').delete().match({ user_id: uid, target_id: target });
+    const { error } = await q;
+    if (error) throw error;
+    blocksHeld = null; held = null; bumpFollows();
+  }
+  // Leaves out what someone you muted or blocked wrote.
+  const hideBlocked = (recs, map) => (map && map.size ? recs.filter((r) => !(r.author && map.has(r.author.id))) : recs);
+  // Activity: replies, reactions, follows and annotations of yours, newest first (the activity function, migration 28).
+  async function activity(since) {
+    const { data, error } = await c().rpc('activity', since ? { since: new Date(since).toISOString() } : {});
+    if (error) throw error;
+    return (data || []).map((r) => ({ kind: str(r.kind), who: person({ id: r.actor_id, handle: r.handle, display_name: r.display_name, avatar_url: r.avatar_url }),
+      annotationId: r.annotation_id ? str(r.annotation_id) : null, take: str(r.take), snippet: str(r.snippet), at: Date.parse(r.at) }));
+  }
   const claim = (id, { name, email, what, reason }) => c().from('claims').insert({ annotation_id: id, name, email, what, reason });
 
   // Following and discovery.
@@ -510,5 +577,5 @@ const Cloud = (() => {
     };
   }
 
-  return { countBy, avatarOk, publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
+  return { pin, pinnedOf, quote, blocks, setBlock, hideBlocked, activity, countBy, avatarOk, publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
 })();

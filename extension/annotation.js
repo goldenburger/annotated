@@ -29,7 +29,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   // the real message goes to the console and the person gets a sentence about what to do.
   const notYours = (e) => /row-level security|violates|permission|not yours/i.test((e && e.message) || '');
   // The database's own limits say what happened in plain words, so those are passed on as they are.
-  const LIMIT = /lot of comments|lot of annotations|as many reactions|has to be an emoji|lot of claims/i;
+  const LIMIT = /lot of comments|lot of annotations|as many reactions|has to be an emoji|lot of claims|can't reply here|can't do that here|can't follow|can't annotate|one level deep|fifteen minutes|nowhere to go/i;
   // The panel beside this page shows the same annotation's reactions, comments and votes, and reads them only
   // when something tells it to look again. A shared annotation's activity lives in the database, not in the
   // copy on this computer, so the page says so each time.
@@ -110,6 +110,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // asks who its author is now and keeps the answer.
     const socialP = shared ? Cloud.social(id, me && me.id).catch(() => null) : Promise.resolve(null);
     const recordsP = Store.allMeta().catch(() => []);
+    // Your pin and your mutes and blocks, for the menu (migration 28).
+    const pinP = shared && me ? Cloud.pinnedOf(me.id).catch(() => null) : Promise.resolve(null);
+    const blocksP = shared && me ? Cloud.blocks(me.id).catch(() => new Map()) : Promise.resolve(new Map());
     const discoveryP = Cloud.discovery(me, {
       signIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}),
       onPerson: (handle) => Backend.client.from('profiles').select('id').eq('handle', handle).maybeSingle().then(({ data }) => { if (data) location.href = 'feed.html#user=' + encodeURIComponent(data.id); }),
@@ -146,6 +149,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
+    const [pinnedId, blockMap] = await Promise.all([pinP, blocksP]);
     const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); return true; } return false; };
 
     // Everything is here, so the skeleton comes down and the page goes up in the same breath.
@@ -153,6 +157,8 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     page.className = '';
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
+      edited: rec.edited || null, quoteOf: rec.quoteOf || null, quoted: rec.quoted || null,
+      pinned: !!(mine && pinnedId && pinnedId === id), blockKind: !mine && author ? blockMap.get(author.id) || null : null,
       author: mine ? null : author, mine,
       permalink: permalinkOf(id, author),
       backIsSource: from === 'publish',
@@ -187,7 +193,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         if (change.restored) return true;   // Undo of a delete that never left this page
         if (needSignIn()) return false;
         try {
-          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload); change.added.dbId = await change.added.adding; }
+          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload, change.added.parentDb); change.added.dbId = await change.added.adding; }
           // Gone already (its annotation was deleted meanwhile, taking it along) is deleted.
           if (change.removed) { if (change.removed.adding) await change.removed.adding.catch(() => {}); if (change.removed.dbId) await Cloud.deleteComment(change.removed.dbId).catch((e) => { if (!/not yours to delete/i.test((e && e.message) || '')) throw e; }); }
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
@@ -223,7 +229,17 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         await Cloud.carryOver(id, author.id, local.comments || [], local.reactions || []).catch((e) => { console.warn('carryOver', e); alert('The annotation is shared, but its earlier comments did not come across with it.'); });
         load();
       } : null,
+      // Annotate this: your take on it, published as your own annotation that answers it, then opened.
+      onQuote: shared ? async (take) => {
+        if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); throw new Error('Sign in first, then publish.'); }
+        const r = await Cloud.quote({ id, item: rec.item }, take);
+        if (!r) throw new Error('Sign in first, then publish.');
+        nudgePanel();
+        location.hash = encodeURIComponent(r.id);
+      } : null,
+      onBlock: shared && !mine && me && author ? async (kind) => { try { await Cloud.setBlock(me.id, author.id, kind); nudgePanel(); return true; } catch (e) { console.warn('annotated', e); return false; } } : null,
       ...(mine ? {
+        onPin: shared && me ? async (on) => { try { await Cloud.pin(me.id, on ? id : null); nudgePanel(); return true; } catch (e) { console.warn('annotated', e); return false; } } : null,
         onDelete: async () => {
           if (shared && me) await Cloud.remove(id, me.id).catch((e) => { console.warn('remove', e); alert(notYours(e) ? 'That is not yours to delete, so nothing was removed.' : 'It could not be deleted online, so it was kept. Try again in a moment.'); throw e; });
           await Store.del(id).catch(() => {});

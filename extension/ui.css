@@ -2313,3 +2313,57 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
   .pdDesk .pdStainL { left: max(18px, calc(50vw - 760px)); } .pdDesk .pdStainR { right: max(18px, calc(50vw - 760px)); }
   .pdDesk .pd-ring svg { width: 120px; height: auto; } .pdDesk .pd-smudge svg { width: 110px; height: auto; }
 }
+
+/* ---- Borrowed from X (2.40.0): pin, replies to replies, annotating an annotation, mute and block, the edit window, and
+   activity. Quiet, in the page's own ink and paper. */
+.who .edited, .who .pinMark { margin-left: 8px; font-size: var(--t-xs); color: var(--ink-3); }
+.who .pinMark, .cpin { display: inline-flex; align-items: center; gap: 3px; }
+.who .pinMark svg, .cpin svg { width: 13px; height: 13px; }
+.cpin { font-size: var(--t-xs); color: var(--ink-3); margin-right: 6px; }
+.rlText .cpin { display: flex; margin: 0 0 2px; }
+.menu .editLeft { margin-left: 4px; font-weight: 400; }
+.blockSay { margin: 10px 0 0; }
+/* Annotate this: the box opens under the card's buttons. */
+.quoteBox { margin-top: 12px; display: grid; gap: 8px; }
+.quoteBox .quoteText { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); }
+.quoteBox .row { display: flex; justify-content: flex-end; gap: 8px; }
+.quoteBox .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The annotation a quote answers: a small card of its own, a slip laid on the sheet. */
+.quoted { display: grid; gap: 6px; margin: 4px 0 8px; padding: 12px 14px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--well-warm, var(--paper)); cursor: pointer; rotate: -.25deg; transition: translate .2s ease; }
+.quoted:hover, .quoted:focus-visible { translate: 0 -1px; }
+.quoted:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 3px; }
+.quoted .qWho { display: flex; align-items: center; gap: 6px; font-size: var(--t-s); color: var(--ink-2); flex-wrap: wrap; }
+.quoted .qWho time { color: var(--ink-3); }
+.quoted .qTake { margin: 0; font: 600 var(--t-m)/1.4 var(--serif, var(--sans)); color: var(--ink); }
+.quoted .qQuote { margin: 0; font-size: var(--t-s); line-height: 1.5; color: var(--ink-2); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.quoted .qSrc { display: flex; align-items: center; gap: 6px; font-size: var(--t-xs); color: var(--ink-3); }
+.quoted .qSrc svg { width: 14px; height: 14px; flex: none; }
+.quotedGone { display: flex; align-items: center; gap: 6px; }
+.cquoted { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 4px; padding: 10px 12px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--well-warm, var(--paper)); font-size: var(--t-s); color: var(--ink-2); line-height: 1.45; }
+.cquoted.gone { color: var(--ink-3); }
+@media (max-width: 560px) { .quoted { rotate: none; } }
+/* Replies to replies: under the comment they answer, indented along a pencil line, flat (no slip of their own). */
+.comments .cReplyBtn { margin-top: 6px; font-size: var(--t-xs); }
+.comments .cReplyBox { margin-top: 8px; display: grid; gap: 6px; }
+.comments .cReplyBox .cReplyText { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); }
+.comments .cReplyBox .cRow { display: flex; justify-content: flex-end; gap: 6px; margin: 0; }
+.comments .cReplyBox .cRow > button { flex: none; width: auto; }
+.comments .cReplies { list-style: none; margin: 10px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--rule-warm, var(--rule)); }
+.comments .cReplies li.cmt { padding: 6px 0 6px 2px; margin: 0; rotate: none !important; margin-left: 0 !important; }
+.comments .cReplies li.cmt::before, .comments .cReplies li.cmt::after { display: none; }
+/* Activity: a dot on the bell, and new rows marked with a highlighter edge. */
+.actBtn, .navAct { position: relative; }
+.actDot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: var(--hi-deep, var(--hi)); box-shadow: 0 0 0 2px var(--sheet); }
+.navAct .actDot { top: 5px; right: 7px; }
+.navAct svg { width: 18px; height: 18px; }
+.activity .actList { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 2px; }
+.activity .actRow { all: unset; box-sizing: border-box; display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 10px 10px 10px 12px; border-radius: var(--r-m); cursor: pointer; }
+.activity .actRow:hover, .activity .actRow:focus-visible { background: var(--well-warm, var(--paper)); }
+.activity .actRow:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 1px; }
+.activity .actItem.new .actRow { background: color-mix(in srgb, var(--hi) 18%, transparent); box-shadow: inset 3px 0 0 var(--hi); }
+.activity .actText { display: grid; gap: 3px; font-size: var(--t-s); line-height: 1.4; color: var(--ink-2); min-width: 0; }
+.activity .actText b { color: var(--ink); font-weight: 600; }
+.activity .actSaid { color: var(--ink); overflow-wrap: anywhere; }
+.activity .actOn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actPage { max-width: 640px; }
+.actPage .activity.paperSheet { padding: 26px 28px 22px; }

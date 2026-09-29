@@ -115,7 +115,11 @@ Prefs.init(Prefs.chromeBackend()).then(async () => {
   PanelKit.topLinks(document.body, {
     onHome: () => homeOrPage('home'),
     onProfile: () => homeOrPage('profile'),
+    onActivity: () => { leaveHelp(); openBrowse('activity'); },
   });
+  checkActivity();
+  // Asked again every two minutes while the panel is in view, and whenever something here changes.
+  setInterval(() => { if (!document.hidden) checkActivity(); }, 120000);
   displayApi = PanelKit.displayMenu(document.body, { onDisplay, sideHint: EMBED ? '' : "Drag the side panel's edge to resize it. Chrome can also show it on the left, in Settings under Appearance." });
   Account.mount(document.body);
   Account.setActions({
@@ -867,7 +871,7 @@ function staleTalk() {
   talkRows = null; talkAt = 0;
   document.querySelectorAll('.talked').forEach((el) => { const box = el.closest('.esAction, .startBlock'); if (box && !el.closest('.suggest[hidden]') && box.getClientRects().length) drawTalked(box); });
 }
-chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) { homeFetched = null; staleTalk(); } });
+chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) { homeFetched = null; staleTalk(); checkActivity(); } });
 // Anyone who wants a clean slate turns the suggestions off in Display settings, which takes the talked
 // about list and the places to start. Pasting a link and clipping a podcast by name stay, being tools.
 function showSuggest(box) {
@@ -1050,8 +1054,35 @@ async function annotateNow(tid) {
   }
 }
 let browseGen = 0, homeFetched = null, tabPressed = false, listFailed = false;
+// Activity (migration 28): when you last looked is kept per account in the extension's storage, shared with its pages.
+const seenKey = (uid) => 'annotatedActivitySeen:' + uid;
+async function checkActivity() {
+  const me = await cachedProfile().catch(() => null);
+  if (!me) { PanelKit.activityDot(0); return; }
+  const seen = (await chrome.storage.local.get(seenKey(me.id)).catch(() => ({})))[seenKey(me.id)] || Date.now() - 30 * 86400000;
+  const items = await Cloud.activity(seen).catch(() => null);
+  if (items) PanelKit.activityDot(items.length);
+}
+async function drawActivity(gen) {
+  const me = await cachedProfile().catch(() => null);
+  const bare = bareTab(browseFrom && browseFrom.url) || /^https:\/\/annotated-app\.netlify\.app\//.test((browseFrom && browseFrom.url) || '');
+  const backTo = bare ? 'Back to Home' : `Back to ${cleanTitle(browseFrom && browseFrom.title) || 'this page'}`;
+  const box = $('#browseMode');
+  const common = { onBack: closeBrowse, backTo };
+  if (!me) { AnnotationPage.renderActivity(box, { ...common, signedOut: true, onSignIn: (p) => Account.signIn(p) }); return; }
+  const seen = (await chrome.storage.local.get(seenKey(me.id)).catch(() => ({})))[seenKey(me.id)] || 0;
+  if (!box.querySelector('.activity')) AnnotationPage.renderActivity(box, { ...common, loading: true });
+  let items = null;
+  try { items = await Cloud.activity(); } catch { items = null; }
+  if (browsing !== 'activity' || gen !== browseGen) return;
+  AnnotationPage.renderActivity(box, { ...common, items: items || [], failed: !items, lastSeen: seen, onRetry: () => drawBrowse(),
+    onOpen: (id) => openExtPage('annotation.html#' + id),
+    onPerson: (h) => Backend.client.from('profiles').select('id').eq('handle', h).maybeSingle().then(({ data }) => { if (data) openExtPage('feed.html#user=' + encodeURIComponent(data.id)); }) });
+  if (items) { chrome.storage.local.set({ [seenKey(me.id)]: Date.now() }).catch(() => {}); PanelKit.activityDot(0); }
+}
 async function drawBrowse({ quick = false } = {}) {
   const kind = browsing, gen = ++browseGen;
+  if (kind === 'activity') return drawActivity(gen);
   const all = await Store.allMeta().catch(() => []);
   const pruned = quick ? { records: all, dropped: 0 } : await Store.pruneGone(all);
   const local = pruned.records;
@@ -1117,7 +1148,12 @@ async function drawBrowse({ quick = false } = {}) {
   if (!me && signIn && kind === 'home' && tabs && tabs.current === 'following') action = { label: 'Sign in', onClick: signIn };
   // Said once, when copies of annotations deleted online have just been taken off this computer.
   if (pruned.dropped) note = `${pruned.dropped === 1 ? 'One annotation was' : pruned.dropped + ' annotations were'} deleted online, so ${pruned.dropped === 1 ? 'it is' : 'they are'} gone from here too.${note ? ' ' + note : ''}`;
+  const [pinnedId, hideMap] = quick || !me ? [null, new Map()] : await Promise.all([
+    kind === 'profile' ? Cloud.pinnedOf(me.id).catch(() => null) : null,
+    kind === 'home' ? Cloud.blocks(me.id).catch(() => new Map()) : new Map()]);
+  if (browsing !== kind || gen !== browseGen) return;
   AnnotationPage.renderBrowse($('#browseMode'), {
+    pinnedId, hideAuthors: new Set(hideMap.keys()),
     // Your handle is part of what is drawn: after changing it, the full-page link went on to the old one.
     sigExtra: (me && me.handle) || '',
     title, records, note, emptyNote, tabs, localAware: true, backTo, action,
@@ -1230,7 +1266,7 @@ function drop(tid) {
 // Held so the refresh loop does not ask the session for a profile two and a half times a second. Signing in
 // or out throws it away at once, because a minute of the wrong account is a minute of the wrong answers.
 let profileCache = { at: 0, who: null };
-if (typeof Backend !== 'undefined' && Backend.onChange) Backend.onChange(() => { profileCache = { at: 0, who: null }; annKey = null; homeFetched = null; staleTalk(); if (browsing) drawBrowse(); });
+if (typeof Backend !== 'undefined' && Backend.onChange) Backend.onChange(() => { profileCache = { at: 0, who: null }; annKey = null; homeFetched = null; staleTalk(); checkActivity(); if (browsing) drawBrowse(); });
 // A question that may never be answered, given a time limit. Offline, the session and the profile each wait
 // on the network, and Publish sat on nothing and then on "Publishing" with no end.
 const inTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
