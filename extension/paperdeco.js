@@ -26,7 +26,13 @@ var PaperDeco = (() => {
       flat.push(`<ellipse class="${cls}"${attrs.replace(/ c[xy]="[-\d.]+"/g, '')} cx="${(Math.round(px * 10) / 10)}" cy="${(Math.round(py * 10) / 10)}"/>`);
       return '';
     });
-    return `${flat.length ? `<g transform="translate(${x} ${y}) scale(${s})">${flat.join('')}</g>` : ''}<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">${body}</g>`;
+    // Each piece answers the pointer on its own (2.38.7, ui.css `.pdPiece`): its drawing in `.pdLift`, its shadow in
+    // `.pdFlat`, so the drawing can lift off the desk while the shadow stays and fades. A piece made of pieces (a pair,
+    // a ball with a flap) leaves the answering to those inside it.
+    const inner = `${flat.length ? `<g class="pdFlat"><g transform="translate(${x} ${y}) scale(${s})">${flat.join('')}</g></g>` : ''}<g class="pdLift"><g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">${body}</g></g>`;
+    if (/class="pdPiece/.test(body)) return inner;
+    const kind = /data-pd-shape|class="pdKeel"/.test(body) ? 'pdIsPlane' : /radialGradient/.test(body) ? 'pdIsBall' : 'pdIsPaper';
+    return `<g class="pdPiece ${kind}">${inner}</g>`;
   };
 
   // ---- Paper that looks like paper (David, 2026-09-25: the sheets looked like a word processor's icons and the
@@ -331,20 +337,26 @@ var PaperDeco = (() => {
     try { document.querySelectorAll('[data-pd-shape]').forEach((e) => s.add(e.dataset.pdShape)); } catch { /* no page */ }
     return s;
   };
-  function choose(pool = Object.keys(SHAPES), avoid = []) {
+  function choose(pool = Object.keys(SHAPES), avoid = [], spot = '') {
     if (exactly) { const k = pick(pool); shown(k); return k; }
+    // A spot (the Feed heading, a margin) never shows what it showed last time. The page-wide memory alone let the
+    // heading repeat, its last plane six or more places back after the margins and piles drawn since.
+    let last = '';
+    if (spot) { try { last = localStorage.getItem('annotated-pd-at-' + spot) || ''; } catch { /* no storage */ } }
     const t = new Set([...taken(), ...avoid].map(fam));
     let open = pool.filter((k) => !t.has(fam(k))); if (!open.length) open = pool;
+    if (last && open.some((k) => fam(k) !== fam(last))) open = open.filter((k) => fam(k) !== fam(last));
     const s = seen();
     // A page draws several planes, so the last visit's are the last few shown: those six are left out while at least
     // two others remain, or one spot showed the same plane on two visits running.
-    const recent = new Set(s.slice(-6)), fresh = open.filter((k) => !recent.has(k));
-    if (fresh.length >= 2) open = fresh;
+    // Loosened a step at a time when too few remain (families already on the page leave fewer), never down to the last one.
+    for (const [n, need] of [[6, 2], [3, 1], [1, 1]]) { const recent = new Set(s.slice(-n)), fresh = open.filter((k) => !recent.has(k)); if (fresh.length >= need) { open = fresh; break; } }
     // Weight by how long ago it was last shown here: never, or long ago, counts most; the last one shown hardly at all.
     const w = open.map((k) => { const i = s.lastIndexOf(k); return i < 0 ? 36 : Math.min(36, (s.length - i) ** 2); });
     let x = Math.random() * w.reduce((a, b) => a + b, 0), k = open[open.length - 1];
     for (let i = 0; i < open.length; i++) { x -= w[i]; if (x < 0) { k = open[i]; break; } }
     shown(k);
+    if (spot) { try { localStorage.setItem('annotated-pd-at-' + spot, k); } catch { /* no storage */ } }
     return k;
   }
   const drawShape = (k, marked = Math.random() < .6) => { const [w, h, fn] = SHAPES[k]; return svg(w, h, fn(marked)); };
@@ -382,9 +394,9 @@ var PaperDeco = (() => {
       <path class="pdEdge" d="M8 12 L62 12 L55 70 L15 70 Z"/><ellipse class="pdFace" cx="35" cy="12" rx="27" ry="4.5"/><ellipse class="pdEdge" cx="35" cy="12" rx="27" ry="4.5" style="fill:none"/>`, 'pdBin'),
     trail: () => svg(220, 90, pick(TRAILS)(220, 90)),
     // Any plane: one not on the page and not shown here lately (`choose`).
-    lone: () => drawShape(choose()),
+    lone: (spot) => drawShape(choose(undefined, [], spot)),
     // Beside the Feed heading: a plane in flight, chosen the same way (it repeated one while the margins changed).
-    heading: () => drawShape(choose(['dart', 'glider', 'swallow', 'stunt', 'lock', 'needle', 'hammer', 'topDown', 'banking', 'pair'])),
+    heading: () => drawShape(choose(['dart', 'glider', 'swallow', 'stunt', 'lock', 'needle', 'hammer', 'topDown', 'banking', 'pair'], [], 'heading')),
     dart: named('dart'), glider: named('glider'), swallow: named('swallow'), stunt: named('stunt'), lock: named('lock'), banking: named('banking'),
     needle: named('needle'), hammer: named('hammer'), topDown: named('topDown'), headOn: named('headOn'), pair: named('pair'), landed: named('landed'),
     creased: () => svg(128, 156, creased(10, 8, -4 + jit(5), 1)),
@@ -405,7 +417,7 @@ var PaperDeco = (() => {
   };
   // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
   ART.flyTrail = () => svg(220, 90, TRAILS[Math.floor(Math.random() * 3)](220, 90).replace(/(<g transform="[^"]*">)(?![\s\S]*<g transform)([\s\S]*<\/g>)/, '<g class="pdFlyer">$1$2</g>'));
-  const make = (name, cls = '') => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.dataset.pdKind = name; d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](); return d; };
+  const make = (name, cls = '', arg) => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.dataset.pdKind = name; d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](arg); return d; };
 
   // The margins of a full page (feed, profile, an annotation): something low on the left, something high on the
   // right and often a trail, each chosen and placed fresh on every visit, so pages do not look alike.
@@ -424,8 +436,8 @@ var PaperDeco = (() => {
     // (David, 2026-09-29: the same banking plane beside the heading and in the margin).
     // Which plane each shows is decided by `choose`, so the two margins, the Feed heading and anything else on the page
     // are never the same plane, whatever their kind (David, 2026-09-29: the same swallow top right and bottom left).
-    const left = make(pick(['pile', 'pile', 'lone']), 'pdL');
-    const right = make('lone', 'pdR');
+    const left = make(pick(['pile', 'pile', 'lone']), 'pdL', 'left');
+    const right = make('lone', 'pdR', 'right');
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
@@ -440,6 +452,30 @@ var PaperDeco = (() => {
     d.innerHTML = emptyArt();
     el.prepend(d);
   }
+  // The pointer over a drawing, without the drawing taking the pointer (2.38.7). The margins' drawings lie under the
+  // page's own full-width layout, which catches the pointer first, and raising them would paint them over the page on a
+  // narrower window. So a single listener compares the pointer with each piece's box, once a frame at most, and marks
+  // the piece it is over (`pdOn`, ui.css); nothing on the page is blocked. Only where there is a mouse.
+  (() => {
+    try { if (!matchMedia('(hover: hover)').matches) return; } catch { return; }
+    let x = -1, y = -1, queued = false, lit = [];
+    const look = () => {
+      queued = false;
+      const now = [];
+      document.querySelectorAll('.paperDeco .pdPiece').forEach((pc) => {
+        const r = pc.getBoundingClientRect();
+        if (r.width && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) now.push(pc);
+      });
+      lit.forEach((pc) => { if (!now.includes(pc)) pc.classList.remove('pdOn'); });
+      now.forEach((pc) => pc.classList.add('pdOn'));
+      lit = now;
+    };
+    const soon = () => { if (!queued) { queued = true; requestAnimationFrame(look); } };
+    addEventListener('mousemove', (e) => { x = e.clientX; y = e.clientY; soon(); }, { passive: true });
+    addEventListener('scroll', () => { if (x >= 0) soon(); }, { passive: true });
+    document.addEventListener('mouseleave', () => { x = y = -1; soon(); });
+  })();
+
   // Every drawing exactly as asked, repeats and all, for /paper.html.
   const exact = (fn) => { exactly = true; try { return fn(); } finally { exactly = false; } };
   return { make, desk, free, empty, emptyArt, ART, rule, arrival, waiting, choose, exact, SHAPES: Object.keys(SHAPES) };

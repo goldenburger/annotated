@@ -2252,3 +2252,21 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .fullRow .fullBtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
 .fullRow .fullBtn:disabled { opacity: .7; }
 @media (prefers-reduced-motion: reduce) { .fullRow .fullBtn, .fullRow .fullBtn::after { transition: none; } }
+
+/* ---- A drawing answers the pointer, just (2.38.7, David: "a very subtle animation when the user hovers ... cool but
+   subtle"). A plane lifts a few pixels, noses up and edges forward with a small spring, as if about to be thrown, its
+   shadow staying on the desk, shrinking and fading. A sheet lifts a hair and turns; a crumpled ball rolls a little.
+   Each piece of a pile answers on its own (`at` in paperdeco.js), marked `pdOn` by paperdeco.js while the pointer is
+   over it. Only with a mouse and without reduced motion. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .paperDeco .pdLift, .paperDeco .pdFlat { transform-box: fill-box; transform-origin: 50% 70%;
+    transition: transform .6s cubic-bezier(.34, 1.45, .64, 1), opacity .5s ease; }
+  .paperDeco .pdIsPlane.pdOn > .pdLift { transform: translate(3px, -5px) rotate(-4deg); }
+  .paperDeco .pdIsPlane.pdOn > .pdFlat { transform: scale(.82); opacity: .5; }
+  .paperDeco .pdIsPaper.pdOn > .pdLift { transform: translateY(-2.5px) rotate(-1.4deg); }
+  .paperDeco .pdIsPaper.pdOn > .pdFlat { transform: scale(.95); opacity: .75; }
+  .paperDeco .pdIsBall > .pdLift { transform-origin: 50% 50%; }
+  .paperDeco .pdIsBall.pdOn > .pdLift { transform: translateX(-2px) rotate(-14deg); }
+}
+/* The plane at the foot of the home page is a button with a hover of its own (landing.js footTrail). */
+.paperDeco .pdPiece:has(.pdFlyer) > .pdLift, .paperDeco .pdPiece:has(.pdFlyer) > .pdFlat { transform: none !important; opacity: 1 !important; }

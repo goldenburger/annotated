@@ -1454,6 +1454,18 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   family on a page (a pile draws a crumpled ball when every family is out). The old code did so on 10 of 20 feed visits.
   Plane facets are straight now: bowed one by one they left a notch where two folds met, the "fold artifact". The
   nose-lock's folded tip lies on the wing, where it floated ahead of it, and the landed plane's shadow is under it.
+- **2.38.7, drawings answer the pointer** (`tests/pdhover.py`; backup before it is the tag `backup-2026-09-29-before-hover`
+  and `E:\claude_code\backups\annotated-backup-2026-09-29-before-hover.zip`). David asked for a very subtle, cool hover on
+  the planes and paper. Every piece `at` draws is a `.pdPiece` (`pdIsPlane`, `pdIsPaper` or `pdIsBall`) holding its drawing
+  in `.pdLift` and its shadow in `.pdFlat`, so a pile's pieces answer one by one. With the pointer over it a plane lifts
+  5 pixels, noses up 4 degrees and edges forward with a small spring (`cubic-bezier(.34, 1.45, .64, 1)`), its shadow
+  staying on the desk, shrinking and fading; a sheet lifts a hair and turns; a ball rolls a little. The margins lie under
+  the page's full-width grid, which takes the pointer first, so paperdeco.js marks the piece under the pointer itself
+  (`pdOn`, one listener, once a frame) and the drawings never take the pointer. Mouse only, nothing with reduced motion,
+  and not the home page's foot plane, which has its own hover.
+  Each spot (the Feed heading, the left and right margins) also remembers its last plane (`annotated-pd-at-<spot>` in
+  localStorage) and never shows its family twice running; the page-wide memory alone let the heading repeat, its last
+  plane six or more places back once the margins and piles had been drawn.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
