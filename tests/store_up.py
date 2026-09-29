@@ -27,7 +27,7 @@ async def main():
     # Name the clip this test made. The feed also holds whatever is published, so the first play button on the
     # page is not necessarily ours, and an audio one has no video element.
     await feed.click('.cplayBtn[data-id="old-clip-efgh"]'); await asyncio.sleep(.8)
-    print('clip loads on play:', await feed.eval_on_selector('.cardPlayer video','v=>v.src.startsWith("blob:")'))
+    print('clip loads on play:', await feed.eval_on_selector('.cardPlayer video, video.cpv[data-sound]','v=>v.src.startsWith("blob:")'))
     print('errors:', errs)
     await ctx.close()
 asyncio.run(main())

@@ -43,7 +43,7 @@ async def main():
       print('most discussed first:', await pg.inner_text(ANN+'.card .ctake >> nth=0'))
       print('source line on card:', await pg.inner_text(ANN+'.card .csn >> nth=0'))
       await pg.click(ANN+'.cplayBtn >> nth=0'); await asyncio.sleep(.8)
-      print('inline player:', await pg.eval_on_selector(ANN+'.cardPlayer video','v=>[v.readyState, !v.paused]'), '| still on feed:', await pg.is_visible(ANN+'.feedFilter'))
+      print('inline player:', await pg.eval_on_selector(ANN+'.cardPlayer video, '+ANN+'video.cpv[data-sound]','v=>[v.readyState, !v.paused]'), '| still on feed:', await pg.is_visible(ANN+'.feedFilter'))
       await pg.screenshot(path=f'r9_{scheme}_feed.png', clip={'x':0,'y':84,'width':986,'height':716})
       print('errors:', errs)
       await ctx.close()

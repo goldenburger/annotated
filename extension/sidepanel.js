@@ -325,6 +325,7 @@ function makeVideo(tid) {
     preview: (start, end) => sendTo(tid, { type: 'preview', start, end }).catch(() => {}),
     pause: () => sendTo(tid, { type: 'pause' }).catch(() => {}),
     frames: async () => { const sb = await sendTo(tid, { type: 'storyboard' }).catch(() => null); return sb ? Filmstrip.fromStoryboard(sb) : null; },
+    transcript: () => sendTo(tid, { type: 'transcript' }).catch(() => null),
     capture: (start, end) => sendTo(tid, { type: 'capture', start, end }),
     abort: () => sendTo(tid, { type: 'abort' }).catch(() => {}),
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });

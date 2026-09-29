@@ -68,10 +68,11 @@ const Cloud = (() => {
     const s0 = isObj(src) ? { ...src } : {};
     ['blob', 'poster', 'shot', 'mediaUrl'].forEach((k) => { delete s0[k]; });
     if (s0.thumb && !thumbOk(s0.thumb)) delete s0.thumb;
-    ['text', 'title', 'author', 'handle', 'quote', 'show', 'url', 'fragmentUrl', 'videoId', 'site', 'channel', 'posted'].forEach((k) => { if (k in s0) s0[k] = str(s0[k]); });
+    ['text', 'title', 'author', 'handle', 'quote', 'show', 'url', 'fragmentUrl', 'videoId', 'site', 'channel', 'posted', 'transcript'].forEach((k) => { if (k in s0) s0[k] = str(s0[k]); });
     s0.meta = isObj(s0.meta) ? { ...s0.meta } : {};
     ['title', 'site', 'url', 'description', 'image', 'byline'].forEach((k) => { if (k in s0.meta) s0.meta[k] = str(s0.meta[k]); });
     ['start', 'end', 'duration'].forEach((k) => { if (k in s0 && !Number.isFinite(Number(s0[k]))) delete s0[k]; else if (k in s0) s0[k] = Number(s0[k]); });
+    if (s0.transcript) s0.transcript = s0.transcript.slice(0, 1500);
     return s0;
   }
   function toRecord(a) {

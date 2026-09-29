@@ -1226,6 +1226,27 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   2.37.1: no drawing twice on one page. Every drawing made by `PaperDeco.make` carries its kind (`data-pd-kind`), and
   the Feed heading's plane and the margins pick with `PaperDeco.free`, which leaves out kinds already shown; the
   same banking plane had sat beside the heading and in the margin.
+- **The transcript beside a YouTube clip** (2.38.0, `tests/transcript.py`; David's idea from the recording of 2026-09-29
+  at 06:35, where the panel sat empty under Capture clip while he looked for the moment). `content.js` reads YouTube's
+  own transcript: it opens the page's Show transcript panel out of sight (expanding the description if the button is
+  inside it), reads `transcript-segment-view-model` or `ytd-transcript-segment-renderer` rows by their leaf texts (the
+  m:ss stamp, the "3 seconds" accessibility label dropped, the rest the line), sets the panel back to hidden unless the
+  person had it open, and keeps the lines per video id. Rows a previous video left are marked first so only new ones are
+  read. Downloading the captions directly needs a token YouTube does not give out, which is why it reads the page.
+  `videopanel.js` draws them in `.vTrans`, a paper sheet under Capture clip, every word with `textContent`: the line
+  being spoken marked and followed (wheel, touch or the scrollbar stop following, Back to now resumes), the clip's lines
+  in highlighter, a click on a line seeks there, a selection across lines becomes the clip (3 to 90 seconds, said in
+  `.rMoved`), Find words marks and counts matches (Enter for the next, "Not said in this video"). Captured, the sheet
+  folds to its heading and the clip's words go with the result (`transcript`, at most 1,500 characters, kept by
+  `cleanSource`), shown under the clip on its page as "What's said in the clip" (`.clipWords`). YouTube only; a video
+  without a transcript shows no sheet. Checked against a stand-in page built like YouTube's, and the reading was tried
+  on the real YouTube in the browser pane on 2026-09-29; the whole flow has not yet been run on real YouTube in Chrome.
+- **Play with sound plays the card's own video** (2.38.0, `tests/playinplace.py`; David's recording of 2026-09-29 at
+  07:05). It opened a second player of the same clip under the card while the silent preview went on above it. Now the
+  preview itself unmutes, stops looping, gets its controls and starts from the clip's beginning (`data-sound`,
+  `.cthumb.sounding`, shown even with reduced motion); the preview observer leaves it alone except to pause it out of
+  sight; a press on its controls does not open the annotation; Play with sound on another card quiets it again. A
+  podcast card, which has no picture to play in, keeps its player under the card.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

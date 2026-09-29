@@ -61,6 +61,15 @@ const VideoPanel = (() => {
         <p class="error capErr" role="alert" hidden></p>
         <p class="note capNote" role="status" hidden></p>
       </section>
+      <section class="vTrans paperSheet" aria-label="Transcript" hidden>
+        <div class="trHead"><button type="button" class="trFold" aria-expanded="true">${Brand.icon('article')} <span>Transcript</span></button>
+          <button type="button" class="link trNow" hidden>Back to now</button></div>
+        <div class="trBody">
+          <div class="trFind"><input type="search" class="trQ" placeholder="Find words in the video" aria-label="Find words in the transcript" spellcheck="false"><span class="note trCount" role="status"></span></div>
+          <p class="hint trHint">Select lines to make them the clip. Click a line to jump there.</p>
+          <ol class="trList"></ol>
+        </div>
+      </section>
       <section class="vResult result" hidden>
         <p class="resLabel" hidden></p>
         <div class="clipCard">
@@ -468,6 +477,7 @@ const VideoPanel = (() => {
     });
     function clearResult() {
       result = null; isPublished = false; checking = false; checksFailed = false;
+      foldTranscript(false);
       if (q('.failBox')) q('.failBox').hidden = true;
       setCollapsed(false);
       q('.vPreview').hidden = true; q('.ccThumb').setAttribute('aria-expanded', 'false');
@@ -525,6 +535,9 @@ const VideoPanel = (() => {
       const url = blobUrl(m.blob);
       result = { kind: 'video', blob: m.blob, url, start: m.start, end: m.end, duration: info.duration, poster: m.poster, title: m.title || info.title,
         videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '', height: m.height || 0 };
+      // The words said in the clip, from the transcript, travel with it to the annotation's page.
+      const words = clipWords(); if (words) result.transcript = words;
+      foldTranscript(true);
       // A video in a post on X keeps the post it came from, which is where its link goes.
       if (info.site === 'x') Object.assign(result, { site: 'x', url: info.url, author: info.author || '', handle: info.handle || '', text: info.text || '', posted: info.posted || '' });
       // The visible preview stays at the start. The checks scrub a hidden copy instead.
@@ -675,6 +688,103 @@ const VideoPanel = (() => {
       } finally { compose.setBusy(false); }
     }
 
+    // ---- The transcript (2.38.0). Lines are {t, e, text}; e is where the next line starts.
+    let trans = null, transFor = null, nowIdx = -1, following = true, trSig = '', hits = [], hitAt = -1, autoScroll = false;
+    const trList = q('.trList');
+    const lineAt = (t) => { if (!trans) return -1; let i = -1; for (let k = 0; k < trans.length; k++) { if (trans[k].t <= t + 0.05) i = k; else break; } return i; };
+    const inClip = (l) => sel && l.e > sel.start + 0.3 && l.t < sel.end - 0.3;
+    const clipWords = () => (trans || []).filter(inClip).map((l) => l.text).join(' ').replace(/\s+/g, ' ').trim().slice(0, 1500);
+    function scrollToLine(i, smooth) {
+      const li = trList.children[i]; if (!li) return;
+      const top = li.offsetTop - trList.clientHeight / 3;
+      autoScroll = true; trList.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+      setTimeout(() => { autoScroll = false; }, smooth ? 500 : 50);
+    }
+    function setFollowing(on) { following = on; q('.trNow').hidden = on; if (on && nowIdx >= 0) scrollToLine(nowIdx, true); }
+    function drawTranscript(lines) {
+      trans = lines.map((l, i) => ({ t: l.t, e: i + 1 < lines.length ? lines[i + 1].t : (info && isFinite(info.duration) ? info.duration : l.t + 5), text: String(l.text) }));
+      trList.textContent = '';
+      // Written with textContent only: every word comes from the page.
+      trans.forEach((l, i) => {
+        const li = document.createElement('li'); li.dataset.i = String(i);
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'trT num'; b.textContent = fmt(l.t); b.setAttribute('aria-label', 'Jump to ' + fmt(l.t));
+        const x = document.createElement('span'); x.className = 'trX'; x.textContent = l.text;
+        li.append(b, x); trList.appendChild(li);
+      });
+      nowIdx = -1; trSig = ''; hits = []; hitAt = -1; q('.trQ').value = ''; q('.trCount').textContent = '';
+      q('.vTrans').hidden = false; setFollowing(true); syncTranscript();
+    }
+    function syncTranscript() {
+      if (!trans || !info) return;
+      const i = lineAt(info.currentTime);
+      if (i !== nowIdx) {
+        if (trList.children[nowIdx]) trList.children[nowIdx].classList.remove('now');
+        nowIdx = i;
+        if (trList.children[i]) { trList.children[i].classList.add('now'); if (following) scrollToLine(i, true); }
+      }
+      const sig = sel ? sel.start.toFixed(1) + '-' + sel.end.toFixed(1) : '';
+      if (sig !== trSig) { trSig = sig; trans.forEach((l, k) => trList.children[k].classList.toggle('in', inClip(l))); }
+    }
+    // Reading ahead stops the list following the video, until Back to now.
+    ['wheel', 'touchmove'].forEach((ev) => trList.addEventListener(ev, () => { if (following) setFollowing(false); }, { passive: true }));
+    trList.addEventListener('pointerdown', (e) => { if (e.target === trList && following) setFollowing(false); });
+    q('.trNow').addEventListener('click', () => setFollowing(true));
+    // A click on a line jumps the video there; a selection across lines becomes the clip.
+    trList.addEventListener('mouseup', () => setTimeout(() => {
+      const s2 = window.getSelection();
+      const liOf = (n) => { const e = n && (n.nodeType === 1 ? n : n.parentElement); return e && e.closest && e.closest('.trList > li'); };
+      if (s2 && !s2.isCollapsed && trans && !capturing) {
+        const a = liOf(s2.anchorNode), z = liOf(s2.focusNode);
+        if (a && z && trList.contains(a) && trList.contains(z)) {
+          let i0 = Math.min(+a.dataset.i, +z.dataset.i), i1 = Math.max(+a.dataset.i, +z.dataset.i);
+          const D = info.duration;
+          let st = trans[i0].t, en = Math.min(D, trans[i1].e), said = '';
+          if (en - st > MAX) { en = st + MAX; said = ' Clips go up to 90 seconds, so it stops there.'; }
+          if (en - st < MIN) { en = Math.min(D, st + MIN); }
+          userSet = true; sel = { start: snap(st), end: snap(en) };
+          previewSeek(sel.start); recenter(); drawTicks(); render();
+          sayMoved(`The clip is now those lines, ${fmt(sel.start, true)} to ${fmt(sel.end, true)}.${said}`);
+          s2.removeAllRanges();
+          return;
+        }
+      }
+    }, 0));
+    trList.addEventListener('click', (e) => {
+      const li = e.target.closest && e.target.closest('.trList > li');
+      if (!li || !trans) return;
+      const s2 = window.getSelection(); if (s2 && !s2.isCollapsed) return;
+      ad.seek(trans[+li.dataset.i].t); setFollowing(true);
+    });
+    // Find words: every line that has them is marked, and Enter goes to the next.
+    let findTimer = null;
+    const find = (step) => {
+      const words = q('.trQ').value.trim().toLowerCase();
+      trList.querySelectorAll('.hit').forEach((x) => x.classList.remove('hit'));
+      hits = words && trans ? trans.map((l, k) => (l.text.toLowerCase().includes(words) ? k : -1)).filter((k) => k >= 0) : [];
+      hits.forEach((k) => trList.children[k].classList.add('hit'));
+      if (!words) { q('.trCount').textContent = ''; hitAt = -1; return; }
+      if (!hits.length) { q('.trCount').textContent = 'Not said in this video'; hitAt = -1; return; }
+      if (step) hitAt = (hitAt + 1) % hits.length;
+      else { hitAt = hits.findIndex((k) => k >= Math.max(0, nowIdx)); if (hitAt < 0) hitAt = 0; }
+      q('.trCount').textContent = `${hitAt + 1} of ${hits.length}`;
+      if (following) { following = false; q('.trNow').hidden = false; }
+      scrollToLine(hits[hitAt], true);
+    };
+    q('.trQ').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => find(false), 200); });
+    q('.trQ').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); find(true); } if (e.key === 'Escape') { q('.trQ').value = ''; find(false); } });
+    // It folds down once the take is being written, and opens again with the button.
+    function foldTranscript(folded) { q('.vTrans').classList.toggle('folded', folded); q('.trFold').setAttribute('aria-expanded', String(!folded)); }
+    q('.trFold').addEventListener('click', () => foldTranscript(!q('.vTrans').classList.contains('folded')));
+    function askTranscript(key) {
+      if (isAudio || !ad.transcript || !info.videoId || key === transFor) return;
+      transFor = key; trans = null; q('.vTrans').hidden = true; trList.textContent = ''; foldTranscript(false);
+      ad.transcript().then((lines) => {
+        if (transFor !== key) return;
+        if (Array.isArray(lines) && lines.length) { drawTranscript(lines.filter((l) => l && isFinite(l.t) && l.text)); log(`Transcript: ${lines.length} lines`); }
+        else log('No transcript for this video');
+      }).catch(() => {});
+    }
+
     return {
       update(next) {
         if (drag || !next || !next.ok) return;
@@ -692,6 +802,7 @@ const VideoPanel = (() => {
             wave = null; waveAsked = false;
           } else { film = null; filmAsked = false; }
           if (!isAudio) q('.vMeta').textContent = where(info);
+          askTranscript(key);
           log(`${isAudio ? 'Episode' : 'Video ' + info.videoId}, ${fmt(info.duration)}${isAudio ? '' : `, source ${info.width}x${info.height}`}`);
         }
         if (!isAudio && !filmAsked && ad.frames) {
@@ -728,6 +839,7 @@ const VideoPanel = (() => {
         // Titles and channels can arrive after the video does. Keep the header current.
         if (info.title && q('.vTitle').textContent !== info.title) q('.vTitle').textContent = info.title;
         if (!isAudio) { const mt = where(info); if (q('.vMeta').textContent !== mt) q('.vMeta').textContent = mt; }
+        syncTranscript();
         if (isAudio && !waveAsked && ad.peaks) {
           waveAsked = true;
           ad.peaks().then((w) => { if (w) { wave = w; drawWave(); log(`Waveform ready, ${w.data.length} points`); } }).catch((e) => log('No waveform. ' + e.message));

@@ -451,7 +451,7 @@ const AnnotationPage = (() => {
       : isVideo ? `
       <figure class="clip">
         <video class="clipVideo" playsinline preload="auto" ${safeImg(item.poster) ? `poster="${esc(safeImg(item.poster))}"` : ''}></video>
-      </figure>` : `
+      </figure>${item.transcript ? `<figure class="clipWords"><figcaption>What's said in the clip</figcaption><p>${esc(String(item.transcript).slice(0, 1500))}</p></figure>` : ''}` : `
       ${item.shot ? `<figure class="pageShot">
         <button type="button" class="shotZoom" aria-label="Show the screenshot full size"><img src="${esc(safeImg(item.shot))}" alt="The passage as it appeared on ${esc(item.meta.site || 'the page')}"></button>
         <figcaption>${Brand.icon('image')} As it appeared on ${esc(item.meta.site || 'the page')}, ${esc(fmtDate(new Date(created).toISOString()))}</figcaption>
@@ -1051,6 +1051,7 @@ const AnnotationPage = (() => {
     if (!vids.length || still || typeof IntersectionObserver === 'undefined') return;
     previewIo = new IntersectionObserver((rows) => rows.forEach(async (row) => {
       const v = row.target;
+      if (v.dataset.sound) { if (!row.isIntersecting && !v.paused) v.pause(); return; }
       if (!row.isIntersecting || v.dataset.held) { if (!v.paused) v.pause(); return; }
       if (!v.src) {
         const r = records.find((x) => x.id === v.dataset.id);
@@ -1222,16 +1223,36 @@ const AnnotationPage = (() => {
       rail.querySelectorAll('.railSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
       // A card opens its annotation, by click or by Enter and Space, since it is a link and not a button now.
       main.querySelectorAll('.card').forEach((c) => {
-        c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn')) onOpen(c.dataset.id); });
+        c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn') && !e.target.closest('video[data-sound]')) onOpen(c.dataset.id); });
         c.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); onOpen(c.dataset.id); } });
       });
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));
       wirePreviews(main, records, getMedia);
       // Clips and audio play right in the feed. Opening the annotation stays a click on the card.
+      // A clip plays with sound in its own picture: the preview unmutes, starts from the beginning of the clip and gets
+      // its controls. It used to open a second player under the card while the silent one went on above it.
+      const quiet = (v) => { v.muted = true; v.controls = false; v.loop = true; delete v.dataset.sound; const box = v.closest('.cthumb'); if (box) box.classList.remove('sounding'); };
       main.querySelectorAll('.cplayBtn').forEach((b) => b.addEventListener('click', async (e) => {
         e.stopPropagation();
-        const pv = b.closest('.cardItem').querySelector('.cpv'); if (pv) { pv.pause(); pv.dataset.held = '1'; }
+        const pv = b.closest('.cardItem').querySelector('.cpv');
+        if (pv) {
+          main.querySelectorAll('video.cpv[data-sound]').forEach((v) => { if (v !== pv) { v.pause(); quiet(v); } });
+          main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
+          if (!pv.src) {
+            const r = records.find((x) => x.id === b.dataset.id);
+            if (r && !r.item.blob && !r.item.mediaUrl && r.item.hasMedia && getMedia) { b.disabled = true; r.item.blob = await getMedia(r.id).catch(() => null); b.disabled = false; }
+            const src = r && (safeLink(r.item.mediaUrl) || (r.item.blob ? URL.createObjectURL(r.item.blob) : ''));
+            if (!src) return;
+            if (src.startsWith('blob:')) previewBlobs.push(src);
+            pv.src = src;
+          }
+          pv.dataset.sound = '1'; pv.muted = false; pv.loop = false; pv.controls = true;
+          pv.closest('.cthumb').classList.add('sounding', 'live');
+          try { pv.currentTime = 0; } catch { /* not loaded yet */ }
+          pv.play().catch(() => {});
+          return;
+        }
         const li = b.closest('.cardItem'), open = li.querySelector('.cardPlayer');
         main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
         main.querySelectorAll('.cplayBtn').forEach((x) => x.setAttribute('aria-expanded', 'false'));

@@ -45,9 +45,65 @@
     const v = getVideo();
     return { base, level, duration: v ? v.duration : 0 };
   }
+  // The video's transcript, read from YouTube's own transcript panel (2.38.0). Downloading the captions directly now
+  // needs a token YouTube does not hand out, but the page shows the same lines once its panel is opened. It is opened
+  // out of sight and put back as it was; a panel the person opened themselves is left open. Lines a previous video
+  // left behind are marked first, so only the new video's are read. Nothing here is trusted: the panel draws it as text.
+  const TPANEL = 'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]';
+  const SEG = 'transcript-segment-view-model, ytd-transcript-segment-renderer';
+  const TS = /^(\d+):(\d{2})(?::(\d{2}))?$/, LABEL = /^(\d+ (hours?|minutes?|seconds?),? ?)+$/;
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const leaves = (el) => [...el.querySelectorAll('*')].filter((e) => !e.children.length).map((e) => e.textContent.trim()).filter(Boolean);
+  function readLines() {
+    const out = [];
+    document.querySelectorAll(SEG).forEach((seg) => {
+      if (seg.dataset.annotatedOld) return;
+      const bits = leaves(seg);
+      const ti = bits.findIndex((x) => TS.test(x));
+      if (ti < 0) return;
+      const m = bits[ti].match(TS);
+      const t = m[3] != null ? +m[1] * 3600 + +m[2] * 60 + +m[3] : +m[1] * 60 + +m[2];
+      const text = bits.filter((x, i) => i !== ti && !LABEL.test(x)).join(' ').replace(/\s+/g, ' ').trim();
+      if (text) out.push({ t, text: text.slice(0, 400) });
+    });
+    return out.sort((a, b) => a.t - b.t);
+  }
+  const transcripts = new Map();
+  let transcriptBusy = null;
+  async function transcript() {
+    let id = null; try { id = new URL(location.href).searchParams.get('v'); } catch {}
+    if (!id) return null;
+    if (transcripts.has(id)) return transcripts.get(id);
+    if (transcriptBusy) return transcriptBusy;
+    transcriptBusy = (async () => {
+      const find = () => [...document.querySelectorAll('ytd-video-description-transcript-section-renderer button, button')]
+        .find((b) => /show transcript/i.test(b.getAttribute('aria-label') || b.textContent || ''));
+      let btn = find(), expanded = false;
+      if (!btn) {
+        const more = document.querySelector('ytd-watch-metadata #description-inline-expander #expand, #description #expand');
+        if (more) { more.click(); expanded = true; await sleep(500); btn = find(); }
+      }
+      if (!btn) { if (expanded) { const c = document.querySelector('#description-inline-expander #collapse, #description #collapse'); if (c) c.click(); } return null; }
+      const panel0 = document.querySelector(TPANEL);
+      const wasOpen = !!panel0 && panel0.getAttribute('visibility') === 'ENGAGEMENT_PANEL_VISIBILITY_EXPANDED';
+      document.querySelectorAll(SEG).forEach((seg) => { seg.dataset.annotatedOld = '1'; });
+      btn.click();
+      let lines = [];
+      for (let i = 0; i < 40 && !lines.length; i++) { await sleep(250); lines = readLines(); }
+      await sleep(300); lines = readLines();
+      const panel = document.querySelector(TPANEL);
+      if (panel && !wasOpen) panel.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN');
+      if (expanded) { const c = document.querySelector('#description-inline-expander #collapse, #description #collapse'); if (c) c.click(); }
+      const got = lines.length ? lines : null;
+      transcripts.set(id, got);
+      return got;
+    })().finally(() => { transcriptBusy = null; });
+    return transcriptBusy;
+  }
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
     switch (msg?.type) {
       case 'ping': reply({ ok: true }); return;
+      case 'transcript': transcript().then((r) => reply(r)).catch(() => reply(null)); return true;
       case 'info': reply(engine.info()); return;
       case 'seek': engine.seek(msg.t); reply({ ok: true }); return;
       case 'preview': engine.preview(msg.start, msg.end); reply({ ok: true }); return;
