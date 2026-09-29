@@ -25,7 +25,9 @@ async def main():
     for i in range(20):
       await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.pdDesk .pdR', timeout=15000); await asyncio.sleep(.6)
       found = await pg.evaluate(SHAPES)
-      count = collections.Counter(s for f in found for s in f['shapes'])
+      # By family: a dart beside a banking plane reads as the same plane twice (2.38.6).
+      FAM = {'dart': 'dart', 'banking': 'dart', 'landed': 'dart', 'lock': 'dart', 'glider': 'long', 'needle': 'long'}
+      count = collections.Counter(FAM.get(s, s) for f in found for s in set(f['shapes']))
       twice = [k for k, n in count.items() if n > 1]
       if twice: dupes.append((i, twice, found))
       right = await pg.evaluate("[...new Set([...document.querySelectorAll('.pdDesk .pdR [data-pd-shape]')].map((e) => e.dataset.pdShape))].join('+')")

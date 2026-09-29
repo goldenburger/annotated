@@ -1448,6 +1448,12 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - **2.38.5.** The In Chrome demo on the home page is a print taped into the notebook like a captured post (`.lcPrint`
   in a tilted `.lcFrame` with two strips of tape and the caption "From the demo, recorded in Chrome." written under it),
   where it was a screen box with rounded corners (David, 2026-09-29).
+- **2.38.6, planes that only looked different** (`tests/planevary.py` counts by family). David saw two alike on the feed:
+  a dart beside a banking plane, which is the dart turned. `FAMILY` in `paperdeco.js` makes the dart, banking, landed and
+  nose-lock one family and the glider and needle another, and `choose`, `named`, piles and corners never show two of a
+  family on a page (a pile draws a crumpled ball when every family is out). The old code did so on 10 of 20 feed visits.
+  Plane facets are straight now: bowed one by one they left a notch where two folds met, the "fold artifact". The
+  nose-lock's folded tip lies on the wing, where it floated ahead of it, and the landed plane's shadow is under it.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

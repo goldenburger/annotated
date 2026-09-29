@@ -251,7 +251,8 @@ var PaperDeco = (() => {
     def.facets.forEach((f, i) => {
       const [a, b] = TONE[f.tone], p0 = f.pts[0], p1 = far(f.pts);
       defs += `<linearGradient id="${id}g${i}" gradientUnits="userSpaceOnUse" x1="${p0[0]}" y1="${p0[1]}" x2="${p1[0]}" y2="${p1[1]}"><stop offset="0" style="stop-color:${a}"/><stop offset="1" style="stop-color:${b}"/></linearGradient>`;
-      const d = shape(f.pts, r, .55);
+      // Straight, as folded paper is: each facet bowed on its own left a notch where two folds met (David, 2026-09-29).
+      const d = 'M' + f.pts.map((q) => `${q[0]} ${q[1]}`).join(' L') + ' Z';
       body += `<path d="${d}" fill="url(#${id}g${i})"/>`;
       if (f.ink) { defs += `<clipPath id="${id}k${i}"><path d="${d}"/></clipPath>`; body += `<g clip-path="url(#${id}k${i})">${inkOn(f.ink, r, marked)}</g>`; }
       // A firmer edge than the sheets': a plane is small and thin, and with the soft one it faded into the page.
@@ -271,8 +272,8 @@ var PaperDeco = (() => {
       folds: [[[116, 30], [38, 42]]], shadow: [60, 76, 48, 4.5] },
     stunt: { facets: [{ tone: 'far', pts: [[116, 32], [22, 8], [62, 30]] }, { tone: 'far', pts: [[22, 8], [16, -4], [30, 10]] }, { tone: 'face', pts: [[116, 32], [10, 62], [62, 44]], ink: { x: 28, y: 56, len: 76, ang: -16, gap: 5 } },
       { tone: 'keel', pts: [[10, 62], [4, 46], [18, 58]] }, { tone: 'keel', pts: [[116, 32], [62, 44], [64, 62]] }], folds: [[[116, 32], [62, 44]]], shadow: [62, 80, 50, 4.5] },
-    lock: { facets: [{ tone: 'face', pts: [[112, 24], [104, 36], [20, 58], [56, 70]], ink: { x: 36, y: 60, len: 58, ang: -18 } }, { tone: 'keel', pts: [[104, 36], [56, 70], [66, 104]] }, { tone: 'far', pts: [[112, 24], [96, 26], [104, 36]] }],
-      folds: [[[104, 36], [56, 70]]], shadow: [60, 96, 44, 4.5] },
+    lock: { facets: [{ tone: 'face', pts: [[104, 34], [20, 58], [56, 70]], ink: { x: 34, y: 60, len: 48, ang: -18 } }, { tone: 'keel', pts: [[104, 34], [56, 70], [66, 104]] },
+      { tone: 'far', pts: [[104, 34], [80, 48], [85, 40]] }], folds: [[[104, 34], [56, 70]], [[80, 48], [85, 40]]], shadow: [60, 96, 44, 4.5] },
     // New: long and thin, built for distance.
     needle: { facets: [{ tone: 'far', pts: [[124, 34], [14, 22], [66, 35]] }, { tone: 'face', pts: [[124, 34], [8, 46], [66, 37]], ink: { x: 20, y: 43, len: 88, ang: -6, n: 1 } }, { tone: 'keel', pts: [[124, 34], [66, 37], [44, 50]] }],
       folds: [[[124, 34], [66, 37]]], shadow: [66, 60, 56, 3.5] },
@@ -293,7 +294,7 @@ var PaperDeco = (() => {
   const banking = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdTrail" d="M2 64 L34 60 M8 76 L36 72 M16 52 L40 50"/>
     <g transform="translate(24 -6) rotate(-24 60 60)">${craft({ ...DEF.dart, facets: [{ tone: 'keel', pts: DEF.dart.facets[0].pts }, { tone: 'face', pts: DEF.dart.facets[1].pts }] }, false, { shadow: false, key: 'banking' })}</g>`);
   // Landed nose first: a dart standing on its nose, tail up.
-  const landed = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="30" cy="104" rx="22" ry="4"/>
+  const landed = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<ellipse class="pdShadow" cx="72" cy="94" rx="46" ry="4"/>
     <g transform="rotate(58 60 60)">${craft(DEF.dart, true, { shadow: false, key: 'landed' })}</g>`);
   // New: two flying together, one a little behind the other, their trails running side by side.
   const pair = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<g data-pd-shape="pair"><path class="pdTrail" d="M2 70 C 30 66, 44 50, 70 46 M4 50 C 30 44, 60 20, 92 18"/></g>
@@ -312,6 +313,10 @@ var PaperDeco = (() => {
   // the page, or drawn in the last moment and not yet placed, is left out; among the rest, the ones this browser has
   // not shown lately are much likelier (the last 24 shown, kept in localStorage). /paper.html draws every one on
   // purpose, inside `exact`.
+  // Planes that are one shape seen another way count as one (David, 2026-09-29: a dart beside a banking plane read as the
+  // same plane twice): the dart, banking, landed and nose-lock are the dart; the glider and needle are the long ones.
+  const FAMILY = { dart: 'dart', banking: 'dart', landed: 'dart', lock: 'dart', glider: 'long', needle: 'long' };
+  const fam = (k) => FAMILY[k] || k;
   const SEEN = 'annotated-pd-seen';
   let exactly = false, lately = [];
   const seen = () => { try { const v = JSON.parse(localStorage.getItem(SEEN) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } };
@@ -328,8 +333,8 @@ var PaperDeco = (() => {
   };
   function choose(pool = Object.keys(SHAPES), avoid = []) {
     if (exactly) { const k = pick(pool); shown(k); return k; }
-    const t = taken(); avoid.forEach((k) => t.add(k));
-    let open = pool.filter((k) => !t.has(k)); if (!open.length) open = pool;
+    const t = new Set([...taken(), ...avoid].map(fam));
+    let open = pool.filter((k) => !t.has(fam(k))); if (!open.length) open = pool;
     const s = seen();
     // A page draws several planes, so the last visit's are the last few shown: those six are left out while at least
     // two others remain, or one spot showed the same plane on two visits running.
@@ -344,15 +349,16 @@ var PaperDeco = (() => {
   }
   const drawShape = (k, marked = Math.random() < .6) => { const [w, h, fn] = SHAPES[k]; return svg(w, h, fn(marked)); };
   // A named plane (the Feed heading's, say) draws itself unless it is already on the page, and then another one.
-  const named = (k) => () => { const kk = exactly || !taken().has(k) ? (shown(k), k) : choose(); return drawShape(kk); };
-  const fleetAt = (x, y, r, s, marked) => SIDE[choose(FLEET)](x, y, r, s, marked);
+  const named = (k) => () => { const kk = exactly || ![...taken()].some((x) => fam(x) === fam(k)) ? (shown(k), k) : choose(); return drawShape(kk); };
+  // A pile or corner draws a crumpled ball rather than a second plane of a family already shown.
+  const fleetAt = (x, y, r, s, marked) => { const t = new Set([...taken()].map(fam)); if (!exactly && FLEET.every((k) => t.has(fam(k)))) return ballV(Math.floor(Math.random() * 3), x + 20, y + 30, s); return SIDE[choose(FLEET)](x, y, r, s, marked); };
   // A pile laid out fresh each visit: two to four things from the set, in slots across the box.
   const PIECES = [
     (x, y, r) => fleetAt(x, y, r, .85 + jit(.1), Math.random() < .5),
     (x, y, r) => fleetAt(x, y, r, .85 + jit(.1), Math.random() < .5),
     (x, y) => ballV(Math.floor(Math.random() * 3), x + 20, y + 30, .85 + jit(.1)),
     (x, y, r) => halfFold(x + 10, y - 6, r * .5, .6),
-    (x, y) => { if (taken().has('landed')) return fleetAt(x, y, 0, .8, false); shown('landed'); return landed(x + 10, y - 20, 0, .75); },
+    (x, y) => { if ([...taken()].some((k) => fam(k) === 'dart')) return fleetAt(x, y, 0, .8, false); shown('landed'); return landed(x + 10, y - 20, 0, .75); },
     (x, y, r) => fleetAt(x, y, r, .82 + jit(.1), Math.random() < .5),
     (x, y, r) => fleetAt(x, y, r, .82 + jit(.1), Math.random() < .5),
     (x, y) => loose(x + 14, y + 8, .8),
