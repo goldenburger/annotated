@@ -8,10 +8,21 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   let me = null;
   // Read on every load for the same reason as the annotation page. One tab serves Home, every profile and
   // every tag, and the account beside it can change without this page reloading.
-  const readMe = async () => { try { me = await Backend.profile(); } catch { me = null; } AnnotationPage.setMe(me); };
+  // Who you are, waited for three seconds at most: with the network online but nothing getting through the client retried
+  // for about seven, and even an annotation kept on this computer sat on its outline. A late answer that differs draws again.
+  // A failed read (FAILED) is not signing out, and a late answer never redraws over a box in use or an open question.
+  const FAILED = Symbol('failed');
+  const inUse = () => [...document.querySelectorAll('textarea, input[type="text"]')].some((b) => b.value && b.offsetParent) || !!document.querySelector('.delAllAsk:not([hidden]), dialog[open], .signAsk');
+  const readMe = async () => {
+    const p = Backend.profile().catch(() => FAILED);
+    const got = await Promise.race([p, new Promise((r) => setTimeout(() => r(undefined), 3000))]);
+    if (got === undefined) p.then((v) => { if (v === FAILED || (v && v.id) === (me && me.id)) return; me = v; AnnotationPage.setMe(me); if (!inUse()) load(); });
+    else if (got !== FAILED) me = got;
+    AnnotationPage.setMe(me);
+  };
   const el = document.getElementById('feed');
   const signIn = (p) => Backend.signIn(p).then(() => load()).catch(() => {});
-  let tab = Cloud.savedTab(), pressed = false;
+  let tab = Cloud.savedTab(), pressed = false, tabPress = false, homeList = null;
 
   let loadGen = 0;
   const load = async () => {
@@ -29,7 +40,12 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // 2026-09-25 at 06:01, where the profile page went on listing one).
     const localP = Store.allMeta().catch(() => []).then((l) => Store.pruneGone(l)).then((p) => p.records);
     const listFor = (authorId) => Cloud.list({ authorId, limit: 100 }).catch(() => []);
-    const early = mode === 'home' ? listFor(null) : userId ? listFor(userId) : null;
+    // A tab press draws from the list already read (For you, Following and Everyone are one list).
+    const kept = tabPress && homeList && homeList.ok && mode === 'home' && !tag && Date.now() - homeList.at < 60000 ? homeList.p : null;
+    tabPress = false;
+    const early = mode === 'home' ? (kept || listFor(null)) : userId ? listFor(userId) : null;
+    // Kept for tab presses only once it has loaded something; a failed read is tried again on the next press.
+    if (mode === 'home' && !tag && !kept) { const entry = { p: early, at: Date.now(), ok: false }; homeList = entry; early.then((l) => { if (l && l.length) entry.ok = true; }); }
     await meP;
     const authorId = userId || (mode === 'profile' && me ? me.id : null);
     const person0 = userId && !(me && userId === me.id) ? userId : null;
@@ -70,7 +86,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       const tabs = Cloud.homeTabs(records, soc, me, records.filter((r) => r.mine || !r.author));
       const cur = Cloud.startTab(tabs, tab, pressed);
       records = tabs[cur].records;
-      social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); el.classList.add('busy'); load(); } };
+      social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); el.classList.add('busy'); tabPress = true; load(); } };
     }
     document.title = tag ? `${tag} | annotated` : person ? `${person.name} | annotated` : mode === 'profile' ? 'Your profile | annotated' : 'Feed | annotated';
     if (my !== loadGen) return;

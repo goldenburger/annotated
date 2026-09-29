@@ -85,3 +85,7 @@
   Cache-Control: public, max-age=86400
 /paper/*
   Cache-Control: public, max-age=86400
+/doodles/*
+  Cache-Control: public, max-age=86400
+/peeps/*
+  Cache-Control: public, max-age=86400

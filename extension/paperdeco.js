@@ -417,6 +417,28 @@ var PaperDeco = (() => {
   };
   // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
   ART.flyTrail = () => svg(220, 90, TRAILS[Math.floor(Math.random() * 3)](220, 90).replace(/(<g transform="[^"]*">)(?![\s\S]*<g transform)([\s\S]*<\/g>)/, '<g class="pdFlyer">$1$2</g>'));
+  // Marks on the desk (2.39.0), very faint, drawn fresh from a seed each time: a coffee ring left by a mug set down
+  // twice, and a pencil's smudge where a hand rested. In the margins of the full pages only.
+  ART.ring = () => {
+    const r = rng(Math.floor(Math.random() * 1e9)), cx = 70, cy = 70;
+    const loop = (R, from, to, ox = 0, oy = 0) => {
+      const k1 = r() * 6, k2 = r() * 6, pts = [];
+      for (let a = from; a <= to; a += 4) { const t = a * Math.PI / 180, rr = R + Math.sin(t * 2 + k1) * 1.6 + Math.sin(t * 5 + k2) * .7; pts.push(`${(cx + ox + Math.cos(t) * rr).toFixed(1)} ${(cy + oy + Math.sin(t) * rr).toFixed(1)}`); }
+      return 'M' + pts.join(' L');
+    };
+    const g0 = Math.floor(r() * 360), R = 50 + r() * 6, ox = (r() - .5) * 22, oy = (r() - .5) * 22;
+    return svg(140, 140, `<circle cx="${cx}" cy="${cy}" r="${R - 2}" class="pdWash"/>
+      <path class="pdRingEdge" d="${loop(R, g0, g0 + 330)}"/><path class="pdRingIn" d="${loop(R - 3, g0 + 20, g0 + 300)}"/>
+      <path class="pdRingEdge pdRing2" d="${loop(R - 1, g0 + 140, g0 + 140 + 150 + r() * 80, ox, oy)}"/>`);
+  };
+  ART.smudge = () => {
+    const r = rng(Math.floor(Math.random() * 1e9)); let s = '';
+    for (let i = 0; i < 9 + Math.floor(r() * 6); i++) {
+      const x = 22 + r() * 70, y = 26 + r() * 34, L = 18 + r() * 30;
+      s += `<path class="pdLead" style="opacity:${(.35 + r() * .65).toFixed(2)}" d="M${x.toFixed(1)} ${y.toFixed(1)} q${(L / 2).toFixed(1)} ${(-3 - r() * 4).toFixed(1)} ${L.toFixed(1)} ${(-L * .45).toFixed(1)}"/>`;
+    }
+    return svg(130, 90, `<ellipse cx="62" cy="46" rx="44" ry="17" transform="rotate(-24 62 46)" class="pdSmear"/>${s}`);
+  };
   const make = (name, cls = '', arg) => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.dataset.pdKind = name; d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](arg); return d; };
 
   // The margins of a full page (feed, profile, an annotation): something low on the left, something high on the
@@ -441,11 +463,25 @@ var PaperDeco = (() => {
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
+    // Now and then a coffee ring or a pencil smudge, on whichever side has room.
+    if (Math.random() < .55) { const m = make('ring', Math.random() < .5 ? 'pdStainL' : 'pdStainR'); m.style.setProperty('--pdy', Math.round(12 + Math.random() * 60) + '%'); m.style.setProperty('--pdr', Math.round(Math.random() * 360) + 'deg'); d.appendChild(m); }
+    if (Math.random() < .45) { const m = make('smudge', Math.random() < .5 ? 'pdStainL' : 'pdStainR'); m.style.setProperty('--pdy', Math.round(20 + Math.random() * 60) + '%'); m.style.setProperty('--pdr', Math.round(-20 + Math.random() * 40) + 'deg'); d.appendChild(m); }
     if (Math.random() < .7) { const t = make('trail', 'pdT'); t.style.setProperty('--pdy', Math.round(180 + Math.random() * 120) + 'px'); d.appendChild(t); }
     root.appendChild(d);
   }
   // An empty list: a small drawing above the words saying why it is empty, one of several.
-  const emptyArt = () => pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball(), () => ART.loose() + ART.lone(), () => ART.creased(), () => ART.smoothed()])();
+  // Someone reading, from Open Doodles (Pablo Stanley, CC0), in the page's ink and highlighter (doodles/, two masks
+  // each, ui.css). One of four, never the one shown last in this tab.
+  const DOODLES = ['chair', 'floor', 'phone', 'book'];
+  function doodle() {
+    let last = ''; try { last = sessionStorage.getItem('annotated-dd-last') || ''; } catch { /* storage off */ }
+    const k = pick(DOODLES.filter((d) => d !== last));
+    try { sessionStorage.setItem('annotated-dd-last', k); } catch { /* storage off */ }
+    return `<span class="pdDoodle pdDd-${k}"></span>`;
+  }
+  // 'nothing' is a list with nothing in it yet, which gets a reader and a plane; anything else (not found, did not
+  // load) keeps the crumpled paper.
+  const emptyArt = (kind) => kind === 'nothing' ? doodle() + ART.lone() : pick([() => ART.ball() + ART.lone(), () => ART.strip(), () => ART.halfFold(), () => ART.ball() + ART.ball(), () => ART.loose() + ART.lone(), () => ART.creased(), () => ART.smoothed()])();
   function empty(el) {
     if (!el || el.querySelector('.pdEmpty')) return;
     const d = document.createElement('div'); d.className = 'pdEmpty'; d.setAttribute('aria-hidden', 'true');
@@ -482,5 +518,5 @@ var PaperDeco = (() => {
 
   // Every drawing exactly as asked, repeats and all, for /paper.html.
   const exact = (fn) => { exactly = true; try { return fn(); } finally { exactly = false; } };
-  return { make, desk, free, empty, emptyArt, ART, rule, arrival, waiting, choose, exact, SHAPES: Object.keys(SHAPES) };
+  return { make, desk, free, empty, emptyArt, doodle, ART, rule, arrival, waiting, choose, exact, SHAPES: Object.keys(SHAPES) };
 })();

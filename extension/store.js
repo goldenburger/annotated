@@ -41,8 +41,10 @@ const Store = (() => {
         };
       }
     };
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
+    // A connection the browser closes (site data cleared) or wants upgraded is let go and opened again next time; a
+    // failed open is not kept either (every save and list failed until the panel reloaded).
+    r.onsuccess = () => { const db = r.result; db.onclose = () => { dbp = null; }; db.onversionchange = () => { db.close(); dbp = null; }; res(db); };
+    r.onerror = () => { dbp = null; rej(r.error); };
   }));
   const tx = async (stores, mode, fn) => {
     const db = await open();

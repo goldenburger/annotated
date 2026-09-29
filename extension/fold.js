@@ -47,7 +47,7 @@ var Fold = (() => {
     });
     return { outer, inner: at };
   }
-  function printed(target, W, H, Lw, Lh, theta) {
+  function printed(target, W, H, Lw, Lh, theta, frames = null) {
     const c = target.cloneNode(true);
     c.classList.remove('pl-hidden');
     c.classList.add('pl-copy');
@@ -60,23 +60,30 @@ var Fold = (() => {
     c.querySelectorAll('video').forEach((x, i) => {
       const v = vids[i], box = make('div', 'pl-media');
       box.className = (typeof x.className === 'string' ? x.className : '') + ' pl-media';
-      try {
-        if (v && v.videoWidth && v.readyState >= 2) {
-          const cv = document.createElement('canvas'); cv.width = v.videoWidth; cv.height = v.videoHeight;
-          cv.getContext('2d').drawImage(v, 0, 0);
-          box.style.backgroundImage = `url(${cv.toDataURL('image/jpeg', .8)})`;
-          box.style.backgroundSize = 'cover'; box.style.backgroundPosition = 'center'; box.classList.add('pl-frame');
-        } else if (v && v.style.backgroundImage) {
-          // A still of its own, set on the video until it plays (scenetry.js).
-          box.style.backgroundImage = v.style.backgroundImage; box.style.backgroundSize = v.style.backgroundSize;
-          box.style.backgroundPosition = v.style.backgroundPosition; box.classList.add('pl-frame');
-        } else if (v && v.poster) { box.style.backgroundImage = `url("${v.poster}")`; box.style.backgroundSize = 'cover'; box.classList.add('pl-frame'); }
-      } catch { /* a frame from another site cannot be read */ }
+      // Worked out once per plane (`frames`) and shared by its ten pieces, where each drew and encoded it again.
+      let look = frames && v ? frames.get(v) : undefined;
+      if (look === undefined) {
+        look = null;
+        try {
+          if (v && v.videoWidth && v.readyState >= 2) {
+            const cv = document.createElement('canvas'); cv.width = v.videoWidth; cv.height = v.videoHeight;
+            cv.getContext('2d').drawImage(v, 0, 0);
+            look = { image: `url(${cv.toDataURL('image/jpeg', .8)})`, size: 'cover', pos: 'center' };
+          } else if (v && v.style.backgroundImage) {
+            // A still of its own, set on the video until it plays (scenetry.js).
+            look = { image: v.style.backgroundImage, size: v.style.backgroundSize, pos: v.style.backgroundPosition };
+          } else if (v && v.poster) look = { image: `url("${v.poster}")`, size: 'cover', pos: '' };
+        } catch { /* a frame from another site cannot be read */ }
+        if (frames && v) frames.set(v, look);
+      }
+      if (look) { box.style.backgroundImage = look.image; box.style.backgroundSize = look.size; if (look.pos) box.style.backgroundPosition = look.pos; box.classList.add('pl-frame'); }
       const r = v && v.getBoundingClientRect();
       if (r && r.height) { box.style.width = r.width + 'px'; box.style.height = r.height + 'px'; }
       x.replaceWith(box);
     });
     c.querySelectorAll('audio, iframe').forEach((x) => x.replaceWith(make('div', 'pl-media')));
+    // Copies of media never fetch anything (a copy kept on the page for a crumple could start loading its file).
+    c.querySelectorAll('video, audio, source').forEach((x) => { x.removeAttribute('src'); if (x.tagName === 'SOURCE') x.remove(); });
     c.setAttribute('aria-hidden', 'true'); c.inert = true;
     // The copy is the element's own size, turned back against the sheet's own turn so it reads the right way up.
     c.style.cssText += `;position:absolute;left:${(Lw - W) / 2}px;top:${(Lh - H) / 2}px;width:${W}px;height:${H}px;margin:0;box-sizing:border-box;opacity:1;visibility:visible;transform:rotate(${-theta}deg);box-shadow:none;`;
@@ -88,6 +95,7 @@ var Fold = (() => {
   // Build a plane over `target`. Returns its parts, and `open`, which opens it (or folds it, reversed).
   function buildPlane(target, opts = {}) {
     const W = target.offsetWidth, H = target.offsetHeight;
+    const frames = new Map();
     const box = pageBox(target);
     const layer = make('div', 'pl-layer');
     layer.setAttribute('aria-hidden', 'true');
@@ -126,7 +134,7 @@ var Fold = (() => {
     const pair = (pts, shade) => {
       const f = make('div', 'pl-leaf');
       f.style.clipPath = P(pts);
-      f.appendChild(printed(target, W, H, Lw, Lh, theta));
+      f.appendChild(printed(target, W, H, Lw, Lh, theta, frames));
       // Plain paper over the print while it flies: the words come up as it opens.
       f.appendChild(make('i', 'pl-cover'));
       f.appendChild(make('i', 'pl-shade', `opacity:${shade}`));

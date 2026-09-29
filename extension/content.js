@@ -30,7 +30,7 @@
   async function storyboard() {
     let id = null; try { id = new URL(location.href).searchParams.get('v'); } catch {}
     if (!id) return null;
-    const find = (txt) => { const m = txt && txt.match(/"playerStoryboardSpecRenderer":\{"spec":"([^"]+)"/); return m ? m[1] : null; };
+    const find = (txt) => { const m = txt && txt.match(/"playerStoryboardSpecRenderer":\{"spec":"([^"]+)"/); return m && m[1].includes(id) ? m[1] : null; };
     let spec = null;
     for (const s of document.scripts) { if (s.textContent.includes(id) && (spec = find(s.textContent))) break; }
     if (!spec) { try { spec = find(await (await fetch(location.href, { credentials: 'include' })).text()); } catch {} }

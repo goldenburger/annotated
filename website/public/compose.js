@@ -196,8 +196,11 @@ const Compose = (() => {
       upErr('');
       if (!file) return;
       q('.upBtn').disabled = true;
+      const my = recGen;
       const r = await checkMedia(file);
       q('.upBtn').disabled = false;
+      // Reset or published while it was checked: it does not land in the fresh take.
+      if (my !== recGen || !root.isConnected) { if (r.upload && r.upload.url) try { URL.revokeObjectURL(r.upload.url); } catch { /* gone */ } return; }
       if (r.error) { upErr(r.error); return; }
       upShown(r.upload);
     }
@@ -209,6 +212,10 @@ const Compose = (() => {
     // A picture dropped or pasted onto the take goes in the same way as one chosen with the button.
     q('.takefield').addEventListener('dragover', (e) => { if (e.dataTransfer && [...e.dataTransfer.items].some((i) => i.kind === 'file')) e.preventDefault(); });
     q('.takefield').addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) { e.preventDefault(); takeFile(f); } });
+    // Missed by a few pixels, a dropped file would open in the panel in place of the capture.
+    const fileDrag = (e) => e.dataTransfer && [...(e.dataTransfer.items || [])].some((i) => i.kind === 'file');
+    root.addEventListener('dragover', (e) => { if (fileDrag(e) && !e.target.closest('.takefield')) e.preventDefault(); });
+    root.addEventListener('drop', (e) => { if (fileDrag(e) && !e.target.closest('.takefield')) e.preventDefault(); });
     q('.takeInput').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f && !e.clipboardData.getData('text/plain')) { e.preventDefault(); takeFile(f); } });
     root._resetUp = () => { upShown(null); upErr(''); };
     root._upValue = () => (upload ? { ...upload, alt: q('.upAlt').value.trim() } : null);
@@ -274,7 +281,8 @@ const Compose = (() => {
       }
     }
     // Signing in or out changes what that line should say, and it happens in the account button, not here.
-    if (typeof MutationObserver !== 'undefined') { const mo = new MutationObserver(() => { if (!root.isConnected) { mo.disconnect(); return; } validate(); }); mo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
+    let mo = null;
+    if (typeof MutationObserver !== 'undefined') { mo = new MutationObserver(() => { if (!root.isConnected) { mo.disconnect(); return; } validate(); }); mo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
     function setBusy(b) { busy = b; validate(); }
     function hideMic() { q('.micMsg').hidden = true; q('.micFix').hidden = true; }
 
@@ -292,15 +300,17 @@ const Compose = (() => {
       log(`Mic error ${name || ''}. ${(e && e.message) || ''}`);
     }
 
-    let micAsking = false, micGone = false;
+    let micAsking = false, micGone = false, recGen = 0;
     async function startRec() {
       if (rec || micAsking) return;
       hideMic();
       micAsking = true;
+      const my = recGen;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
       catch (e) { micAsking = false; return micError(e); }
       micAsking = false;
-      if (micGone || !root.isConnected) { stream.getTracks().forEach((t) => t.stop()); stream = null; return; }
+      // Reset meanwhile (Start over, a new annotation): the microphone goes off, where it recorded unseen for a minute.
+      if (micGone || !root.isConnected || my !== recGen) { stream.getTracks().forEach((t) => t.stop()); stream = null; return; }
       setVoice(null);
       const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const chunks = [];
@@ -309,7 +319,7 @@ const Compose = (() => {
       rec.onstop = () => {
         const secs = (performance.now() - recStart) / 1000;
         const blob = new Blob(chunks, { type: (mime || 'audio/webm').split(';')[0] });
-        cleanupStream(); rec = null;
+        clearInterval(timer); cleanupStream(); rec = null;
         if (blob.size && secs >= 0.5) { setVoice({ blob, url: URL.createObjectURL(blob), secs }); log(`Voice note ${secs.toFixed(1)}s, ${(blob.size / 1024).toFixed(0)} KB`); }
         showRecording(false); validate();
       };
@@ -337,7 +347,7 @@ const Compose = (() => {
     function stopRec(discard = false) {
       clearInterval(timer);
       if (rec && rec.state !== 'inactive') {
-        if (discard) rec.onstop = () => { cleanupStream(); rec = null; showRecording(false); };
+        if (discard) rec.onstop = () => { clearInterval(timer); cleanupStream(); rec = null; showRecording(false); validate(); };
         rec.stop();
       } else cleanupStream();
     }
@@ -363,7 +373,9 @@ const Compose = (() => {
       if (v) { q('.voiceAudio').src = v.url; fixDuration(q('.voiceAudio')); } else q('.voiceAudio').removeAttribute('src');
     }
     function reset() {
+      recGen++;
       forgetDraft();
+      root.querySelectorAll('.draftNote').forEach((n) => n.remove());
       stopRec(true);
       tag = null;
       root.querySelectorAll('.tagbtn').forEach((b) => b.setAttribute('aria-checked', 'false'));
@@ -375,7 +387,8 @@ const Compose = (() => {
     }
     // A panel that goes away stops a voice note being recorded, so the microphone is never left on unseen.
     root.dataset.compose = '1';
-    root.__stopRec = () => { micGone = true; stopRec(true); };
+    // It also lets go of the page (the observer on body held the dropped panel, and its clip, in memory).
+    root.__stopRec = () => { micGone = true; stopRec(true); if (mo) mo.disconnect(); };
     return { reset, value, setBusy, forgetDraft };
   }
   // What may be uploaded, and how it is checked. The take box and the comment box both ask here, so the two

@@ -72,7 +72,8 @@ var Landing = (() => {
     const tabs = [...el.querySelectorAll('.tryTab')];
     const tryBox = el.querySelector('.heroTry');
     // A real resize (not the one `pick` sends) lets go of the held height, which was in pixels for the old width.
-    addEventListener('resize', (e) => { if (e.isTrusted) tryBox.style.minHeight = ''; });
+    let heldW = innerWidth;
+    addEventListener('resize', (e) => { if (e.isTrusted && innerWidth !== heldW) { heldW = innerWidth; tryBox.style.minHeight = ''; } });
     const pick = (i, focus) => {
       const cur = panels.find((x) => !x.hidden), held = cur ? cur.style.minHeight : '';
       if (cur) cur.style.minHeight = '';
@@ -562,9 +563,9 @@ var Landing = (() => {
     s.innerHTML = `<div class="lcCopy"><h2 class="lcH">In Chrome</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}
         <p>annotated opens as a panel beside whatever you are reading. Select words, write your take, publish. This is the demo, recorded in Chrome, on a post on X.</p>
         <p><a class="heroDemo" href="https://youtu.be/VTbDJ9a-2XE" target="_blank" rel="noopener"><span class="hdPlay" aria-hidden="true"></span>Watch the whole demo <span class="num">2:44</span></a></p></div>
-      <figure class="lcFrame">
+      <div class="lcSheet paperSheet"><figure class="lcFrame">
         <div class="lcPrint"><video class="lcVideo" muted playsinline loop preload="none" poster="/media/panel-demo.jpg" aria-label="The annotated panel beside a post on X: words selected and marked, a take written and tagged, then published."></video></div>
-        <figcaption>From the demo, recorded in Chrome.</figcaption></figure>`;
+        <figcaption>From the demo, recorded in Chrome.</figcaption></figure></div>`;
     root.appendChild(s);
     const v = s.querySelector('video');
     const src = () => { if (!v.src) v.src = '/media/panel-demo.mp4'; };

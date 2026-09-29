@@ -84,7 +84,11 @@ const PanelKit = (() => {
     note.__root = root;
     flights.set(root, { gone, source, note });
     // The line lies on the page, not in the panel, so it hides while its panel does (another tab in front).
-    const keep = () => { if (!note.isConnected) return; note.style.visibility = root.offsetParent || root === document.body ? '' : 'hidden'; requestAnimationFrame(keep); };
+    const keep = () => {
+      if (!note.isConnected) return;
+      // The panel went (its tab closed, the video changed) while publishing: nothing will land, so nothing waits.
+      if (root !== document.body && !root.isConnected) { note.remove(); flights.delete(root); return; }
+      note.style.visibility = root.offsetParent || root === document.body ? '' : 'hidden'; requestAnimationFrame(keep); };
     requestAnimationFrame(keep);
   }
   function grounded(near) {

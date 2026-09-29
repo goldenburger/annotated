@@ -173,10 +173,11 @@ const EmojiKit = (() => {
   function autocomplete(el) {
     const list = document.createElement('div');
     list.className = 'emojiAc'; list.setAttribute('role', 'listbox'); list.hidden = true;
-    document.body.appendChild(list);
     let items = [], sel = 0, start = -1;
-    const close = () => { list.hidden = true; items = []; };
+    const close = () => { list.hidden = true; items = []; list.remove(); };
     function show() {
+      if (!el.isConnected) return close();
+      if (!list.isConnected) document.body.appendChild(list);
       const r = el.getBoundingClientRect();
       list.style.left = Math.max(8, r.left) + 'px';
       list.style.width = Math.min(280, r.width) + 'px';
@@ -187,8 +188,10 @@ const EmojiKit = (() => {
     function draw() {
       list.innerHTML = items.map((e, i) => `<div class="acItem" role="option" aria-selected="${i === sel}" data-i="${i}"><b>${esc(withSkin(e))}</b><span>:${esc(e.sc[0])}:</span></div>`).join('');
     }
+    const still = () => { const c = el.selectionStart; return c >= start && /^:[a-z0-9_+-]{2,}$/i.test(el.value.slice(start, c)); };
     function choose(i) {
       const e = items[i]; if (!e) return;
+      if (!still()) return close();
       const caret = el.selectionStart;
       el.value = el.value.slice(0, start) + withSkin(e) + el.value.slice(caret);
       const p = start + withSkin(e).length;
@@ -218,6 +221,7 @@ const EmojiKit = (() => {
     });
     el.addEventListener('keydown', (ev) => {
       if (list.hidden) return;
+      if (!still()) { close(); return; }
       if (ev.key === 'ArrowDown') { ev.preventDefault(); sel = (sel + 1) % items.length; draw(); }
       else if (ev.key === 'ArrowUp') { ev.preventDefault(); sel = (sel - 1 + items.length) % items.length; draw(); }
       else if (ev.key === 'Enter' || ev.key === 'Tab') { ev.preventDefault(); ev.stopImmediatePropagation(); choose(sel); }
@@ -244,6 +248,7 @@ const EmojiKit = (() => {
   const normReactions = (list) => (list || []).map((x) => (typeof x === 'string' ? { emoji: x, count: 1, mine: true } : { emoji: x.emoji, count: x.count || 1, mine: !!x.mine }));
   function reactions(container, { list = [], onChange, size = '', addButton = null }) {
     let items = normReactions(list);
+    const gens = {};
     if (addButton) addButton.addEventListener('click', () => quickBar(addButton, (ch) => toggle(ch)));
     const title = (r) => {
       const others = r.count - (r.mine ? 1 : 0);
@@ -260,6 +265,13 @@ const EmojiKit = (() => {
       const add = container.querySelector('.rAdd');
       if (add) add.addEventListener('click', () => quickBar(add, (ch) => toggle(ch)));
     }
+    function undoOne(ch, added) {
+      const i = items.findIndex((r) => r.emoji === ch);
+      if (added) { if (i >= 0 && items[i].mine) { items[i].count--; items[i].mine = false; if (!items[i].count) items.splice(i, 1); } }
+      else if (i >= 0 && !items[i].mine) { items[i].count++; items[i].mine = true; }
+      else if (i < 0) items.push({ emoji: ch, count: 1, mine: true });
+      draw();
+    }
     function toggle(ch) {
       const i = items.findIndex((r) => r.emoji === ch);
       let added = false;
@@ -267,7 +279,11 @@ const EmojiKit = (() => {
       else if (i >= 0) { items[i].count++; items[i].mine = true; added = true; }
       else { items.push({ emoji: ch, count: 1, mine: true }); added = true; }
       addRecent(baseOf(ch).ch);
-      draw(); onChange && onChange(items.map((r) => ({ ...r })), { emoji: ch, on: added });
+      draw();
+      // A change the page could not save comes back false, and that one emoji goes back to how it was, if nothing has
+      // changed it since; other chips, saved or not, are left alone (eleventh audit pass).
+      const mine = gens[ch] = (gens[ch] || 0) + 1;
+      if (onChange) Promise.resolve(onChange(items.map((r) => ({ ...r })), { emoji: ch, on: added })).catch(() => false).then((ok) => { if (ok === false && gens[ch] === mine) undoOne(ch, added); });
       // A small pop on the chip you just added.
       if (added) { const k = items.findIndex((r) => r.emoji === ch); const c = container.querySelectorAll('.rChip')[k]; if (c) c.classList.add('pop'); }
     }

@@ -237,6 +237,7 @@ var SceneTry = (() => {
       if (t >= z || el.ended) { stop(); show(a); return; }
       raf = requestAnimationFrame(tick);
     };
+    let onSeeked = null, onMeta = null;
     play.addEventListener('click', () => {
       if (playing) { stop(); return; }
       playing = true;
@@ -246,7 +247,9 @@ var SceneTry = (() => {
       // A seek before the file has said how long it is does not hold, so it waits for that, then for the seek.
       const go = () => {
         if (!playing) return;
-        el.addEventListener('seeked', () => {
+        if (onSeeked) el.removeEventListener('seeked', onSeeked);
+        el.addEventListener('seeked', onSeeked = () => {
+          onSeeked = null;
           if (!playing) return;
           const p = el.play();
           if (p && p.catch) p.catch(() => { stop(); root.querySelector('.stHint').textContent = 'This browser would not play it. Try again.'; });
@@ -255,7 +258,7 @@ var SceneTry = (() => {
         el.currentTime = a;
       };
       if (el.readyState >= 1) go();
-      else { el.addEventListener('loadedmetadata', go, { once: true }); el.preload = 'metadata'; el.load(); }
+      else { if (onMeta) el.removeEventListener('loadedmetadata', onMeta); el.addEventListener('loadedmetadata', onMeta = go, { once: true }); el.preload = 'metadata'; el.load(); }
     });
     // Anything else on the page taking over puts it away: another tab, or the scene scrolled out of sight.
     const hush = () => { stop(); root.querySelectorAll('.stCardPlay video, .stCardPlay audio').forEach((m) => m.pause()); };

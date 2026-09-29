@@ -478,6 +478,7 @@ const VideoPanel = (() => {
       if (open) pv.play().catch(() => {}); else pv.pause();
     });
     function clearResult() {
+      doneGen++;   // checks still running for the clip before stop where they are
       result = null; isPublished = false; checking = false; checksFailed = false;
       foldTranscript(false);
       if (q('.failBox')) q('.failBox').hidden = true;
@@ -532,8 +533,10 @@ const VideoPanel = (() => {
       } catch (e) { return { error: e.message }; }
     }
 
+    let doneGen = 0;
     async function onDone(m) {
       if (isAudio) return onAudioDone(m);
+      const my = ++doneGen, gone = () => my !== doneGen;
       const url = blobUrl(m.blob);
       result = { kind: 'video', blob: m.blob, url, start: m.start, end: m.end, duration: info.duration, poster: m.poster, title: m.title || info.title,
         videoId: m.videoId || info.videoId, channel: m.channel || '', thumb: m.thumb || '', height: m.height || 0 };
@@ -558,6 +561,7 @@ const VideoPanel = (() => {
       const vm = once(v, 'loadedmetadata');
       v.src = url;
       await vm;
+      if (gone()) { v.removeAttribute('src'); v.load(); return; }
       if (!v.videoWidth) {
         // No picture track at all: say so straight away instead of running the other checks.
         status.add('fail', 'Clip has a picture', 'The recording has no video frames. Capture again.');
@@ -566,6 +570,7 @@ const VideoPanel = (() => {
         return;
       }
       const req = m.end - m.start, dur = await withTimeout(realDuration(v), 5000, NaN);
+      if (gone()) { v.removeAttribute('src'); v.load(); return; }
       const want = result.height || 480;
       status.add(Math.abs(v.videoHeight - want) <= 2 ? 'pass' : 'fail', `Output is ${want}p`, `Decoded ${v.videoWidth}x${v.videoHeight}`);
       status.add(isFinite(dur) && Math.abs(dur - req) <= 0.75 ? 'pass' : 'fail', 'Length matches the selection', `Asked for ${req.toFixed(1)}s, got ${isFinite(dur) ? dur.toFixed(2) + 's' : 'unknown'}`);
@@ -573,11 +578,13 @@ const VideoPanel = (() => {
       const span = isFinite(dur) && dur > 0 ? dur : req;
       let mid = 0;
       try { mid = await withTimeout(frameBrightness(v, Math.min(span / 2, Math.max(0, span - 0.5))), 5000, 0); } catch (e) { log('Picture check could not run. ' + e.message); }
+      if (gone()) { v.removeAttribute('src'); v.load(); return; }
       status.add(mid > 4 ? 'pass' : 'fail', 'Frames contain picture', mid > 4 ? `Mid-clip brightness ${mid.toFixed(0)} of 255` : 'The middle of the clip is black. The video may be protected.');
       v.currentTime = 0;
       if (!m.hasAudioTrack) status.add('fail', 'Clip has audio', 'No audio track was available from the player.');
       else {
         const a = await withTimeout(audioLevel(m.blob), 6000, { error: 'timed out' });
+        if (gone()) { v.removeAttribute('src'); v.load(); return; }
         if (a.error) status.add('info', 'Clip has an audio track', `Could not measure loudness (${a.error}).`);
         else status.add(a.rms > 0.002 ? 'pass' : 'fail', 'Clip has audible sound', `RMS level ${a.rms.toFixed(4)}`);
       }
@@ -588,6 +595,7 @@ const VideoPanel = (() => {
       flagFailures();
       v.removeAttribute('src'); v.load();
       await pvReady;
+      if (gone()) return;
       checking = false;
       render();
     }
@@ -604,6 +612,7 @@ const VideoPanel = (() => {
 
     // Podcast clips: check the recording, then draw its waveform as the clip's picture.
     async function onAudioDone(m) {
+      const my = ++doneGen, gone = () => my !== doneGen;
       const url = blobUrl(m.blob);
       result = { kind: 'audio', blob: m.blob, start: m.start, end: m.end, duration: info.duration, url: m.url || info.url, title: m.title || info.title,
         show: m.show || info.show || '', artwork: m.artwork || info.artwork || '', poster: null };
@@ -617,10 +626,12 @@ const VideoPanel = (() => {
       a.src = url;
       await am;
       const req = m.end - m.start, dur = await realDuration(a);
+      if (gone()) { a.removeAttribute('src'); a.load(); return; }
       status.add(isFinite(dur) && Math.abs(dur - req) <= 0.75 ? 'pass' : 'fail', 'Length matches the selection', `Asked for ${req.toFixed(1)}s, got ${isFinite(dur) ? dur.toFixed(2) + 's' : 'unknown'}`);
       status.add(isFinite(dur) && dur <= MAX + 0.5 ? 'pass' : 'fail', 'Under the 90 second cap', '');
       let w = null;
       try { w = await Waveform.fromBlob(m.blob, 40); } catch (e) { log('Waveform failed. ' + e.message); }
+      if (gone()) { a.removeAttribute('src'); a.load(); return; }
       const audible = w && w.peak > 0.003;
       status.add(audible ? 'pass' : 'fail', 'Clip has audible sound', audible ? `Peak level ${w.peak.toFixed(3)}` : 'The recording is silent. This site probably does not allow its audio to be recorded.');
       if (w) { result.poster = Waveform.image(w); q('.ccPoster').src = result.poster; }
@@ -630,6 +641,7 @@ const VideoPanel = (() => {
       flagFailures();
       a.removeAttribute('src'); a.load();
       await Compose.fixDuration(pv);
+      if (gone()) return;
       checking = false;
       render();
     }
@@ -824,8 +836,9 @@ const VideoPanel = (() => {
         }
         if (!isAudio && !filmAsked && ad.frames) {
           filmAsked = true;
+          const filmFor = info.videoId;
           ad.frames(info).then((f) => {
-            if (!f) return;
+            if (!f || (info && info.videoId) !== filmFor) return;
             film = f;
             f.onupdate = () => {
               if (f.failed) { log('Filmstrip unavailable: every frame came back blank, so the trimmer stays plain.'); film = null; q('.track').classList.remove('filmReady'); return; }

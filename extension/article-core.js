@@ -15,7 +15,40 @@ var ArticleCore = (() => {
   // collapsed the break between them. Text with no block around it is grouped by its nearest container, so
   // the words of one line are never split apart.
   const GROUP = 'p, li, blockquote, dd, dt, figcaption, h1, h2, h3, h4, h5, h6, td, th, pre, div, section, article, header, footer, figure, aside, main';
-  function blockText(range) {
+  // Elements inside a range that are not drawn (display none, hidden, transparent). A page could hide words inside a
+  // passage, and the quote, taken from the page's text rather than from what is on screen, would say them under your
+  // name (eleventh audit pass). Usually there are none, and then nothing changes.
+  function hiddenIn(range) {
+    const top = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
+    const out = [];
+    if (!top || typeof top.checkVisibility !== 'function') return out;
+    // Only elements inside the range are looked at: a subtree outside it, or already hidden (its words are dropped with
+    // it), is stepped over whole, and the walk ends past the range (twelfth audit pass; select-all on a news page walked
+    // thousands of elements two or three times per selection).
+    const next = (e, into) => {
+      if (into && e.firstElementChild) return e.firstElementChild;
+      for (; e && e !== top; e = e.parentElement) if (e.nextElementSibling) return e.nextElementSibling;
+      return null;
+    };
+    let el = top.firstElementChild, n = 0;
+    while (el && n++ < 20000) {
+      if (!range.intersectsNode(el)) {
+        try { if (range.comparePoint(el, 0) === 1) break; } catch { break; }
+        el = next(el, false); continue;
+      }
+      if (el.matches('.annotated-ui, script, style, noscript, template')) { el = next(el, false); continue; }
+      const cs = getComputedStyle(el);
+      // A wrapper drawn only through its children (display: contents, common in React builds) has no box and so reads as
+      // not visible; its children are looked at instead.
+      if (cs.display === 'contents') { el = next(el, true); continue; }
+      if (!el.checkVisibility({ opacityProperty: true })) { out.push(el); el = next(el, false); continue; }
+      // visibility: hidden can be undone by a child, so it is decided for each text node (blockText), not for the subtree.
+      if (cs.visibility !== 'visible') out.vis = true;
+      el = next(el, true);
+    }
+    return out;
+  }
+  function blockText(range, hidden = []) {
     const top = range.commonAncestorContainer.nodeType === 1 ? range.commonAncestorContainer : range.commonAncestorContainer.parentNode;
     const w = document.createTreeWalker(top, NodeFilter.SHOW_TEXT);
     const out = []; let cur = null, buf = '';
@@ -24,6 +57,8 @@ var ArticleCore = (() => {
       if (!range.intersectsNode(n)) continue;
       const el = n.parentElement;
       if (!el || el.closest('script, style, noscript, .annotated-ui')) continue;
+      if (hidden.length && hidden.some((h) => h.contains(n))) continue;
+      if (hidden.vis && getComputedStyle(el).visibility !== 'visible') continue;
       let t = n.nodeValue;
       if (n === range.endContainer) t = t.slice(0, range.endOffset);
       if (n === range.startContainer) t = t.slice(range.startOffset);
@@ -41,6 +76,8 @@ var ArticleCore = (() => {
     // A range that starts and ends on an element holding several blocks (a whole post taken at once) is several
     // blocks, not one: it read "doing so.Anthropic is" with the paragraphs run together (2026-09-25).
     const holdsBlocks = s.nodeType === 1 && s.querySelector && s.querySelectorAll(GROUP).length > 1;
+    const hidden = hiddenIn(r);
+    if (hidden.length || hidden.vis) { try { return blockText(r, hidden); } catch { /* fall through */ } }
     if (!holdsBlocks && bs && be && (bs.closest(GROUP) || bs) === (be.closest(GROUP) || be)) return norm(rangeText(r));
     try { return blockText(r) || norm(rangeText(r)); } catch { return norm(rangeText(r)); }
   };
@@ -310,8 +347,19 @@ var ArticleCore = (() => {
       published: attr('meta[property="article:published_time"]') || ld.datePublished || attr('time[datetime]', 'datetime'),
       image: abs(attr('meta[property="og:image"]') || attr('meta[name="twitter:image"]') || [].concat(ld.image || []).map((i) => (typeof i === 'string' ? i : i.url))[0]),
       description: attr('meta[property="og:description"]') || attr('meta[name="description"]'),
-      url: abs(attr('link[rel="canonical"]', 'href')) || loc.href.split('#')[0],
+      url: sameSite(abs(attr('link[rel="canonical"]', 'href')), loc.hostname) || loc.href.split('#')[0],
     };
+  }
+  // A page's canonical address is kept only on its own site (a subdomain either way counts), since a page could name
+  // another outlet's article as its canonical one and the annotation would link, and credit, that outlet for its words
+  // (eleventh audit pass). Only http(s).
+  function sameSite(u, host) {
+    if (!u) return '';
+    try {
+      const h = new URL(u).hostname.replace(/^www\./, ''), here = String(host || '').replace(/^www\./, '');
+      if (!/^https?:$/.test(new URL(u).protocol)) return '';
+      return h === here || h.endsWith('.' + here) || here.endsWith('.' + h) ? u : '';
+    } catch { return ''; }
   }
 
 
@@ -571,12 +619,13 @@ var ArticlePage = (() => {
       // The button is taller than a line, so beside the last line it can still reach the line above or below.
       // Sitting level with the line is tried first, then hanging below it, and if neither is clear of the
       // writing the button goes back to above the passage.
-      const tailY = [lastR.top + (lastR.height - bh) / 2, lastR.top]
+      const tailYOf = () => [lastR.top + (lastR.height - bh) / 2, lastR.top]
         .find((ty) => tailX + bw <= W - 8 && !hitsText(tailX, ty, bw, bh, lines) && clearSpace(tailX, ty, bw, bh, endBlock));
+      let tailY;
       let x, y;
       if (block.left - bw - 14 >= 8 && clearSpace(block.left - bw - 14, mid, bw, bh, blockEl)) { x = block.left - bw - 14; y = mid; }
       else if (block.right + bw + 14 <= W - 8 && clearSpace(block.right + 14, mid, bw, bh, blockEl)) { x = block.right + 14; y = mid; }
-      else if (tailY !== undefined) { x = tailX; y = tailY; }
+      else if ((tailY = tailYOf()) !== undefined) { x = tailX; y = tailY; }
       else if (first.top - bh - 8 >= 8) { x = first.left; y = first.top - bh - 8; }
       else { x = lastR.left; y = lastR.bottom + 8; }
       const fx = Math.max(8, Math.min(W - bw - 8, x)), fy = Math.max(8, Math.min(H - bh - 8, y));

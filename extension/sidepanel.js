@@ -201,7 +201,7 @@ async function publish(tid, item, take) {
   const after = Prefs.get().afterPublish;
   // Straight after publishing, the page behind you really is the one you were annotating, so Back can mean
   // that. Any other way into an annotation, you came from a list and Back has to go there instead.
-  const t = after === 'page' ? await openExtPage('annotation.html#' + id, () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {})) : null;
+  const t = after === 'page' ? await openExtPage('annotation.html#' + id, () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {})).catch(() => null) : null;
   log((author ? 'Published ' : 'Saved locally ') + id);
   return { tabId: t && t.id, id, permalink: Backend.permalink(id, author && author.handle), note, local, offline };
 }
@@ -267,7 +267,8 @@ async function openExtPage(path, beforeLoad = null) {
     if (t.windowId != null && t.windowId !== winId) chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
     return done;
   };
-  const same = tabs.find((t) => t.url === url && t.windowId === winId) || tabs.find((t) => t.url === url);
+  const at = (t) => t.pendingUrl || t.url;
+  const same = tabs.find((t) => at(t) === url && t.windowId === winId) || tabs.find((t) => at(t) === url);
   if (same) return show(same);
   if (beforeLoad) await beforeLoad();
   if (OWN_PAGE.test(url)) {
@@ -282,8 +283,8 @@ async function openExtPage(path, beforeLoad = null) {
 const viewPublished = (ref, { justPublished = true } = {}) => {
   if (!ref) return;
   const mark = justPublished ? () => chrome.storage.session.set({ annFrom: 'publish' }).catch(() => {}) : null;
-  if (ref.tabId) chrome.tabs.update(ref.tabId, { active: true }).catch(() => openExtPage('annotation.html#' + ref.id, mark));
-  else openExtPage('annotation.html#' + ref.id, mark);
+  // openExtPage finds a tab already showing it; the tab publishing opened may have moved on to another annotation.
+  openExtPage('annotation.html#' + ref.id, mark).catch(() => {});
 };
 // Only your own count. Someone else signed in on this computer annotating the same passage is not you
 // repeating yourself. Whether it was published or only saved here changes what the warning can say.
@@ -503,10 +504,11 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
     pause: () => { audio.pause(); stopAt = null; },
     // The clip is cut straight from the episode's file: only those bytes are downloaded.
     async capture(start, end) {
-      const t0 = performance.now();
+      const t0 = performance.now(), my = ep;
       cutting = new AbortController();
       try {
         const cut = await FeedPod.slice(probe, start, end, cutting.signal);
+        if (ep !== my) return { ok: false, error: 'Capture cancelled.' };
         const i = info();
         api.engine({ type: 'capture-done', blob: cut.blob, size: cut.blob.size, recorderMime: 'audio/mpeg (cut from the original file, not re-recorded)',
           start, end, audioOnly: true, elapsedMs: Math.round(performance.now() - t0), url: i.url, title: i.title, show: i.show, artwork: i.artwork });
@@ -519,9 +521,15 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
     peaks: async () => (probe ? FeedPod.waveform(probe, 10) : null),
   }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, { ...i, feedUrl: ep && ep.feedUrl, audioUrl: ep && ep.audioUrl }, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
   p.api = { update: () => probe && api.update(info()), engine: (m) => api.engine(m) };
-  const tick = setInterval(() => { if (!el.isConnected) return clearInterval(tick); if (probe && !q('.fpClip').hidden) api.update(info()); }, 400);
+  const tick = setInterval(() => {
+    if (!el.isConnected) return clearInterval(tick);
+    // Behind another tab's panel: nothing to follow, and nothing should go on playing out of sight.
+    if (el.hidden) { if (!audio.paused && !browsing) audio.pause(); return; }
+    if (probe && !q('.fpClip').hidden) api.update(info());
+  }, 400);
 
   async function choose(e) {
+    if (cutting) cutting.abort();   // a clip being cut from the episode before is not this one's
     const my = ++pickGen;
     ep = e; probe = null;
     q('.fpStatus').textContent = /["“”]/.test(e.title) ? `Opening ${e.title}…` : `Opening "${e.title}"…`;
@@ -591,6 +599,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
   const noteFor = () => (isPodcastApp(url) ? (WHY[why] || WHY.protected) : 'Search for any podcast episode by name. annotated clips it from the show\'s public feed.');
   let quietChange = false;
   q('.fpChange').addEventListener('click', () => {
+    if (cutting) cutting.abort();
     pickGen++; audio.pause(); q('.fpClip').hidden = true; q('.fpChange').hidden = true; q('.fpSearch').hidden = false; q('.fpHead').hidden = false;
     q('.fpTitle').textContent = 'Find the episode'; q('.fpQ').focus();
     // The episode that was open is let go of entirely. Keeping it made the panel go on ignoring the tab, so
@@ -704,7 +713,7 @@ function makeArticle(tid, url, hasAudio = false) {
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
     // Only a page with audio of its own offers it. On every news page it was clutter, and Home has it.
     onFindPodcast: hasAudio ? () => { feedAsked.set(tid, null); drop(tid); refresh(); } : null,
-    xHost: onXHost(url), ytHost: onYtHost(url), pasteForm, wirePaste, draftKey: 'a:' + url, keep: keepFor('a:' + url) });
+    xHost: onXHost(url), ytHost: onYtHost(url), pasteForm, wirePaste, draftKey: 'a:' + tid + ':' + url, keep: keepFor('a:' + tid + ':' + url) });
   return p;
 }
 
@@ -749,7 +758,7 @@ function makePost(tid, url) {
       try { await tabShot(tid, r); } catch (e) { r.shotError = 'No picture this time. ' + e.message; }
       return r;
     },
-  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked, draftKey: 'p:' + url, keep: keepFor('p:' + url) });
+  }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked, draftKey: 'p:' + tid + ':' + url, keep: keepFor('p:' + tid + ':' + url) });
   return { kind: 'post', url, el, api };
 }
 
@@ -858,7 +867,7 @@ function staleTalk() {
   talkRows = null; talkAt = 0;
   document.querySelectorAll('.talked').forEach((el) => { const box = el.closest('.esAction, .startBlock'); if (box && !el.closest('.suggest[hidden]') && box.getClientRects().length) drawTalked(box); });
 }
-chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) staleTalk(); });
+chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) { homeFetched = null; staleTalk(); } });
 // Anyone who wants a clean slate turns the suggestions off in Display settings, which takes the talked
 // about list and the places to start. Pasting a link and clipping a podcast by name stay, being tools.
 function showSuggest(box) {
@@ -924,9 +933,11 @@ function wireStart(box, beside = false) {
   box.querySelector('.fpAny').addEventListener('click', async () => {
     const t = await activeTabNow();
     if (!t) return;
-    if (!beside || isBlankTab(t)) { feedAsked.set(t.id, null); if (browsing) closeBrowse(); else refresh(); return; }
+    // Asked on a web page it belongs to that site (null, filled in by refresh); asked on a blank tab to none (''), so the
+    // first site the tab reaches lets it go, where it held the tab on that site (ninth audit pass).
+    if (!beside || isBlankTab(t)) { feedAsked.set(t.id, isWeb(t.url) ? null : ''); if (browsing) closeBrowse(); else refresh(); return; }
     const n = await chrome.tabs.create({}).catch(() => null);
-    if (n) { feedAsked.set(n.id, null); refresh(); }
+    if (n) { feedAsked.set(n.id, ''); refresh(); }
   });
   showSuggest(box);
 }
@@ -1038,7 +1049,7 @@ async function annotateNow(tid) {
     await new Promise((r) => setTimeout(r, 100));
   }
 }
-let browseGen = 0;
+let browseGen = 0, homeFetched = null, tabPressed = false, listFailed = false;
 async function drawBrowse({ quick = false } = {}) {
   const kind = browsing, gen = ++browseGen;
   const all = await Store.allMeta().catch(() => []);
@@ -1059,8 +1070,13 @@ async function drawBrowse({ quick = false } = {}) {
   if (kind === 'home') {
     title = 'Home';
     // The list and the rails are asked for together (performance audit), where one waited for the other.
-    const [shared, socAsked] = quick ? [[], null] : await Promise.all([
-      Cloud.list({ limit: 60 }).catch(() => []), Cloud.discovery(me, {}).catch(() => null)]);
+    const reuse = homeFetched && homeFetched.who === (me && me.id) && Date.now() - homeFetched.at < 60000 && tabPressed;
+    tabPressed = false;
+    const [shared, socAsked] = quick ? [[], null] : reuse ? [homeFetched.shared, homeFetched.soc] : await Promise.all([
+      Cloud.list({ limit: 60 }).catch(() => null), Cloud.discovery(me, {}).catch(() => null)]).then(([l, d]) => [l || (listFailed = true, []), d]);
+    // Kept for tab presses only when it loaded; a failed read is tried again on the next press.
+    if (!quick && !reuse && !listFailed) homeFetched = { who: me && me.id, at: Date.now(), shared, soc: socAsked };
+    listFailed = false;
     const seen = new Set(shared.map((r) => r.id));
     const merged = [...shared.map((r) => ({ ...r, mine: !!(me && r.author && r.author.id === me.id) })),
       ...local.filter((r) => !seen.has(r.id))];
@@ -1072,7 +1088,7 @@ async function drawBrowse({ quick = false } = {}) {
     // then jumped from For you to Everyone each time the tab beside it changed (recording of 2026-09-25 at 14:08,
     // 1:56 to 2:04, 2:21, 3:07). Only with nothing kept does it say it is loading.
     tabs = { current: cur, options: [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']],
-      onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); drawBrowse(); } };
+      onTab: (k) => { browseTab = k; browsePressed = true; Cloud.saveTab(k); tabPressed = true; drawBrowse(); } };
     if (quick) await lastHomeP;
     const kept = lastHome && lastHome.who === (me && me.id) ? lastHome : null;
     if (quick && kept) { records = kept.records; note = kept.note; emptyNote = kept.emptyNote; tabs = { ...tabs, current: kept.current }; }
@@ -1102,6 +1118,8 @@ async function drawBrowse({ quick = false } = {}) {
   // Said once, when copies of annotations deleted online have just been taken off this computer.
   if (pruned.dropped) note = `${pruned.dropped === 1 ? 'One annotation was' : pruned.dropped + ' annotations were'} deleted online, so ${pruned.dropped === 1 ? 'it is' : 'they are'} gone from here too.${note ? ' ' + note : ''}`;
   AnnotationPage.renderBrowse($('#browseMode'), {
+    // Your handle is part of what is drawn: after changing it, the full-page link went on to the old one.
+    sigExtra: (me && me.handle) || '',
     title, records, note, emptyNote, tabs, localAware: true, backTo, action,
     onOpen: (id) => openExtPage('annotation.html#' + id),
     onBack: backTo ? closeBrowse : null,
@@ -1212,7 +1230,7 @@ function drop(tid) {
 // Held so the refresh loop does not ask the session for a profile two and a half times a second. Signing in
 // or out throws it away at once, because a minute of the wrong account is a minute of the wrong answers.
 let profileCache = { at: 0, who: null };
-if (typeof Backend !== 'undefined' && Backend.onChange) Backend.onChange(() => { profileCache = { at: 0, who: null }; annKey = null; staleTalk(); if (browsing) drawBrowse(); });
+if (typeof Backend !== 'undefined' && Backend.onChange) Backend.onChange(() => { profileCache = { at: 0, who: null }; annKey = null; homeFetched = null; staleTalk(); if (browsing) drawBrowse(); });
 // A question that may never be answered, given a time limit. Offline, the session and the profile each wait
 // on the network, and Publish sat on nothing and then on "Publishing" with no end.
 const inTime = (p, ms) => Promise.race([p, new Promise((_, no) => setTimeout(() => no(new Error('timeout')), ms))]);
@@ -1403,7 +1421,8 @@ async function refresh() {
     const base = chrome.runtime.getURL('');
     if (tab.url && (tab.url.startsWith(base + 'annotation.html') || tab.url.startsWith(base + 'feed.html'))) {
       // Only reread saved annotations when something changed (the stamp) or the page did.
-      const key = tab.url + ' ' + (await Store.stamp());
+      // The tab you were reading is part of it, or the way back went on naming the one before (ninth audit pass).
+      const key = tab.url + ' ' + (await Store.stamp()) + ' ' + lastSourceTab;
       show(null); $('#empty').hidden = true; $('#annMode').hidden = false;
       if (key === annKey) return;
       annKey = key;
@@ -1433,6 +1452,9 @@ async function refresh() {
         if (s) current = { ...current, comments: s.comments, reactions: s.reactions,
           take: { ...current.take, poll: current.take.poll ? { ...current.take.poll, counts: s.poll.counts, vote: s.poll.vote } : null } };
       }
+      // The profile and the counts can take seconds on a slow network; another tab chosen meanwhile is not drawn over.
+      const front = PINNED ? tab : await activeTabNow().catch(() => null);
+      if (!front || front.id !== tab.id) { annKey = null; return; }
       AnnotationPage.renderSide($('#annMode'), {
         current, records,
         // The store belongs to this computer, and two accounts can share one. Who you are decides which of

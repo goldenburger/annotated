@@ -1487,6 +1487,101 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   first pixel). Drawings: a lit piece keeps 8 pixels of room (lifting pulled its edge in and it flickered), the hover
   keeps a live list and does nothing without drawings, and leaving the window is noticed (`mouseout` with no
   `relatedTarget`). Not tested: the per-panel flights (the planes are off in tests) and the capture guard.
+- **Ninth pass of the audit of 2026-09-29** (2.38.9, `tests/audit9.py`; reviews of the panel shell and pages, and of the data
+  layer, website and migrations). Database (migration 25, applied live): a trending row takes its title and kind from the
+  source's first annotation (one account could retitle a row others built with a title that sorts first), an empty
+  videoId is no key, every profile has a handle, and a few names are kept for annotated (`handle_reserved`: annotated,
+  admin, support and the like; new accounts step past them, and the account menu says "That handle is kept for
+  annotated."). Comments, reactions and votes the database did not take are taken back: the hooks in `annotation.js` and
+  `site.js` answer false (signed out, a limit, the network), the page removes the reply and puts its words and GIF back in
+  the box, `EmojiKit.reactions` restores its chips and the poll its counts; signed out, a reply showed as yours and was lost
+  on the way to sign in. A deleted comment leaves the database only when its six-second Undo has gone (or the page
+  closes), and a delete made while it was still posting waits for it (`adding`); Undo re-posted it without its photo.
+  Comments are told apart by a key of their own (`keyOf`), not their millisecond. Carried-over comments keep GIFs and
+  photos, and at most eight reactions go (a ninth refused them all). A tag page asks the database for the tag; a profile's
+  count and Delete all cover all of them (`Cloud.countBy`, a head count; Delete all reads again until none are left); your
+  count beside someone else's annotation is counted, not downloaded; For you, Following and Everyone draw from the list
+  already read on the website, the panel and the extension's feed page; a feed keeps its filter and sort when drawn again
+  (`feedChoice`); the claim form holds 200, 320 and 2000 characters. Panel: the way back beside the feed follows the tab
+  you were last reading (`annKey` carries `lastSourceTab`); a slow profile or count read no longer draws the annotation
+  card beside another tab; View page opens that annotation (the tab publishing opened may show another); a page that fails
+  to open after publishing is not a failed publish; `openExtPage` matches `pendingUrl` (two quick presses opened two
+  tabs); Clip a podcast by name asked on a blank tab lets go on the first site reached; a finder behind another tab's
+  panel stops following and pauses its preview; a list is drawn again when your handle changes (`sigExtra`). The
+  extension's annotation and feed pages wait three seconds at most for who you are, and the annotation page three for its
+  rail; a kept annotation showed nothing for over fourteen seconds with the network failing and the token expired, and now
+  shows in about six. Not done: `Cloud.list` still reads every comment's words to find the first reply (a leaner select
+  could change which reply is shown, not checked), and the second annotation page asks who you are before its rail.
+- **Tenth pass of the audit of 2026-09-29, and the recording of 2026-09-29 at 20:27** (2.38.9 with the ninth,
+  `tests/audit10.py`). A regression review of the eighth and ninth passes: a rollback checks it is still the same drawing
+  of the page (`current()`, `__annGen`; annotations share one container, so `isConnected` always passed and a failed reply
+  was drawn into the next annotation opened); a deleted comment is sent once (a `done` flag, the timer cleared, one
+  `pagehide` listener for the page) and one already gone with its annotation counts as deleted; Undo of a delete on an
+  annotation kept here is saved (`restored`); a late answer to who you are never redraws over a box in use or an open
+  question, and a failed read is not signing out (`FAILED`); a rail that arrives after its three seconds is drawn then; a
+  publish whose panel went cleans up its line; a reaction or vote is taken back only if nothing newer came since
+  (`changeGen`, `pollGen`), and a hook that throws counts as not saved; a sign-out elsewhere reaches every page
+  (`chrome.storage.onChanged` on `annotated-auth`); a failed list is not kept for tab presses, and Delete all stops and
+  says so if it cannot check again; a carried-over reply's photo has a minute and a name of its own; opening Home beside
+  the podcast finder does not pause its preview; a phone's address bar is not a resize. The capture pipeline: a podcast
+  clip is cut from the episode it was asked of (another chosen meanwhile cancels it; it was published under the new
+  episode's name with the old one's sound); Cancel reaches a capture still checking whether it may copy the page's audio;
+  the page's own player changing episode ends an audio capture, as it does for video; an earlier capture's checks stop
+  once a newer capture begins (`doneGen`); only this video's filmstrip is used; a video's frame is drawn once per plane,
+  not once per piece (`frames` in `fold.js`), and copies of media never load; the Annotate button measures the end of the
+  last line only when neither margin is free; Show me an example pressed twice runs once; Play selection pressed again
+  leaves one waiting listener. From the recording: the In Chrome demo lies on a torn sheet (`.lcSheet.paperSheet`); the
+  plane to Yours so far aims only once the page has stopped moving (`settled` in `planes.js`; the tab resets while the
+  plane folds, where it reset during the flight and the page below moved up, so the plane unfolded where the card had
+  been and the card slid up to it; this was not reproduced in headless Edge, whose test shows no movement either way); the
+  heavy sheets below the hero have compositor layers while things ease (`will-change: transform`), and the Features
+  example in use sits above its neighbours. Not done: the capture-pipeline races have no test of their own.
+- **Eleventh pass of the audit of 2026-09-29** (2.39.0, `tests/audit11.py`, migration 26 applied live). Security: a page's
+  canonical address is kept only on its own site (`sameSite` in `article-core.js`), since a page could credit its words
+  to another outlet; words a page hides inside a passage (not drawn, or transparent) are left out of the quote
+  (`hiddenIn`); a shared poll is read as a question and options only (`cleanPoll`), since a row could carry counts of its
+  own making; a post links only to a post on X (`srcUrlOf` through `xPost`); only an annotation's author may date a
+  comment in the past (carrying replies over), and a new account named like a reserved handle is shown as Reader
+  (migration 26, checked live in a rolled-back block). Performance: `Cloud.list` asks for every reply's author but the
+  words of only the first six (`first:comments` with `first.limit=6`, checked against the live API). Bugs: a refused
+  reaction goes back alone, even after another was pressed (`gens`, `undoOne` in `emojikit.js`); the emoji suggestion
+  list is on the page only while shown and fills in only while the caret is still on its word; a take box reset while
+  the microphone or a file check was answering drops what comes (`recGen`), a recording that ends stops its timer, and
+  the take box lets go of the page's observer; a file dropped just beside the take box does not replace the panel; a
+  handle saved while the menu closed or the account changed does not throw, and every page learns it
+  (`Backend.refreshWho`, `annotatedWho`); a database connection the browser closed is opened again (`store.js`); a draft
+  and a kept capture belong to their tab. Not done: a same-id annotation deleted and published again is not refused
+  (a tombstone), and `sidepanel.html` opened as a tab of its own is not refused, since the tests drive the panel that way.
+- **Twelfth pass of the audit of 2026-09-29** (2.39.0, `tests/audit12.py`, migration 27 applied live). Security: a card
+  names the host its link goes to when the site name does not belong to it (`siteLabel`, "The New York Times ·
+  evil.example"), since a row or a page's own og:site_name could put one outlet's name over another's link; a post's link
+  is parsed and only the post's own address on X is kept (`xPost`; a status path followed by ../ reached other x.com
+  pages); a display name or handle that holds "annotated", or is a reserved word, look-alike Cyrillic and Greek letters
+  read as Latin, is refused (`name_reserved`; accounts are named Reader, handles step past; none existed). Bugs: a late
+  rail or profile answer draws the annotation page again only when no plane is arriving and no box is in use, and keeps
+  the reader's place (`lateLoad`); the panel's Home forgets the list it keeps for tab presses when annotations, follows
+  or the account change; a comment deleted on an annotation kept only here is saved at once; your counts on the website
+  are counted (`countBy`), not a capped list's length; a handle change keeps the last good profile if the new read
+  fails; the hidden-text check keeps words in `display: contents` wrappers and visible children of `visibility: hidden`
+  parents. Performance: the hidden-text walk looks only inside the range and skips hidden subtrees whole; the four new
+  textures are exact palette PNGs (scan-l 171 to 72 KB, scan-d 129 to 67 KB); doodles and faces are cached a day. Not
+  done: the compositor layers under the home page stay for the visit (needs measuring on a real GPU), the old grain
+  files are still shipped, and a podcast's "Listen to the episode" may still name a show over any address.
+- **Real paper and CC0 art** (2.39.0, `tests/assets239.py`, `CREDITS.md`; David's pick from a list of CC0 ideas, sounds,
+  3D models and Lottie left out; backup before it: tag `backup-2026-09-29-before-assets` on 2.38.8 and
+  `E:\claude_code\backups\annotated-backup-2026-09-29-before-assets.zip`). The grain and wrinkles on every sheet are
+  scans of paper (ambientCG Paper001 and Paper003) cut to their tooth and folds and matched to the strength of the drawn
+  ones (`paper/scan-l.png` and `scan-d.png`, 512 pixels shown at 256 through `image-set`, and `wrinkle2.png`, whose
+  first cut read as grey blotches and was halved). The tape on a captured post and on the In Chrome print is a scan too
+  (`paper/tape.png`, Paper002's fibres tinted). The foot of the home page rests on a desk of light wood (Wood095) washed
+  almost to the page and fading at every edge (`.pdFoot::before`, `desk-l.jpg`, `desk-d.jpg`). The full pages' margins
+  sometimes carry a coffee ring or a pencil smudge (`ART.ring`, `ART.smudge` in `paperdeco.js`, drawn from a seed, from
+  1180 pixels with a mouse). A list with nothing in it yet shows someone reading from Open Doodles (`PaperDeco.doodle`,
+  `doodles/<kind>-ink.svg` and `-hi.svg`, two masks so it takes the page's ink and highlighter; never the one shown last
+  in the tab), where "not found" and "did not load" keep the crumpled paper. The made-up example readers under For you,
+  and why (Sam, Priya, Leo) have Open Peeps faces (`website/public/peeps/`); the real people whose posts are quoted keep
+  their initial, since a drawn face would put words to a likeness. The scripts that made the files live in the session's
+  scratchpad (`assets/make.py`, `split.py`, `doodles.js`). The ninth and tenth passes ship in this release.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

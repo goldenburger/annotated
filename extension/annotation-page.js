@@ -64,9 +64,32 @@ const AnnotationPage = (() => {
   }
   const xUrl = (item, take, permalink) => `https://x.com/intent/post?text=${encodeURIComponent(xText(item, take))}&url=${encodeURIComponent(permalink)}`;
   // The video id comes from whoever published it, so it is encoded rather than trusted to be eleven letters.
-  const xPost = (u) => (/^https:\/\/((mobile|www)\.)?(x|twitter)\.com\/[^/?#]+\/status\/\d+/i.test(String(u || '')) ? String(u) : '');
+  // Parsed, so a status path followed by ../ cannot lead elsewhere on x.com; only the post's own address is kept
+  // (twelfth audit pass).
+  const xPost = (u) => {
+    try {
+      const x = new URL(String(u || ''));
+      if (x.protocol !== 'https:' || !/^((mobile|www)\.)?(x|twitter)\.com$/i.test(x.hostname)) return '';
+      const m = x.pathname.match(/^\/([A-Za-z0-9_]{1,15})\/status\/(\d+)/);
+      return m ? `https://${x.hostname}/${m[1]}/status/${m[2]}` : '';
+    } catch { return ''; }
+  };
+  // The site a card names is the one its link goes to (twelfth audit pass): a row, or a page's own og:site_name, could
+  // name one outlet over a link to another. The name stays when it plainly belongs to the address; otherwise the
+  // address's own host is shown with it.
+  const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
+  function siteLabel(it) {
+    const name = String((it.meta && it.meta.site) || '').trim(), host = hostOf(srcUrlOf(it));
+    if (!host) return name;
+    if (!name) return host;
+    const flat = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const main = flat(host.split('.').slice(-2, -1)[0] || host);
+    return main.length >= 3 && flat(name).includes(main) ? name : `${name} · ${host}`;
+  }
   const srcUrlOf = (item) => item.kind === 'video' && item.site === 'x' ? xPost(item.url) : item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
-    : item.kind === 'post' || item.kind === 'audio' ? item.url : item.fragmentUrl;
+    // A post is shown as a post on X, so it may only link to one (eleventh audit pass: a shared row could send "See the
+    // post on X" anywhere).
+    : item.kind === 'post' ? xPost(item.url) : item.kind === 'audio' ? item.url : item.fragmentUrl;
   const titleOf = (item) => item.kind === 'video' || item.kind === 'audio' ? item.title : item.kind === 'post' ? `${item.author} on X` : item.meta.title;
   const kindLabel = (item) => ({ video: 'Video', post: 'Post', article: 'Article', audio: 'Podcast' }[item.kind] || 'Article');
   // What the thing this was taken from is called, for the control that opens it. Back is a different job and
@@ -90,13 +113,13 @@ const AnnotationPage = (() => {
       <form method="dialog" class="claimForm">
         <h3 id="claimTitle">File a claim</h3>
         <p class="note">Use this if the annotation uses your work beyond fair use. It stays up while the claim is reviewed.</p>
-        <label for="cName">Your name</label><input id="cName" type="text" required>
-        <label for="cEmail">Email</label><input id="cEmail" type="email" required>
+        <label for="cName">Your name</label><input id="cName" type="text" maxlength="200" required>
+        <label for="cEmail">Email</label><input id="cEmail" type="email" maxlength="320" required>
         <fieldset><legend>You are</legend>
           <label class="radio"><input type="radio" name="role" value="owner" required> The copyright owner</label>
           <label class="radio"><input type="radio" name="role" value="agent"> Authorized to act for the owner</label>
         </fieldset>
-        <label for="cWhat">What is the problem?</label><textarea id="cWhat" rows="3" required></textarea>
+        <label for="cWhat">What is the problem?</label><textarea id="cWhat" rows="3" maxlength="2000" required></textarea>
         <label class="radio"><input type="checkbox" id="cGood" required> I believe in good faith that this use is not authorized.</label>
         <div class="row"><button type="button" class="ghost claimCancel">Cancel</button><button class="strong">Send claim</button></div>
       </form>
@@ -188,7 +211,7 @@ const AnnotationPage = (() => {
   // A page for an annotation that is not there, deleted or never found, inside the same frame as every other
   // page, with the wordmark to go home. It used to be one line of text on an empty page.
   // An empty list's drawing: a crumpled sheet and a plane (paperdeco.js), or nothing where it is not loaded.
-  const emptyArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.emptyArt()}</div>` : '');
+  const emptyArt = (kind) => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.emptyArt(kind)}</div>` : '');
   // The panel's quiet corner under a list.
   const cornerArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pd pd-corner" aria-hidden="true">${PaperDeco.ART.corner()}</div>` : '');
   function renderMissing(container, { title, why = '', onHome, onProfile, onAll = null, siteNav = true }) {
@@ -479,7 +502,7 @@ const AnnotationPage = (() => {
       : isPost ? '' : isVideo && item.site === 'x' ? srcBar('X', item.handle || item.author || '', 'See the post') : isVideo ? srcBar('YouTube', item.channel || '', `Watch from ${fmt(item.start)}`) : `
       ${safeImg(item.meta.image) ? cardOpen : cardOpen.replace('class="srccard', 'class="srccard noimg')}
         ${safeImg(item.meta.image) ? `<img src="${esc(safeImg(item.meta.image))}" alt="">` : ''}
-        <span class="scard"><span class="skind">${kindIcon(item)} ${esc(item.meta.site)}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
+        <span class="scard"><span class="skind">${kindIcon(item)} ${esc(siteLabel(item))}</span><span class="st">${esc(title)}</span>${item.meta.description ? `<span class="sdesc">${esc(item.meta.description)}</span>` : ''}<span class="sd">${esc([item.meta.author ? 'By ' + item.meta.author : '', fmtDate(item.meta.published)].filter(Boolean).join('. '))}</span></span>
       ${cardClose}`;
 
     const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onFeed: hooks.onAll, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
@@ -835,8 +858,16 @@ const AnnotationPage = (() => {
 
     // Newest first, box on top, long threads collapsed. Every comment here is yours, so each can be deleted.
     const comments = (opts.comments || []).slice();
+    // This drawing of the page. Annotations share one tab and one container, so a change that fails after another
+    // annotation was opened is not taken back into it (tenth audit pass; `isConnected` was always true).
+    const gen = container.__annGen = {};
+    const current = () => container.__annGen === gen;
     let showAll = false;
     const SHOW = 5;
+    // Each comment's own key for its reactions and Delete; several carried over together share one time to the millisecond.
+    const keys = new WeakMap(); let keyN = 0;
+    const keyOf = (c) => { if (!keys.has(c)) keys.set(c, String(++keyN)); return keys.get(c); };
+    const byKey = (k) => comments.find((x) => keyOf(x) === k);
     const drawComments = () => {
       q('.cTitle').textContent = comments.length ? `Comments (${comments.length})` : 'Comments';
       const list = comments.slice().sort((a, b) => b.t - a.t);
@@ -844,31 +875,51 @@ const AnnotationPage = (() => {
       q('.cList').innerHTML = list.length ? shown.map((c) => `
         <li class="cmt">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-t="${c.t}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-t="${c.t}"></div></div></li>`).join('')
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-k="${keyOf(c)}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-k="${keyOf(c)}"></div></div></li>`).join('')
         : `<li class="empty">${typeof PaperDeco !== 'undefined' ? PaperDeco.waiting() : ''}No comments yet. Start the conversation.</li>`;
       const more = q('.cMore');
       more.hidden = list.length <= SHOW;
       more.textContent = showAll ? 'Show fewer comments' : `Show all ${list.length} comments`;
       q('.cList').querySelectorAll('.cReact').forEach((host) => {
-        const c = comments.find((x) => String(x.t) === host.dataset.t);
-        EmojiKit.reactions(host, { list: c.reactions || [], size: 'sm', onChange: (list, change) => { c.reactions = list; hooks.onComments && hooks.onComments(comments.slice(), { comment: c, reaction: change }); } });
+        const c = byKey(host.dataset.k);
+        if (!c) return;
+        EmojiKit.reactions(host, { list: c.reactions || [], size: 'sm', onChange: async (list, change) => {
+          const was = c.reactions; c.reactions = list;
+          const ok = hooks.onComments ? await Promise.resolve(hooks.onComments(comments.slice(), { comment: c, reaction: change })).catch(() => false) : true;
+          if (ok === false && c.reactions === list) c.reactions = was;
+          return ok;
+        } });
       });
       q('.cList').querySelectorAll('.cDel').forEach((b) => b.addEventListener('click', () => {
-        const i = comments.findIndex((c) => String(c.t) === b.dataset.t);
+        const i = comments.findIndex((c) => keyOf(c) === b.dataset.k);
         if (i < 0) return;
         const [gone] = comments.splice(i, 1);
         drawComments();
-        hooks.onComments && hooks.onComments(comments.slice(), { removed: gone });
-        // A few seconds to take it back.
+        // A few seconds to take it back; only then does it leave (or when the page closes first).
         const bar = document.createElement('div');
         bar.className = 'cUndo'; bar.setAttribute('role', 'status');
         bar.innerHTML = '<span>Comment deleted.</span><button type="button" class="link cUndoBtn">Undo</button>';
         q('.cList').before(bar);
-        const t = setTimeout(() => bar.remove(), 6000);
+        let done = false, t = 0;
+        // Kept only on this computer, it is saved at once, since a write started as the page closes may not finish; Undo
+        // saves it back (twelfth audit pass).
+        const localDel = !!opts.localOnly;
+        if (localDel && hooks.onComments) Promise.resolve(hooks.onComments(comments.slice(), { removed: gone })).catch(() => {});
+        const commit = async () => {
+          if (done) return; done = true;
+          clearTimeout(t); pendingDeletes.delete(commit); bar.remove();
+          if (localDel) return;
+          const ok = hooks.onComments ? await Promise.resolve(hooks.onComments(comments.slice(), { removed: gone })).catch(() => false) : true;
+          if (ok === false && current()) { comments.push(gone); drawComments(); }
+        };
+        pendingDeletes.add(commit);
+        t = setTimeout(commit, 6000);
         bar.querySelector('.cUndoBtn').addEventListener('click', () => {
-          clearTimeout(t); bar.remove();
-          delete gone.dbId; comments.push(gone); drawComments();
-          hooks.onComments && hooks.onComments(comments.slice(), { added: gone });
+          if (done) return; done = true;
+          clearTimeout(t); pendingDeletes.delete(commit); bar.remove();
+          comments.push(gone); drawComments();
+          // Kept only on this computer, the list is saved again with it back (any change meanwhile saved it without).
+          if (hooks.onComments) hooks.onComments(comments.slice(), { restored: gone });
         });
       }));
     };
@@ -930,23 +981,32 @@ const AnnotationPage = (() => {
       const added = { text: txt, gif: cGif || null, upload, t: Date.now(), mine: true };
       comments.push(added);
       q('.cText').value = '';
+      const upWas = cUp;
       cUp = null; cUpShown(null);
       cGifShown(null);
       if (cPicker) cPicker.clear();
       q('.cGifPick').hidden = true;
       drawComments();
-      hooks.onComments && hooks.onComments(comments.slice(), { added });
+      if (!hooks.onComments) return;
+      Promise.resolve(hooks.onComments(comments.slice(), { added })).catch(() => false).then((ok) => {
+        if (ok !== false || !current()) return;
+        const k = comments.indexOf(added); if (k >= 0) comments.splice(k, 1);
+        drawComments();
+        if (!q('.cText').value) q('.cText').value = added.text || '';
+        if (added.gif) cGifShown(added.gif);
+        if (upWas) { try { cUp = upWas; cUpShown(upWas); } catch { cUp = null; } }
+      });
     };
     q('.cPost').addEventListener('click', post);
     q('.cEmojiSlot').replaceWith(EmojiKit.button(q('.cText')));
     EmojiKit.autocomplete(q('.cText'));
 
     // Reactions on the annotation. Until there are accounts, every reaction shown is yours.
-    EmojiKit.reactions(q('.reactHost'), { list: opts.reactions || [], addButton: q('.reactBtn'), onChange: (list, change) => hooks.onReactions && hooks.onReactions(list, change) });
+    EmojiKit.reactions(q('.reactHost'), { list: opts.reactions || [], addButton: q('.reactBtn'), onChange: (list, change) => (hooks.onReactions ? hooks.onReactions(list, change) : true) });
 
     // Poll: tap an option to vote. With no accounts yet, your vote is the only one.
     // Pressing your own choice again takes the vote back. That is worth saying the moment it happens.
-    let pollSaid = '';
+    let pollSaid = '', pollGen = 0;
     const drawPollBox = () => {
       const p = take.poll, box = q('.pollBox');
       if (!p) { box.hidden = true; return; }
@@ -962,11 +1022,13 @@ const AnnotationPage = (() => {
       }).join('') + `<p class="note pollNote">${pollSaid ? `${pollSaid} ` : ''}${voted ? `${total} vote${total === 1 ? '' : 's'}. Choose another option to change yours, or the same one to take it back.` : total ? `${total} vote${total === 1 ? '' : 's'} so far. Choose an option to vote.` : 'Choose an option to vote.'}</p>`;
       box.querySelectorAll('.pollOpt').forEach((b) => b.addEventListener('click', () => {
         const i = Number(b.dataset.i);
+        const before = { counts: p.counts ? p.counts.slice() : null, vote: p.vote, said: pollSaid };
         if (p.counts) { if (p.vote !== null && p.vote !== undefined) p.counts[p.vote]--; if (p.vote !== i) p.counts[i]++; }
         pollSaid = p.vote === i ? 'Your vote is taken back.' : '';
         p.vote = p.vote === i ? null : i;
         drawPollBox();
-        hooks.onPollVote && hooks.onPollVote(p.vote);
+        const mine = ++pollGen;
+        if (hooks.onPollVote) Promise.resolve(hooks.onPollVote(p.vote)).catch(() => false).then((ok) => { if (ok === false && mine === pollGen && current()) { p.counts = before.counts; p.vote = before.vote; pollSaid = before.said; drawPollBox(); } });
       }));
     };
     drawPollBox();
@@ -1072,9 +1134,16 @@ const AnnotationPage = (() => {
     }), { threshold: 0.5 });
     vids.forEach((v) => previewIo.observe(v));
   }
-  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null }) {
+  // Comment deletes waiting out their Undo, for the whole page, carried out if it closes first. One listener for the page;
+  // one per drawing held each drawing's comments until the page went. A close may still cancel the request itself.
+  const pendingDeletes = new Set();
+  if (typeof addEventListener === 'function') addEventListener('pagehide', () => [...pendingDeletes].forEach((f) => f()));
+  // A feed's filter and sort, kept while the page lives (keyed by what the feed shows).
+  const feedChoice = new Map();
+  function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null, total = null }) {
     stopClock(container);
-    let filter = 'all', sort = 'new';
+    const keep = `${mode}|${tag || ''}|${person ? person.id : ''}`;
+    let { filter, sort } = feedChoice.get(keep) || { filter: 'all', sort: 'new' };
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
@@ -1102,7 +1171,7 @@ const AnnotationPage = (() => {
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
             : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div>${twoWays('pSignIn')}`
-                 : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
+                 : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(total != null ? total : records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
             : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() + `${((k) => `<div class="pd pd-feedTop" data-pd-kind="${k}" aria-hidden="true">${PaperDeco.ART[k]()}</div>`)(PaperDeco.ART.heading ? 'heading' : PaperDeco.free ? PaperDeco.free(['swallow', 'stunt', 'lock', 'banking', 'loose']) : 'swallow')}` : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
@@ -1147,7 +1216,7 @@ const AnnotationPage = (() => {
             // The words the person picked out are the point of the annotation, so the card shows those and
             // falls back to the post itself only when the whole post was taken.
             : it.kind === 'post' ? ((it.quote || it.text) ? `"${cut(it.quote || it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
-          const srcTitle = it.kind === 'post' ? `${it.author}${it.handle ? ' ' + it.handle : ''}` : it.kind === 'article' && it.meta.site ? `${it.meta.site}: ${titleOf(it)}` : titleOf(it);
+          const srcTitle = it.kind === 'post' ? `${it.author}${it.handle ? ' ' + it.handle : ''}` : it.kind === 'article' && (it.meta.site || hostOf(srcUrlOf(it))) ? `${siteLabel(it)}: ${titleOf(it)}` : titleOf(it);
           const playable = (it.kind === 'video' || it.kind === 'audio') && (it.blob || it.mediaUrl || it.hasMedia);
           // Stats row: reactions, poll and comments, each only when there is something to count.
           const nC = (r.comments || []).length, nReact = reactTotal(r.reactions), poll = r.take.poll;
@@ -1205,7 +1274,7 @@ const AnnotationPage = (() => {
           // A list that did not load is not an empty one. The profile said "0 annotations" and "Nothing here yet"
           // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
           if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
-          return `<li class="emptyState">${emptyArt()}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
+          return `<li class="emptyState">${emptyArt('nothing')}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })(); })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
       // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button
@@ -1231,8 +1300,8 @@ const AnnotationPage = (() => {
         c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn') && !e.target.closest('video[data-sound]')) onOpen(c.dataset.id); });
         c.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); onOpen(c.dataset.id); } });
       });
-      main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; draw(); }));
-      main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; draw(); }));
+      main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
+      main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
       wirePreviews(main, records, getMedia);
       // Clips and audio play right in the feed. Opening the annotation stays a click on the card.
       // A clip plays with sound in its own picture: the preview unmutes, starts from the beginning of the clip and gets
@@ -1323,14 +1392,14 @@ const AnnotationPage = (() => {
   // The full list is called Feed on the website and in the extension alike, so the panel's Home opens "the feed"
   // (recording of 2026-09-25 at 06:58, 3:44: the extension's page said Home, the website's the same list Feed).
   const fullLabel = (title) => (/profile/i.test(title) ? 'Open your profile as a full page' : /^home$/i.test(title) ? 'Open the feed as a full page' : `Open ${title} as a full page`);
-  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null }) {
+  function renderBrowse(container, { title, records, note = '', emptyNote = '', tabs = null, onOpen, onBack, onFull, onDeleteAll = null, localAware = true, backTo = 'Back', action = null, sigExtra = '' }) {
     stopClock(container);
     // For you arrives ranked, so its order is kept. Everything else is newest first.
     const list = tabs && tabs.current === 'foryou' ? records.slice() : records.slice().sort((a, b) => b.created - a.created);
     // Drawn again only when something on it would change. Redrawing the same list replaced the button under the
     // pointer, and "Open your profile as a full page" took two seconds to answer (recording of 2026-09-25 at 14:08,
     // 2:30 to 2:32).
-    const sig = JSON.stringify([title, note, emptyNote, tabs && tabs.current, backTo, !!onBack, action && action.label, !!onDeleteAll, list.map((r) => [r.id, takeLine(r.take), r.why || '', onlyHere(r)])]);
+    const sig = JSON.stringify([title, note, emptyNote, tabs && tabs.current, backTo, !!onBack, action && action.label, !!onDeleteAll, sigExtra, list.map((r) => [r.id, takeLine(r.take), r.why || '', onlyHere(r)])]);
     if (container.dataset.sig === sig && container.querySelector('.annside.browse')) return;
     container.dataset.sig = sig;
     // The way back says where it goes, like the one beside the feed. An arrow on its own left people guessing.
@@ -1343,7 +1412,7 @@ const AnnotationPage = (() => {
       <ul class="sideList">${list.length ? list.map((r) => `<li><button type="button" data-id="${esc(r.id)}">
         <span class="rlKind">${kindIcon(r.item)}</span>
         <span class="rlText">${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}<span class="rlTake">${esc(takeLine(r.take) || 'Untitled')}${localAware && onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span><span class="note">${esc(withTime(titleOf(r.item), relTime(r.created)))}</span></span>
-        </button></li>`).join('') : `<li class="browseEmpty">${emptyArt()}<p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
+        </button></li>`).join('') : `<li class="browseEmpty">${emptyArt('nothing')}<p class="note">${esc(emptyNote || 'Nothing here yet. Select words on any page, or clip a video or podcast, and it shows up here.')}</p></li>`}</ul>
       ${action ? `<p class="browseAction"><button type="button" class="primary browseAct">${esc(action.label)}</button></p>` : ''}
       ${onFull ? `<p class="fullRow"><button type="button" class="ghost fullBtn browseFullBtn">${esc(fullLabel(title))} ${Brand.icon('external')}</button></p>` : ''}
       ${onDeleteAll && list.length ? delAllBox(list) : ''}

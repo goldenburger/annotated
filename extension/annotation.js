@@ -11,7 +11,18 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   // can change in the panel beside it without the page ever reloading. Reading it once meant one person's
   // id travelled with another person's token, which the database refused, and meant Follow appeared on your
   // own annotation and never on anyone else's.
-  const readMe = async () => { try { me = await Backend.profile(); } catch { me = null; } AnnotationPage.setMe(me); };
+  // Who you are, waited for three seconds at most: with the network online but nothing getting through the client retried
+  // for about seven, and even an annotation kept on this computer sat on its outline. A late answer that differs draws again.
+  // A failed read (FAILED) is not signing out, and a late answer never redraws over a box in use or an open question.
+  const FAILED = Symbol('failed');
+  const inUse = () => [...document.querySelectorAll('textarea, input[type="text"]')].some((b) => b.value && b.offsetParent) || !!document.querySelector('.delAllAsk:not([hidden]), dialog[open], .signAsk');
+  const readMe = async () => {
+    const p = Backend.profile().catch(() => FAILED);
+    const got = await Promise.race([p, new Promise((r) => setTimeout(() => r(undefined), 3000))]);
+    if (got === undefined) p.then((v) => { if (v === FAILED || (v && v.id) === (me && me.id)) return; me = v; AnnotationPage.setMe(me); lateLoad(loadGen); });
+    else if (got !== FAILED) me = got;
+    AnnotationPage.setMe(me);
+  };
   const page = document.getElementById('page');
   const permalinkOf = (id, author) => Backend.permalink(id, (author && author.handle) || (me && me.handle));
   // Row level security speaks in table names and policies. Nobody reading an annotation should see that, so
@@ -30,8 +41,15 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
                       : 'That did not save. Check your connection and try again in a moment.');
   };
 
-  let loadGen = 0, movedHere = false;
-  const load = async () => {
+  let loadGen = 0, movedHere = false, arrived = null;
+  // A late answer (who you are, the rail) draws the page again, but not over a plane still arriving from Publish, a box
+  // in use or an open question, and not by scrolling the reader back to the top (twelfth audit pass); it waits instead.
+  const lateLoad = (gen, tries = 0) => {
+    if (gen !== loadGen || tries > 20) return;
+    if (inUse() || document.querySelector('.pl-landing, .pl-arriving, body > .pl-layer')) { setTimeout(() => lateLoad(gen, tries + 1), 1500); return; }
+    load({ late: true });
+  };
+  const load = async ({ late = false } = {}) => {
     const my = ++loadGen;
     // Who you are and the local copy are asked for together, and the rest below too, since one after another they
     // left the page white for most of a second before the plane from Publish arrived (recording of 2026-09-25 at
@@ -43,15 +61,21 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // publishing. Otherwise anything behind you in this tab is one of our own pages, because this tab only
     // ever shows them. Arriving cold on a shared link there is nothing behind you at all.
     let from = 'cold';
-    try {
-      const o = await chrome.storage.session.get('annFrom');
-      if (o && o.annFrom === 'publish') from = 'publish';
-      await chrome.storage.session.remove('annFrom');
-    } catch { /* no session storage, so treat it as any other arrival */ }
-    if (from !== 'publish' && (beenHereBefore || movedHere)) from = 'history';
+    // Drawn again for the same annotation (after signing in, Try again), it keeps how you arrived; the first load took
+    // the mark, and Back to the post went (ninth audit pass).
+    if (arrived && arrived.id === id) from = arrived.from;
+    else {
+      try {
+        const o = await chrome.storage.session.get('annFrom');
+        if (o && o.annFrom === 'publish') from = 'publish';
+        await chrome.storage.session.remove('annFrom');
+      } catch { /* no session storage, so treat it as any other arrival */ }
+      if (from !== 'publish' && (beenHereBefore || movedHere)) from = 'history';
+      arrived = { id, from };
+    }
     const local = await localP;
     await meP;
-    window.scrollTo(0, 0);
+    if (!late) window.scrollTo(0, 0);
     // Saved on this computer, or shared by anyone.
     let rec = local ? { id, ...local } : null;
     let shared = !!(local && local.cloud);
@@ -114,7 +138,11 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     }
     const records = await recordsP;
     // Following and discovery for the rail and the author's Follow button.
-    const soc = await discoveryP;
+    // Three seconds at most: with the network failing and the token expired, every request first retried a refresh for up
+    // to half a minute, and the annotation, even one kept on this computer, waited on its rail (ninth audit pass).
+    const soc = await Promise.race([discoveryP, new Promise((r) => setTimeout(() => r(null), 3000))]);
+    // Arriving late, the rail is drawn then (Follow, your card), unless a box is in use.
+    if (!soc) discoveryP.then((s) => { if (s) lateLoad(my); });
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
@@ -155,23 +183,28 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       onDismissBanner: () => local && Store.update(id, { seen: true }),
       onComments: async (list, change = {}) => {
         if (!shared) return Store.update(id, { comments: list });
-        if (needSignIn()) return;
+        // False when nothing was saved, and the page takes the change back (ninth audit pass).
+        if (change.restored) return true;   // Undo of a delete that never left this page
+        if (needSignIn()) return false;
         try {
-          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload);
-          if (change.removed && change.removed.dbId) await Cloud.deleteComment(change.removed.dbId);
+          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload); change.added.dbId = await change.added.adding; }
+          // Gone already (its annotation was deleted meanwhile, taking it along) is deleted.
+          if (change.removed) { if (change.removed.adding) await change.removed.adding.catch(() => {}); if (change.removed.dbId) await Cloud.deleteComment(change.removed.dbId).catch((e) => { if (!/not yours to delete/i.test((e && e.message) || '')) throw e; }); }
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
           nudgePanel();
-        } catch (e) { sayProblem(e); }
+          return true;
+        } catch (e) { sayProblem(e); return false; }
       },
       onReactions: async (list, change) => {
         if (!shared) return Store.update(id, { reactions: list });
-        if (needSignIn() || !change) return;
-        try { await Cloud.react(id, me.id, change.emoji, change.on); nudgePanel(); } catch (e) { sayProblem(e); }
+        if (!change) return;
+        if (needSignIn()) return false;
+        try { await Cloud.react(id, me.id, change.emoji, change.on); nudgePanel(); return true; } catch (e) { sayProblem(e); return false; }
       },
       onPollVote: async (vote) => {
         if (!shared) return Store.update(id, { take: { ...rec.take } });
-        if (needSignIn()) return;
-        try { await Cloud.vote(id, me.id, vote); nudgePanel(); } catch (e) { sayProblem(e); }
+        if (needSignIn()) return false;
+        try { await Cloud.vote(id, me.id, vote); nudgePanel(); return true; } catch (e) { sayProblem(e); return false; }
       },
       onClaim: shared ? (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }) : null,
       // Saved here but not shared (signed out at the time, or the upload failed): share it now. Signed out,

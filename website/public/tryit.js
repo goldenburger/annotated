@@ -248,7 +248,7 @@ var TryIt = (() => {
       quiet();
       if (marks.length) { reset(); clear(); }
       clearTimeout(demoTimer);
-      setTimeout(() => demo(true), 250);
+      demoTimer = setTimeout(() => demo(true), 250);
     });
     q('.tiUse').addEventListener('mousedown', (e) => e.preventDefault());
     q('.tiUse').addEventListener('click', () => {

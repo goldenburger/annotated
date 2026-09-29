@@ -2270,3 +2270,46 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 }
 /* The plane at the foot of the home page is a button with a hover of its own (landing.js footTrail). */
 .paperDeco .pdPiece:has(.pdFlyer) > .pdLift, .paperDeco .pdPiece:has(.pdFlyer) > .pdFlat { transform: none !important; opacity: 1 !important; }
+
+/* ---- Real paper (2.39.0, David: CC0 assets). The grain and the wrinkles are scans of paper (ambientCG Paper001 and
+   Paper003, CC0), cut down to their tooth and folds and matched to the strength of the drawn ones they replace
+   (paper/scan-l.png, scan-d.png, wrinkle2.png; the script is in the session's scratchpad). 512 pixels shown at 256. */
+:root { --grain-light: image-set(url("paper/scan-l.png") 2x); --wrinkle: url("paper/wrinkle2.png"); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --grain-light: image-set(url("paper/scan-d.png") 2x); } }
+:root[data-theme="dark"] { --grain-light: image-set(url("paper/scan-d.png") 2x); }
+/* Masking tape is a scan too (ambientCG Paper002's fibres, tinted), where it was a gradient. */
+.xshot::before, .xshot::after { background: url("paper/tape.png") center / 256px 64px, rgba(250, 244, 222, .18); }
+
+/* ---- Someone reading, in an empty list (Open Doodles by Pablo Stanley, CC0; paperdeco.js `doodle`). Each is two
+   masks, its ink and its colour, so it takes the page's ink and highlighter, light or dark. */
+:root { --dd-ink: #4E483F; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --dd-ink: #A7ACB6; } }
+:root[data-theme="dark"] { --dd-ink: #A7ACB6; }
+.pdDoodle { position: relative; display: block; height: 92px; aspect-ratio: var(--dd-ar, 4 / 3); opacity: .8; flex: none; }
+.pdDoodle::before, .pdDoodle::after { content: ""; position: absolute; inset: 0; -webkit-mask: var(--dd-m) center / contain no-repeat; mask: var(--dd-m) center / contain no-repeat; }
+.pdDoodle::before { --dd-m: var(--dd-hi); background: var(--hi); }
+.pdDoodle::after { --dd-m: var(--dd-inkm); background: var(--dd-ink); }
+.pdDd-chair { --dd-ar: 900 / 716; --dd-hi: url("doodles/chair-hi.svg"); --dd-inkm: url("doodles/chair-ink.svg"); }
+.pdDd-floor { --dd-ar: 965 / 602; --dd-hi: url("doodles/floor-hi.svg"); --dd-inkm: url("doodles/floor-ink.svg"); }
+.pdDd-phone { --dd-ar: 977 / 523; --dd-hi: url("doodles/phone-hi.svg"); --dd-inkm: url("doodles/phone-ink.svg"); height: 70px; }
+.pdDd-book { --dd-ar: 606 / 700; --dd-hi: url("doodles/book-hi.svg"); --dd-inkm: url("doodles/book-ink.svg"); height: 100px; }
+.pdEmpty .pdDoodle + svg { height: 34px; align-self: flex-start; margin-left: -4px; }
+.shellEmpty .pdEmpty .pdDoodle { height: 120px; }
+.browseEmpty .pdEmpty .pdDoodle { height: 76px; }
+
+/* ---- Marks on the desk (paperdeco.js ring, smudge): a coffee ring and a pencil smudge, barely there. */
+:root { --pd-coffee: rgba(122, 82, 40, .10); --pd-coffee-wash: rgba(150, 105, 55, .025); --pd-lead: rgba(58, 58, 66, .07); --pd-smear: rgba(70, 70, 78, .016); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --pd-coffee: rgba(214, 170, 120, .07); --pd-coffee-wash: rgba(214, 170, 120, .015); --pd-lead: rgba(210, 212, 220, .06); --pd-smear: rgba(210, 212, 220, .02); } }
+:root[data-theme="dark"] { --pd-coffee: rgba(214, 170, 120, .07); --pd-coffee-wash: rgba(214, 170, 120, .015); --pd-lead: rgba(210, 212, 220, .06); --pd-smear: rgba(210, 212, 220, .02); }
+.paperDeco .pdWash { fill: var(--pd-coffee-wash); }
+.paperDeco .pdRingEdge { fill: none; stroke: var(--pd-coffee); stroke-width: 2.2; stroke-linecap: round; }
+.paperDeco .pdRingIn { fill: none; stroke: var(--pd-coffee); stroke-width: 5; stroke-linecap: round; opacity: .35; }
+.paperDeco .pdRing2 { opacity: .6; stroke-width: 1.6; }
+.paperDeco .pdLead { fill: none; stroke: var(--pd-lead); stroke-width: 1.1; stroke-linecap: round; }
+.paperDeco .pdSmear { fill: var(--pd-smear); }
+.pdDesk .pdStainL, .pdDesk .pdStainR { display: none; }
+@media (min-width: 1180px) and (hover: hover) {
+  .pdDesk .pdStainL, .pdDesk .pdStainR { display: block; position: absolute; top: var(--pdy, 30%); transform: rotate(var(--pdr, 0deg)); }
+  .pdDesk .pdStainL { left: max(18px, calc(50vw - 760px)); } .pdDesk .pdStainR { right: max(18px, calc(50vw - 760px)); }
+  .pdDesk .pd-ring svg { width: 120px; height: auto; } .pdDesk .pd-smudge svg { width: 110px; height: auto; }
+}

@@ -99,12 +99,18 @@ const Backend = (() => {
     asking = true;
     setTimeout(() => profile().then(tell, () => {}).finally(() => { asking = false; if (again) { again = false; ask(); } }), 0);
   }
+  // Asked again by hand, as after a handle change: this page, and every other one through storage.
+  function refreshWho() { ask(); try { chrome.storage.local.set({ annotatedWho: Date.now() }); } catch { /* not in the extension */ } }
   function onChange(cb) {
     subs.push({ cb, last: undefined });
-    if (!subscribed) { subscribed = true; client.auth.onAuthStateChange(() => ask()); } else ask();
+    if (!subscribed) {
+      subscribed = true; client.auth.onAuthStateChange(() => ask());
+      // The session removed from storage by another page's sign-out: this page asks again who is signed in.
+      try { chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && ((ch['annotated-auth'] && !ch['annotated-auth'].newValue) || ch.annotatedWho)) { ask(); } }); } catch { /* not in the extension */ }
+    } else ask();
   }
   // Where shared annotations live on the web: https://annotated-app.netlify.app/@handle/id
   const SITE = 'https://annotated-app.netlify.app';
   const permalink = (id, handle) => `${SITE}/@${handle || 'annotated'}/${encodeURIComponent(id)}`;
-  return { client, signIn, ways, connectX, signOut, profile, lastId, onChange, url: SUPABASE_URL, key: SUPABASE_KEY, site: SITE, permalink };
+  return { refreshWho, client, signIn, ways, connectX, signOut, profile, lastId, onChange, url: SUPABASE_URL, key: SUPABASE_KEY, site: SITE, permalink };
 })();

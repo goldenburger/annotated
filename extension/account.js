@@ -123,18 +123,25 @@ const Account = (() => {
       if (!HANDLE.test(h)) { msg.textContent = 'Use 2 to 30 lowercase letters, numbers or underscores.'; return; }
       if (h === me.handle) { msg.textContent = 'That is already your handle.'; return; }
       msg.textContent = 'Saving';
+      const p0 = pop, id0 = me.id;
       const { data: savedRows, error } = await Backend.client.from('profiles').update({ handle: h }).eq('id', me.id).select('handle');
+      // Someone else signed in meanwhile: this save was theirs no longer, and nothing here is changed.
+      if (!me || me.id !== id0) return;
       if (!error && (!savedRows || !savedRows.length)) { msg.textContent = 'It did not save. Sign in again and try once more.'; return; }
-      if (error) { msg.textContent = /duplicate|unique/i.test(error.message) ? 'Someone already has that handle.' : 'It did not save. ' + error.message; return; }
+      if (error) { msg.textContent = /duplicate|unique/i.test(error.message) ? 'Someone already has that handle.' : /handle_reserved/i.test(error.message) ? 'That handle is kept for annotated. Choose another.' : 'It did not save. ' + error.message; return; }
       const was = me.handle; me = { ...me, handle: h };
       // The first span inside .who is the avatar, so writing there put the handle inside the circle and
-      // left the old one on screen underneath. The handle has a name of its own now.
+      // left the old one on screen underneath. The handle has a name of its own now. The menu may have closed meanwhile.
       msg.textContent = `Saved. Links to your old handle, @${was}, no longer work.`;
-      pop.querySelector('.acctHLink').hidden = true;
-      pop.querySelector('.acctAt').textContent = '@' + h;
-      pop.querySelector('.acctHSave').disabled = true;
+      if (p0 && p0.isConnected) {
+        p0.querySelector('.acctHLink').hidden = true;
+        p0.querySelector('.acctAt').textContent = '@' + h;
+        p0.querySelector('.acctHSave').disabled = true;
+      }
       draw();
       subs.forEach((f) => f(me));
+      // Every page learns it (no sign-in event comes with a changed handle, so they kept the old one and its dead links).
+      if (Backend.refreshWho) Backend.refreshWho();
     });
     // A way in chosen: the question stays open until that sign-in ends, and the caller hears how it ended, failed
     // included, so a button waiting on it can say so (it sat on Publishing when the card came back for a retry).

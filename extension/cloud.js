@@ -97,7 +97,7 @@ const Cloud = (() => {
     if (a.media_path) item.mediaUrl = publicUrl(a.media_path);
     return {
       id: a.id, cloud: true, created: Date.parse(a.created_at), author: person(a.author),
-      item, take: { text: a.take_text, tag: a.tag, poll: a.poll ? { ...a.poll, vote: null } : null, gif: a.gif || null, voice: a.voice_path ? { url: publicUrl(a.voice_path) } : null,
+      item, take: { text: a.take_text, tag: a.tag, poll: cleanPoll(a.poll), gif: a.gif || null, voice: a.voice_path ? { url: publicUrl(a.voice_path) } : null,
         upload: a.upload && a.upload.path ? { url: publicUrl(a.upload.path), kind: a.upload.kind === 'video' ? 'video' : 'image', w: a.upload.w || 0, h: a.upload.h || 0, alt: a.upload.alt || '' } : null },
       paths: { media: a.media_path, poster: a.poster_path, shot: a.shot_path, voice: a.voice_path },
       counts: a.counts || null,
@@ -124,11 +124,23 @@ const Cloud = (() => {
     const here = new Set(data.map((r) => r.id));
     return fresh.filter((id) => !here.has(id));
   }
-  async function list({ authorId = null, limit = 60 } = {}) {
+  // A shared poll is a question and its options, nothing else: the row was spread whole, so it could carry counts or a
+  // vote of its own making, and the card showed them until the real counts came (eleventh audit pass).
+  function cleanPoll(p) {
+    if (!p || typeof p !== 'object' || !Array.isArray(p.options)) return null;
+    const options = p.options.slice(0, 6).map((o) => String(o == null ? '' : o).slice(0, 200)).filter((o) => o.trim());
+    return options.length >= 2 ? { question: String(p.question == null ? '' : p.question).slice(0, 300), options, vote: null } : null;
+  }
+  async function list({ authorId = null, limit = 60, tag = null } = {}) {
     // Who replied, reacted and voted, not only how many, because For you counts different people rather
     // than raw activity, and needs to know what you have already joined in on.
-    let qy = c().from('annotations').select(`*, ${PROFILE}, comments(author_id, body, gif, created_at, ${COMMENT_PROFILE}), reactions(emoji, user_id), poll_votes(user_id)`).order('created_at', { ascending: false }).limit(limit);
+    // Every comment's author (for who joined in), but the words of only the first few (eleventh audit pass): the whole
+    // text of every reply on sixty annotations came down with each list, only to show one line.
+    let qy = c().from('annotations').select(`*, ${PROFILE}, comments(author_id), first:comments(author_id, body, gif, created_at, ${COMMENT_PROFILE}), reactions(emoji, user_id), poll_votes(user_id)`)
+      .order('created_at', { ascending: false }).limit(limit)
+      .order('created_at', { referencedTable: 'first', ascending: true }).limit(6, { referencedTable: 'first' });
     if (authorId) qy = qy.eq('author_id', authorId);
+    if (tag) qy = qy.eq('tag', tag);
     const { data, error } = await qy;
     if (error) throw error;
     return data.map((a) => {
@@ -144,7 +156,7 @@ const Cloud = (() => {
       r.pollVotes = (a.poll_votes || []).length;
       // The first reply by someone else, shown as one line under the card, which makes a feed read as a place
       // where people answer each other. A reply that is only a GIF says so.
-      const first = (a.comments || []).filter((x) => x && x.author_id !== a.author_id && x.author && ((x.body || '').trim() || x.gif))
+      const first = (a.first || a.comments || []).filter((x) => x && x.author_id !== a.author_id && x.author && ((x.body || '').trim() || x.gif))
         .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))[0];
       if (first) r.firstReply = { name: first.author.display_name || '@' + (first.author.handle || 'someone'), text: (first.body || '').trim() || (first.gif ? 'a GIF' : '') };
       return r;
@@ -246,7 +258,22 @@ const Cloud = (() => {
   }
   // Sharing something first saved locally: its comments and reactions come along, as the signed-in person's.
   async function carryOver(id, uid, comments = [], reactions = []) {
-    const cs = comments.filter((c) => c && c.text).map((c) => ({ annotation_id: id, author_id: uid, body: String(c.text).slice(0, 1000), created_at: new Date(c.t || Date.now()).toISOString() }));
+    // A GIF or a photo is a reply on its own, and comes across with it (only the words did, and a GIF-only reply was lost).
+    const cs = [];
+    let n = 0;
+    for (const c0 of comments.filter((c) => c && (c.text || c.gif || (c.upload && c.upload.blob)))) {
+      n++;
+      const row = { annotation_id: id, author_id: uid, body: String(c0.text || '').slice(0, 1000), created_at: new Date(c0.t || Date.now()).toISOString() };
+      if (c0.gif) row.gif = { id: c0.gif.id, url: c0.gif.url, preview: c0.gif.preview, w: c0.gif.w, h: c0.gif.h, alt: c0.gif.alt };
+      if (c0.upload && c0.upload.blob) {
+        try {
+          // A minute each at most, and a name of its own (two replies of one millisecond shared a file).
+          const path = await Promise.race([upload(uid, 'comments', `${id}-${c0.t || Date.now()}-${n}`, c0.upload.blob), new Promise((_, no) => setTimeout(() => no(new Error('The photo took too long.')), 60000))]);
+          row.upload = { path, kind: c0.upload.kind === 'video' ? 'video' : 'image', w: Number(c0.upload.w) || 0, h: Number(c0.upload.h) || 0, alt: String(c0.upload.alt || '').slice(0, 200) };
+        } catch (e) { console.warn('annotated: a reply\'s photo did not come across', e); if (!row.body && !row.gif) continue; }
+      }
+      cs.push(row);
+    }
     // In groups under the twenty-a-minute limit, which counts each comment as it arrives (migration 23). Only the
     // first is waited for; the rest follow a minute apart, so Publish does not sit for minutes.
     if (cs.length) { const { error } = await c().from('comments').insert(cs.slice(0, 15)); if (error) throw error; }
@@ -257,10 +284,13 @@ const Cloud = (() => {
         if (error) { console.warn('annotated: some earlier comments did not come across', error); return; }
       }
     })();
-    const mine = [...new Set((reactions || []).map((r) => (typeof r === 'string' ? r : r.mine !== false ? r.emoji : null)).filter(Boolean))];
+    // Eight at most, the database's limit for one person on one annotation; a ninth refused the whole insert.
+    const mine = [...new Set((reactions || []).map((r) => (typeof r === 'string' ? r : r.mine !== false ? r.emoji : null)).filter(Boolean))].slice(0, 8);
     if (mine.length) { const { error } = await c().from('reactions').insert(mine.map((emoji) => ({ annotation_id: id, user_id: uid, emoji }))); if (error) throw error; }
     return { comments: cs.length, reactions: mine.length };
   }
+  // How many a person has published, counted by the database rather than by downloading them (ninth audit pass).
+  const countBy = async (authorId) => { const { count, error } = await c().from('annotations').select('id', { count: 'exact', head: true }).eq('author_id', authorId); if (error) throw error; return count || 0; };
   const claim = (id, { name, email, what, reason }) => c().from('claims').insert({ annotation_id: id, name, email, what, reason });
 
   // Following and discovery.
@@ -480,5 +510,5 @@ const Cloud = (() => {
     };
   }
 
-  return { avatarOk, publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
+  return { countBy, avatarOk, publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
 })();

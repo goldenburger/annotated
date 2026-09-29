@@ -90,6 +90,15 @@
   // 3. After a take, from any tab: what was made folds into a plane and flies to Latest, where it opens as your
   //    card. The brief's paper is followed by a fresh brief; a clip, a moment or a post resets its tab.
   const SEE = 'Yours is below. <button type="button" class="link seeYours">See it</button>';
+  // Nothing on the home page still easing to a new height (landing.js smooth sets an inline height while it moves).
+  const settled = (limit) => new Promise((res) => {
+    const t0 = performance.now();
+    const look = () => {
+      const moving = [...document.querySelectorAll('.heroTryBox, .landLatest')].some((e) => e.style.height) || [...document.querySelectorAll('.tryPanel')].some((e) => e.style.transition && e.style.minHeight);
+      if (!moving || performance.now() - t0 > limit) res(); else requestAnimationFrame(look);
+    };
+    requestAnimationFrame(look);
+  });
   function send(origin, card, { paper = null, scene = null, example = false }) {
     const row = latestRow();
     const lift = paper && document.querySelector('.tiLift:not([hidden])');
@@ -134,11 +143,16 @@
     };
     // Finished early, by a click or a key: everything where it belongs at once, the example included.
     const t = track(plane, null, () => { bringBack().then(release); origin.classList.remove('pl-hidden'); card.classList.remove('pl-hidden'); if (example) document.dispatchEvent(new CustomEvent('annotated-example-settled')); });
+    // The tab resets, and gives back the height its take needed, while the plane is still folding (recording of
+    // 2026-09-29 at 20:27: the plane aimed at the card, the page below then moved up as the tab reset during the flight,
+    // and the plane unfolded where the card had been before the card slid up to it).
+    bringBack().then(release);
     (async () => {
       await plane.open(paper ? 900 : 800, true);
       if (!flying.has(t)) return;
-      // The tab resets while it is out of sight, so the fresh brief can follow the plane out at once.
-      bringBack().then(() => { if (!paper) release(); });
+      // Aimed only once the page has stopped moving (landing.js eases the try-it and Yours so far), at most 0.9 s more.
+      await settled(900);
+      if (!flying.has(t)) return;
       const len = plane.Lw * plane.s0;
       const start = plane.centre, h = dir(plane.phi);
       let target = null;

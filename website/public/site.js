@@ -176,11 +176,15 @@ function matchExtension(me) {
     }
   }
 
-  async function home(tag, quiet) {
-    const first = !tag && earlyList; earlyList = null;   // only the first drawing uses it; a tab switch asks again
-    const socP = discover();
-    const got = await listOrNull({ limit: 100 }, first);
+  let homeRead = null;
+  async function home(tag, quiet, again = false) {
+    const first = !tag && earlyList; earlyList = null;   // only the first drawing uses it
+    // A tab press draws from the list and rails already read (For you, Following and Everyone are one list).
+    const kept = again && homeRead && homeRead.tag === tag && Date.now() - homeRead.at < 60000 ? homeRead : null;
+    const socP = kept ? Promise.resolve(kept.soc) : discover();
+    const got = kept ? kept.got : await listOrNull({ limit: 100, ...(tag ? { tag } : {}) }, first);
     if (quiet && !got) return;
+    if (!kept && got) socP.then((soc) => { homeRead = { tag, got, soc, at: Date.now() }; });
     const all = got || [];
     all.forEach((r) => { r.mine = !!(me && r.author && r.author.id === me.id); });
     remember(all);
@@ -193,7 +197,7 @@ function matchExtension(me) {
       // The same opening tab as the extension's Home: an empty For you gives way to Everyone.
       const cur = Cloud.startTab(tabs, tab, pressed);
       records = tabs[cur].records;
-      social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag); } };
+      social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); home(tag, false, true); } };
     }
     document.title = tag ? `${tag} | annotated` : 'annotated';
     AnnotationPage.renderFeed(page, { records, yours: mine, tag, mode: 'home', social, ...nav, onSignIn: me ? null : signIn, loadFailed: !got, onRetry: () => home(tag) });
@@ -208,6 +212,7 @@ function matchExtension(me) {
     if (failed) return quiet ? undefined : didNotLoad(() => profile(handle));
     if (!p) return notFound('Nobody has that handle.');
     const socP = discover({ personId: p.id });
+    const totalP = Cloud.countBy(p.id).catch(() => null);
     const got = await listOrNull({ authorId: p.id, limit: 80 });
     if (quiet && !got) return;
     const records = got || [];
@@ -215,20 +220,28 @@ function matchExtension(me) {
     remember(records);
     const person = me && me.id === p.id ? null : { id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: Cloud.avatarOk ? Cloud.avatarOk(p.avatar_url) : '' };
     const soc = await socP;
-    const social = soc ? { ...soc, you: youOf(soc, me && me.id === p.id ? records.length : 0) } : null;
+    const social = soc ? { ...soc, you: youOf(soc, me && me.id === p.id ? Math.max(await totalP || 0, records.length) : 0) } : null;
     if (social && !person) { social.onFollow = null; social.personStats = soc.personStats; }
     document.title = `${p.display_name || p.handle} | annotated`;
     const deleteAll = me && me.id === p.id ? async (progress) => {
-      const all = records.slice(), failed = [];
-      let done = 0;
-      for (const r of all) {
-        try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
-        progress(++done, all.length);
+      // All of them, not the eighty listed: it goes on reading and deleting until none are left or one will not go.
+      const failed = [];
+      let done = 0, all = records.slice(), rounds = 0;
+      const total = Math.max(await totalP || 0, all.length);
+      while (all.length && !failed.length && rounds++ < 50) {
+        for (const r of all) {
+          try { await Cloud.remove(r.id, me.id); } catch (e) { failed.push(e.message || 'It is still online.'); continue; }
+          progress(++done, total);
+        }
+        if (failed.length) break;
+        // A list that fails to load is not an empty one: stop and say so rather than reload as if all were gone.
+        all = await Cloud.list({ authorId: me.id, limit: 80 }).catch(() => null);
+        if (!all) { failed.push('The rest could not be checked. Try Delete all again.'); break; }
       }
       if (!failed.length) location.reload();
       return failed;
     } : null;
-    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav, loadFailed: !got, onRetry: () => profile(handle) });
+    AnnotationPage.renderFeed(page, { records, mode: 'profile', person, social, onDeleteAll: deleteAll, ...nav, loadFailed: !got, onRetry: () => profile(handle), total: await totalP });
     headerAccount();
     if (me && me.id === p.id) {
       const out = document.createElement('button');
@@ -254,7 +267,9 @@ function matchExtension(me) {
     const title = AnnotationPage.titleOf(rec.item);
     document.title = `${rec.take.text || title} | annotated`;
     // Your own card counts your annotations. It said 0 beside one of your own (recording of 2026-09-25 at 03:54).
-    const [soc, yours] = await Promise.all([socP, mine ? records : me ? Cloud.list({ authorId: me.id, limit: 100 }).catch(() => []) : []]);
+    // Your own count, counted by the database; it downloaded up to a hundred of yours, every comment included, to count them.
+    const [soc, yourCount] = await Promise.all([socP, me ? Cloud.countBy(me.id).then((n) => Math.max(n || 0, mine ? records.length : 0)).catch(() => (mine ? records.length : 0)) : 0]);
+    const yours = { length: yourCount };
     const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, yours.length) } : null;
     const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
     await AnnotationPage.render(page, {
@@ -273,16 +288,21 @@ function matchExtension(me) {
       ...nav,
       onProfile: () => { location.href = '/@' + ((rec.author && rec.author.handle) || ''); },
       onBack: cameFromHere() ? () => history.back() : null,
+      // False when nothing was saved (signed out, a limit, the network), and the page takes the change back; signed out, the
+      // reply went on showing as yours and was lost on the way to Google (ninth audit pass).
       onComments: async (list, change = {}) => {
-        if (needSignIn()) return;
+        if (change.restored) return true;   // Undo of a delete that never left this page
+        if (needSignIn()) return false;
         try {
-          if (change.added) change.added.dbId = await Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload);
-          if (change.removed && change.removed.dbId) await Cloud.deleteComment(change.removed.dbId);
+          if (change.added) { change.added.adding = Cloud.addComment(id, me.id, change.added.text, change.added.gif, change.added.upload); change.added.dbId = await change.added.adding; }
+          // Gone already (its annotation was deleted meanwhile, taking it along) is deleted.
+          if (change.removed) { if (change.removed.adding) await change.removed.adding.catch(() => {}); if (change.removed.dbId) await Cloud.deleteComment(change.removed.dbId).catch((e) => { if (!/not yours to delete/i.test((e && e.message) || '')) throw e; }); }
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
-        } catch (e) { alert('That did not save. ' + (e.message || '')); }
+          return true;
+        } catch (e) { alert('That did not save. ' + (e.message || '')); return false; }
       },
-      onReactions: async (list, change) => { if (needSignIn() || !change) return; try { await Cloud.react(id, me.id, change.emoji, change.on); } catch (e) { alert(/lot of|as many/i.test(e.message || '') ? e.message : 'That did not save. Check your connection and try again in a moment.'); } },
-      onPollVote: async (vote) => { if (needSignIn()) return; try { await Cloud.vote(id, me.id, vote); } catch { alert('That vote did not save. Check your connection and try again in a moment.'); } },
+      onReactions: async (list, change) => { if (!change) return; if (needSignIn()) return false; try { await Cloud.react(id, me.id, change.emoji, change.on); return true; } catch (e) { alert(/lot of|as many/i.test(e.message || '') ? e.message : 'That did not save. Check your connection and try again in a moment.'); return false; } },
+      onPollVote: async (vote) => { if (needSignIn()) return false; try { await Cloud.vote(id, me.id, vote); return true; } catch { alert('That vote did not save. Check your connection and try again in a moment.'); return false; } },
       onClaim: (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }),
       ...(mine ? {
         onDelete: async () => { await Cloud.remove(id, me.id); location.href = '/@' + me.handle; },

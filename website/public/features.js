@@ -257,7 +257,7 @@ var Features = (() => {
       body: `<div class="ftTabs" role="tablist" aria-label="Which annotations"><button type="button" role="tab" aria-selected="true">For you</button><button type="button" role="tab" aria-selected="false">Following</button></div>
         <ul class="ftFeed">${CARDS.map((c, i) => `<li class="ftCard ftFY" data-i="${i}">
           <p class="ftWhy">${icon('info')} <span>${esc(c.why)}</span></p>
-          <p class="ftMeta"><span class="ftAv" aria-hidden="true">${esc(c.who[0])}</span> ${esc(c.who)} <span class="ftDot">Example reader</span> <span class="ftTagOut">${esc(c.tag)}</span>
+          <p class="ftMeta"><span class="ftAv ftFace" aria-hidden="true"><img src="/peeps/${c.who.toLowerCase()}.svg" alt="" width="22" height="22" loading="lazy" decoding="async"></span> ${esc(c.who)} <span class="ftDot">Example reader</span> <span class="ftTagOut">${esc(c.tag)}</span>
             <button type="button" class="ghost sm ftFollow" aria-pressed="${i === 0}">${i === 0 ? 'Following' : 'Follow'}</button></p>
           <p class="ftTakeOut">${esc(c.take)}</p>
           <blockquote class="ftQ ftQs"><mark>${esc(c.p.quote)}</mark></blockquote>

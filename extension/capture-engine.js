@@ -215,8 +215,16 @@ var ClipEngine = (() => {
       try { tracks = grab(v); }
       catch (e) {
         if (!/cross-origin/i.test(e.message)) throw new Error('This player does not allow its audio to be recorded. ' + e.message);
-        try { copy = await corsCopy(orig); orig.pause(); v = copy; tracks = grab(copy); }
-        catch {
+        let cancelled = false;
+        job = { abort() { cancelled = true; } };
+        try {
+          copy = await corsCopy(orig);
+          if (cancelled) { copy.removeAttribute('src'); copy.load(); job = null; throw new Error('Capture cancelled.'); }
+          job = null; orig.pause(); v = copy; tracks = grab(copy);
+        }
+        catch (ce) {
+          job = null;
+          if (cancelled || /Capture cancelled/.test((ce && ce.message) || '')) throw new Error('Capture cancelled.');
           // The panel can still record the tab's sound instead.
           const err = new Error('This episode is streamed from another site that does not allow direct recording.');
           err.code = 'NEEDS_TAB_AUDIO'; throw err;
@@ -273,8 +281,10 @@ var ClipEngine = (() => {
         rec.start(1000); await v.play();
       } catch (e) { abort('Capture could not start: ' + e.message); throw e; }
       let lastT = v.currentTime, lastMove = performance.now();
+      const src0 = v.currentSrc || v.src || '';
       poll = setInterval(() => {
         if (stopped) return;
+        if (v === orig && (!v.isConnected || (src0 && (v.currentSrc || v.src || '') !== src0) || v.currentTime < start - 1)) return abort('The episode changed during capture, so the capture was cancelled. Capture again.');
         if (v.currentTime >= end) return finish();
         const now = performance.now();
         if (Math.abs(v.currentTime - lastT) > 0.05 || v.paused) { lastT = v.currentTime; lastMove = now; }
