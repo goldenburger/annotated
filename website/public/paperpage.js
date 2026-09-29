@@ -12,7 +12,7 @@
     ['drift', 'Drift'], ['bounce', 'Bounce'], ['peel', 'Peel'], ['tumble', 'Tumble'], ['float', 'Float']];
   const FOLDS = OPENS.filter(([k]) => ['classic', 'cascade', 'peel', 'snap', 'tumble'].includes(k));
   const ROUTES = [['climb', 'Climb'], ['loop', 'Loop'], ['sweep', 'Sweep'], ['zip', 'Zip'], ['glide', 'Glide']];
-  const card = () => `<article class="annCard ppCard"><p class="ppTake">A take that folds into a plane.</p><blockquote class="quote">The words it was about, marked in highlighter.</blockquote></article>`;
+  const card = () => `<article class="annCard ppCard paperSheet"><p class="ppTake">A take that folds into a plane.</p><blockquote class="quote">The words it was about, marked in highlighter.</blockquote></article>`;
   const on = typeof Fold !== 'undefined' && Fold.on();
 
   page.innerHTML = `

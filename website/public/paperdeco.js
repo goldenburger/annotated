@@ -213,16 +213,27 @@ var PaperDeco = (() => {
   // Banking hard, seen a little from below, with the rush of air behind it.
   const banking = (x, y, rot = 0, s = 1) => at(x, y, rot, s, `<path class="pdTrail" d="M2 64 L34 60 M8 76 L36 72 M16 52 L40 50"/>
     <g transform="translate(24 -6) rotate(-24 60 60)"><path class="pdKeel" d="M108 20 L20 56 L55 68 Z"/><path class="pdFace" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`);
-  // A plane unfolded flat again: the sheet with its creases showing, the dart's lines still in it.
+  // A plane unfolded flat again: the dart's creases pressed into the sheet, each fold's facet lit or shaded as the
+  // paper still wants to fold back, a corner still lifting, one line of the page marked. Hand-drawn edges throughout.
   const creased = (x, y, rot = -4, s = 1, seed = Math.random() * 1e9) => {
-    const r = rng(Math.floor(seed)), id = uid('pdu'), W = 104, H = 132;
-    const outline = shape([[0, 0], [W, 1], [W - 1, H], [1, H - 1]], r, 1);
+    const r = rng(Math.floor(seed)), id = uid('pdu'), W = 108, H = 138, M = W / 2;
+    const outline = shape([[0, 0], [W, 1], [W - 1, H], [1, H - 1]], r, 1.3);
+    const a = W * .5, b = W * .95;   // where the folds meet the centre line
     let ink = '';
-    for (let i = 0; i < 6; i++) { const yy = 58 + i * 11, len = (i === 5 ? .45 : .72 + r() * .18) * (W - 24); if (i === 2) ink += marker(12, yy, len, r); ink += `<path class="pdInk" d="${scrib(12, yy, len, r)}"/>`; }
-    const creases = `M${W / 2} 0 L${W / 2} ${H} M0 0 L${W / 2} ${W / 2} L${W} 0 M0 ${W * .42} L${W / 2} ${W * .92} L${W} ${W * .42} M${W * .18} ${H} L${W / 2} ${W * .92} M${W * .82} ${H} L${W / 2} ${W * .92}`;
-    return at(x, y, rot, s, `<defs>${pageDefs(id)}</defs><rect x="6" y="9" width="${W}" height="${H}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
-      <path d="${outline}" fill="url(#${id}g)"/><path class="pdFacet" style="opacity:.12" d="M0 0 L${W / 2} ${W / 2} L${W / 2} 0 Z M${W} ${W * .42} L${W / 2} ${W * .92} L${W / 2} ${W / 2} Z"/>${ink}
-      <path class="pdCrease2" d="${creases}"/><path class="pdEdgeSoft" d="${outline}"/>`);
+    for (let i = 0; i < 6; i++) { const yy = 70 + i * 10.5, len = (i === 5 ? .4 : .7 + r() * .2) * (W - 26); if (i === 1) ink += marker(13, yy, len, r); ink += `<path class="pdInk" d="${scrib(13, yy, len, r)}"/>`; }
+    // facets: the two top triangles fold toward you (lit), the wing flaps fold away (shaded), the keel strip mid.
+    const facets = `
+      <path class="pdFacet" style="opacity:.08" d="M0 0 L${M} ${a} L${M} 0 Z"/><path class="pdFacet" style="opacity:.3" d="M${W} 0 L${M} ${a} L${M} 0 Z"/>
+      <path class="pdFacet" style="opacity:.24" d="M0 0 L${M} ${a} L0 ${W * .42} Z"/><path class="pdFacet" style="opacity:.04" d="M${W} 0 L${M} ${a} L${W} ${W * .42} Z"/>
+      <path class="pdFacet" style="opacity:.18" d="M0 ${W * .42} L${M} ${b} L${M - 7} ${H} L0 ${H} Z"/><path class="pdFacet" style="opacity:.03" d="M${W} ${W * .42} L${M} ${b} L${M + 7} ${H} L${W} ${H} Z"/>`;
+    const creases = `M${M} 0 L${M} ${H} M0 0 L${M} ${a} L${W} 0 M0 ${W * .42} L${M} ${b} L${W} ${W * .42} M${M - 7} ${H} L${M} ${b} L${M + 7} ${H}`;
+    const lit = `M${M + .8} 1 L${M + .8} ${H - 1} M1.2 ${W * .42 + .8} L${M + .8} ${b + .8}`;
+    const curl = `M${W - 1} ${H - 22} Q${W - 10} ${H - 14} ${W - 20} ${H} L${W - 1} ${H} Z`;
+    return at(x, y, rot, s, `<defs>${pageDefs(id)}<clipPath id="${id}k"><path d="${outline}"/></clipPath></defs>
+      <rect x="6" y="9" width="${W}" height="${H}" rx="3" class="pdShadowSoft" filter="url(#${id}s)"/>
+      <path d="${outline}" fill="url(#${id}g)"/><g clip-path="url(#${id}k)">${facets}${ink}<path class="pdCreaseLit" d="${lit}"/><path class="pdCrease2" d="${creases}"/></g>
+      <path class="pdCurlUnder" d="M${W - 1} ${H - 22} L${W - 20} ${H} L${W - 1} ${H} Z"/><path d="${curl}" fill="url(#${id}c)"/><path class="pdEdgeSoft" d="${curl}"/>
+      <path class="pdEdgeSoft" d="${outline}"/>`);
   };
   // A crumpled page smoothed out again: flat, but the creases never leave, a web of them across the writing.
   const smoothed = (x, y, rot = 5, s = 1, seed = Math.random() * 1e9) => {

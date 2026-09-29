@@ -53,7 +53,7 @@ async def main():
     await w.goto('https://annotated-app.netlify.app/?noplanes'); await asyncio.sleep(2)
     left = await w.evaluate("!!document.querySelector('.mnTry')")
     print('try note left:', left)
-    if not left: errs.append("the margin note by the try-it is missing (David kept it)")
+    if left: errs.append('the margin note by the try-it is back (David removed it)')
     await b.close(); await ctx.close()
   print('errors:', errs)
 asyncio.run(main())

@@ -54,7 +54,6 @@ var Landing = (() => {
         <p class="heroSub">Highlight a sentence, clip a video or podcast, or quote a post. Add what you think. Share the link.</p>
         <p class="heroDo heroGetRow"><a class="primary heroGet" href="#get">Get the Chrome extension</a><a class="link heroLook" href="/?feed">Look around first</a></p>
         <p class="heroTrust"><a class="heroDemo" href="https://youtu.be/VTbDJ9a-2XE" target="_blank" rel="noopener"><span class="hdPlay" aria-hidden="true"></span>Watch the demo <span class="num">2:44</span></a><span class="heroFree">Free and open source. No ads.</span></p>
-        <p class="marginNote mnTry" aria-hidden="true">select any line, the pen does the rest<svg class="mnArrow" viewBox="0 0 90 60" aria-hidden="true"><path d="M4 8 C 30 4, 62 14, 78 44" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M68 40 L 79 46 L 81 33" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></p>
         <p class="heroHave" hidden>You're set. Go to any article, video or post and press the annotated plane in your toolbar.</p>
       </div>
       <div class="heroTry">
@@ -123,7 +122,6 @@ var Landing = (() => {
     // the article while the Article tab was chosen (recording of 2026-09-24 at 20:19). It follows the tab now.
     void next;
     document.addEventListener('annotated-tryit-touched', stop);
-    document.addEventListener('annotated-tryit-touched', () => { const n = document.querySelector('.mnTry'); if (n) n.classList.add('mnGone'); }, { once: true });
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') stop(); });
     return { set: (w) => { stop(); if (mark.textContent !== w) { mark.classList.remove('lifting'); show(w); } } };
   }
