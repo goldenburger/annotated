@@ -296,7 +296,9 @@ var TryIt = (() => {
     });
     const replace = () => { if (!lift.hidden && lift.classList.contains('up')) { hang(); drawWire(); } };
     window.addEventListener('resize', replace);
-    window.addEventListener('scroll', () => requestAnimationFrame(replace), { passive: true });
+    // One placing a frame, however many scroll events arrive in it.
+    let placing = false;
+    window.addEventListener('scroll', () => { if (placing) return; placing = true; requestAnimationFrame(() => { placing = false; replace(); }); }, { passive: true });
 
     // ---- once, for anyone who has not touched it: a small pen marks a phrase and an example take lifts.
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -379,7 +381,11 @@ var TryIt = (() => {
     document.addEventListener('annotated-tryit-touched', () => { clearTimeout(demoTimer); touched = true; if (demoing) stopDemo(); });
     el.addEventListener('pointerdown', () => quiet());
     el.addEventListener('keydown', () => quiet());
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') clearTimeout(demoTimer); });
+    let demoWaiting = false;
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { let shown = false; try { shown = sessionStorage.getItem('annotated-example-shown') === '1'; } catch {} if (demoTimer && !demoing && !touched && !shown) demoWaiting = true; clearTimeout(demoTimer); }
+      else if (demoWaiting && !touched && !demoing) { demoWaiting = false; clearTimeout(demoTimer); demoTimer = setTimeout(demo, 2500); }
+    });
   }
 
   return { mount, KEY };

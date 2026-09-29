@@ -38,7 +38,8 @@ async def main():
       r = route.request
       if r.method == 'PATCH':
         saved.append(r.post_data)
-        await route.fulfill(status=200, content_type='application/json', body='[]'); return
+        # As the database answers an update that asks for the row back (account.js selects the handle it saved).
+        await route.fulfill(status=200, content_type='application/json', body=json.dumps([json.loads(r.post_data)])); return
       await route.fulfill(status=200, content_type='application/json', body=json.dumps(PROFILE))
     # Playwright tries the most recently added route first, so the catch-all goes on before the one that matters.
     await ctx.route(SUPA + '/rest/v1/**', lambda r: r.fulfill(status=200, content_type='application/json', body='[]'))

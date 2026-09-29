@@ -23,3 +23,65 @@
   Cache-Control: public, max-age=2592000
 /media/*
   Cache-Control: public, max-age=86400
+
+# Scripts and styles (performance audit of 2026-09-29). Every page asks for them with the release in the address
+# (?v=), so a new release is a new address; a day saves a round trip on every visit meanwhile. Not longer, because
+# a script loaded without the release in its address would then be kept stale. The paper textures keep their names.
+/annotation-page.js
+  Cache-Control: public, max-age=86400
+/article-core.js
+  Cache-Control: public, max-age=86400
+/backend-web.js
+  Cache-Control: public, max-age=86400
+/brand.js
+  Cache-Control: public, max-age=86400
+/cloud.js
+  Cache-Control: public, max-age=86400
+/compose.js
+  Cache-Control: public, max-age=86400
+/emoji-data.js
+  Cache-Control: public, max-age=86400
+/emojikit.js
+  Cache-Control: public, max-age=86400
+/features.js
+  Cache-Control: public, max-age=86400
+/fold.css
+  Cache-Control: public, max-age=86400
+/fold.js
+  Cache-Control: public, max-age=86400
+/fonts.css
+  Cache-Control: public, max-age=86400
+/gifmaker.js
+  Cache-Control: public, max-age=86400
+/giphy.js
+  Cache-Control: public, max-age=86400
+/installpage.js
+  Cache-Control: public, max-age=86400
+/landing.js
+  Cache-Control: public, max-age=86400
+/panel-kit.js
+  Cache-Control: public, max-age=86400
+/paperdeco.js
+  Cache-Control: public, max-age=86400
+/paperpage.js
+  Cache-Control: public, max-age=86400
+/planes.js
+  Cache-Control: public, max-age=86400
+/prefs.js
+  Cache-Control: public, max-age=86400
+/scenetry.js
+  Cache-Control: public, max-age=86400
+/site.js
+  Cache-Control: public, max-age=86400
+/tryit.js
+  Cache-Control: public, max-age=86400
+/ui.css
+  Cache-Control: public, max-age=86400
+/waveform.js
+  Cache-Control: public, max-age=86400
+/web.css
+  Cache-Control: public, max-age=86400
+/wordmark.js
+  Cache-Control: public, max-age=86400
+/paper/*
+  Cache-Control: public, max-age=86400

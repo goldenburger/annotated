@@ -245,7 +245,14 @@ const ArticlePanel = (() => {
       q('.aResult').scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
 
+    // One publish at a time (audit of 2026-09-29).
+    let publishing = false;
     async function publish(take, force = false) {
+      if (publishing) return;
+      publishing = true;
+      try { return await publishOnce(take, force); } finally { publishing = false; }
+    }
+    async function publishOnce(take, force = false) {
       if (!result) return;
       if (!force && opts.findDuplicate) {
         const ref = await opts.findDuplicate(result);
@@ -264,6 +271,7 @@ const ArticlePanel = (() => {
         pubRef = await opts.onPublish({ ...result }, take);
         published = true;
         if (opts.keep) opts.keep.clear().catch(() => {});
+        compose.forgetDraft();
         // Published: the page goes back to normal, with no highlight left behind.
         if (ad.clearCaptured) ad.clearCaptured();
         q('.aCompose').hidden = true;

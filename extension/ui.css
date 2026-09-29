@@ -2112,7 +2112,7 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 
 /* 3. Lift under the pointer, feed cards only. */
 .cards > li > .card.mf { transition: translate .2s cubic-bezier(.3, .7, .2, 1); }
-.cards > li > .card.mf::after { transition: translate .2s cubic-bezier(.3, .7, .2, 1), filter .2s; }
+.cards > li > .card.mf::after { transition: translate .2s cubic-bezier(.3, .7, .2, 1); }
 .cards > li > .card.mf:hover { translate: 0 -2px; }
 .cards > li > .card.mf:hover::after { translate: var(--ldx, 0px) calc(var(--ldy, 0px) + 3px); filter: blur(5px); }
 @media (prefers-reduced-motion: reduce) { .cards > li > .card.mf, .cards > li > .card.mf::after { transition: none; } }
@@ -2123,7 +2123,7 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
   background: var(--grain-light) 0 0 / 256px 256px, var(--sheet-paper);
   -webkit-mask: var(--tear-top) -83px 0 / 240px 9px repeat-x, var(--tear-bot) -151px 100% / 240px 7px repeat-x, var(--tear-left) 0 -109px / 9px 240px repeat-y, var(--tear-right) 100% -37px / 7px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat;
           mask: var(--tear-top) -83px 0 / 240px 9px repeat-x, var(--tear-bot) -151px 100% / 240px 7px repeat-x, var(--tear-left) 0 -109px / 9px 240px repeat-y, var(--tear-right) 100% -37px / 7px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat;
-  filter: drop-shadow(0 2px 2px var(--sheet-shadow)); }
+  }
 .pl-copy .underSheet, .pl-layer .underSheet { display: none !important; }
 @media (max-width: 560px) { .annBody .annCard > .underSheet { translate: 3px 4px; rotate: .6deg; } }
 
@@ -2227,3 +2227,9 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
    sound button and the times on the picture step aside. Shown even with reduced motion, since it was asked for. */
 .cthumb.cprev.sounding .cpv { display: block !important; opacity: 1 !important; object-fit: contain; background: #0E0F12; }
 .cthumb.cprev.sounding .cplayBtn, .cthumb.cprev.sounding .cdur { display: none !important; }
+/* The small grain on the panel's header, quotes and source lines is a picture now, not an SVG filter drawn afresh on
+   every paint (performance audit of 2026-09-29). Baked from the same filter at twice the size, so sharp screens keep
+   its fineness; image-set tells the browser it is a 160 pixel tile. */
+:root { --grain: image-set(url("paper/grain-l.png") 2x); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --grain: image-set(url("paper/grain-d.png") 2x); } }
+:root[data-theme="dark"] { --grain: image-set(url("paper/grain-d.png") 2x); }

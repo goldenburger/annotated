@@ -3,15 +3,17 @@
 (() => {
   if (window.__annotatedFloat) return;
   window.__annotatedFloat = true;
-  let api = null, host = null, creating = null, myTab = null;
+  let api = null, host = null, creating = null, myTab = null, onHeight = null, removedGen = 0;
   const darkNow = (theme) => theme === 'dark' || (theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
 
   async function ensure(tabId) {
     if (api) return api;
     if (creating) return creating;
     myTab = tabId;
+    const gen = removedGen;
     creating = (async () => {
       const { floatRect, annotatedPrefs } = await chrome.storage.local.get(['floatRect', 'annotatedPrefs']);
+      if (removedGen !== gen) return null;
       host = document.createElement('div');
       host.id = 'annotated-float-host';
       host.style.cssText = 'all: initial; position: fixed; inset: 0; z-index: 2147483646; pointer-events: none;';
@@ -22,6 +24,7 @@
       document.documentElement.appendChild(host);
       const key = [...crypto.getRandomValues(new Uint8Array(16))].map((n) => n.toString(16).padStart(2, '0')).join('');
       await chrome.storage.local.set({ ['floatKey' + tabId]: key });
+      if (removedGen !== gen) { host.remove(); host = null; chrome.storage.local.remove('floatKey' + tabId).catch(() => {}); return null; }
       const frame = document.createElement('iframe');
       // The key is handed over by message once the frame has loaded, and never written into its address. The
       // frame sits in an open shadow root, so the page can read its address, and a key read from there let any
@@ -32,9 +35,10 @@
       frame.title = 'annotated';
       frame.allow = 'clipboard-write; microphone';
       const cmd = (c) => frame.contentWindow && frame.contentWindow.postMessage({ type: 'annotated-cmd', cmd: c }, '*');
-      window.addEventListener('message', (e) => {
+      onHeight = (e) => {
         if (api && e.source === frame.contentWindow && e.data && e.data.type === 'annotated-height') api.setContentHeight(e.data.h);
-      });
+      };
+      window.addEventListener('message', onHeight);
       api = FloatFrame.mount(sh, frame, {
         rect: floatRect,
         zIndex: 2147483646,
@@ -49,6 +53,8 @@
     return creating;
   }
   function remove() {
+    removedGen++; creating = null;
+    if (onHeight) { window.removeEventListener('message', onHeight); onHeight = null; }
     if (api) { api.destroy(); api = null; }
     if (host) { host.remove(); host = null; }
     chrome.storage.local.remove('floatKey' + myTab).catch(() => {});
@@ -63,10 +69,10 @@
 
   chrome.runtime.onMessage.addListener((msg, _s, reply) => {
     switch (msg && msg.type) {
-      case 'float-open': ensure(msg.tabId).then((a) => { a.expand(); reply({ ok: true }); }); return true;
+      case 'float-open': ensure(msg.tabId).then((a) => { if (a) a.expand(); reply({ ok: !!a }); }); return true;
       case 'float-toggle':
         if (api && !api.collapsed) { api.collapse(); reply({ ok: true }); return; }
-        ensure(msg.tabId).then((a) => { a.expand(); reply({ ok: true }); }); return true;
+        ensure(msg.tabId).then((a) => { if (a) a.expand(); reply({ ok: !!a }); }); return true;
       case 'float-collapse': if (api) api.collapse(); reply({ ok: true }); return;
       case 'float-remove': remove(); reply({ ok: true }); return;
       // The panel hides the frame while it screenshots the page, so the frame never appears in the screenshot.

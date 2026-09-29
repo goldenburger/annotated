@@ -20,7 +20,8 @@ const EmojiKit = (() => {
   };
   const recents = () => store.get('annotated-emoji-recent', []);
   function addRecent(ch) { store.set('annotated-emoji-recent', [ch, ...recents().filter((x) => x !== ch)].slice(0, 24)); }
-  const skin = () => store.get('annotated-emoji-skin', 0);
+  let skinMemo = null, skinAt = 0;
+  const skin = () => { const n = Date.now(); if (skinMemo === null || n - skinAt > 500) { skinMemo = store.get('annotated-emoji-skin', 0); skinAt = n; } return skinMemo; };
   const withSkin = (e) => (skin() && e.skins.length ? e.skins[skin() - 1] : e.ch);
   const baseOf = (ch) => byChar.get(ch) || ALL.find((e) => e.skins.includes(ch)) || { ch, label: ch, sc: [], skins: [] };
 
@@ -99,7 +100,7 @@ const EmojiKit = (() => {
     // Inside a floating frame, ask the frame for enough height to show the whole picker.
     if (anchor.closest('.panel')) document.body.dataset.popNeed = '480';
     const grid = pop.querySelector('.epGrid'), input = pop.querySelector('.epSearch'), prev = pop.querySelector('.epPrev');
-    const btn = (e) => `<button type="button" class="epE" data-ch="${esc(e.ch)}" aria-label="${esc(e.label)}">${withSkin(e)}</button>`;
+    const btn = (e) => `<button type="button" class="epE" data-ch="${esc(e.ch)}" aria-label="${esc(e.label)}">${esc(withSkin(e))}</button>`;
     const section = (id, title, list) => list.length ? `<section class="epSec" id="ep-${id}"><h4>${esc(title)}</h4><div class="epRow">${list.map(btn).join('')}</div></section>` : '';
     function drawAll() {
       const rec = recents().map((c) => byChar.get(c) || baseOf(c)).filter((e) => e && e.label);
@@ -131,7 +132,7 @@ const EmojiKit = (() => {
     const preview = (b) => {
       const e = byChar.get(b.dataset.ch) || baseOf(b.dataset.ch), code = e.sc[0] || '';
       const name = e.label.charAt(0).toUpperCase() + e.label.slice(1);
-      prev.innerHTML = `<b>${withSkin(e)}</b><span class="epName">${esc(name)}</span>${code && code.length <= 14 ? `<span class="epCode">:${esc(code)}:</span>` : ''}`;
+      prev.innerHTML = `<b>${esc(withSkin(e))}</b><span class="epName">${esc(name)}</span>${code && code.length <= 14 ? `<span class="epCode">:${esc(code)}:</span>` : ''}`;
       prev.title = code ? `:${code}:` : '';
     };
     grid.addEventListener('click', (ev) => { const b = ev.target.closest('.epE'); if (b) pick(b); });
@@ -157,7 +158,7 @@ const EmojiKit = (() => {
       if (s) grid.scrollTop = s.offsetTop - grid.offsetTop;
     }));
     pop.querySelectorAll('.epSkin').forEach((s) => s.addEventListener('click', () => {
-      store.set('annotated-emoji-skin', Number(s.dataset.i));
+      store.set('annotated-emoji-skin', Number(s.dataset.i)); skinMemo = Number(s.dataset.i); skinAt = Date.now();
       pop.querySelectorAll('.epSkin').forEach((x) => x.setAttribute('aria-checked', String(x === s)));
       if (input.value) drawSearch(input.value); else drawAll();
     }));
@@ -184,7 +185,7 @@ const EmojiKit = (() => {
       list.style.top = (r.bottom + h + 8 > window.innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
     }
     function draw() {
-      list.innerHTML = items.map((e, i) => `<div class="acItem" role="option" aria-selected="${i === sel}" data-i="${i}"><b>${withSkin(e)}</b><span>:${esc(e.sc[0])}:</span></div>`).join('');
+      list.innerHTML = items.map((e, i) => `<div class="acItem" role="option" aria-selected="${i === sel}" data-i="${i}"><b>${esc(withSkin(e))}</b><span>:${esc(e.sc[0])}:</span></div>`).join('');
     }
     function choose(i) {
       const e = items[i]; if (!e) return;

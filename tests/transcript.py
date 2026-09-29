@@ -29,7 +29,9 @@ YT = '''<!doctype html><title>Rocket talk - YouTube</title>
 document.getElementById('expand').onclick = () => { document.querySelector('ytd-video-description-transcript-section-renderer').hidden = false; };
 document.querySelector('[aria-label="Show transcript"]').onclick = () => { const p = document.querySelector('ytd-engagement-panel-section-list-renderer');
   p.setAttribute('visibility', 'ENGAGEMENT_PANEL_VISIBILITY_EXPANDED'); window.__opened = (window.__opened || 0) + 1;
-  setTimeout(() => { p.innerHTML = PANEL_HTML; }, 300); };
+  const vid = new URL(location.href).searchParams.get('v');
+  if (vid === 'EMPTYVID03') return;   // a button that brings no rows: the panel keeps the last video's
+  setTimeout(() => { p.innerHTML = vid === 'SPAVIDEO02' ? PANEL_HTML.replaceAll('<span class="tx">', '<span class="tx">B: ') : PANEL_HTML; }, vid === 'TRANS00001' || vid === 'SPAVIDEO02' ? 300 : 1500); };
 </script>'''.replace('PANEL_HTML', repr(PANEL))
 NONE = '''<!doctype html><title>Silent film - YouTube</title><div id="movie_player"><video class="html5-main-video" src="/media/src.webm" width="640"></video></div><h1 class="title">Silent film</h1>'''
 
@@ -120,6 +122,33 @@ async def main():
     print('6. folded after capture:', folded, '| on the page:', words)
     if not folded: errs.append('the transcript did not fold once the take was being written')
     if words != 'The booster came back in one piece. Nobody expected the banana moment.': errs.append(f"the clip's words did not travel with it: {words!r}")
+    # 7. Moving to another video while the first is still being read gives each its own lines (audit of 2026-09-29).
+    tab = await sw.evaluate("chrome.tabs.query({}).then(t=>t.find(v=>v.url.includes('youtube')).id)")
+    await yt.evaluate("document.dispatchEvent(new Event('yt-navigate-start')); history.pushState({}, '', '/watch?v=SLOWVIDE01')")
+    first = asyncio.ensure_future(sw.evaluate(f"chrome.tabs.sendMessage({tab}, {{ type: 'transcript' }})"))
+    await asyncio.sleep(.4)
+    await yt.evaluate("document.dispatchEvent(new Event('yt-navigate-start')); history.pushState({}, '', '/watch?v=SPAVIDEO02')")
+    second = await sw.evaluate(f"chrome.tabs.sendMessage({tab}, {{ type: 'transcript' }})")
+    was = await first
+    print('7. the slow first video got', 'nothing' if not was else was[0]['text'], '| the second got', second and second[0]['text'])
+    if was and was[0]['text'].startswith('B: '): errs.append("a video was given the next video's transcript")
+    if not second or not second[0]['text'].startswith('B: '): errs.append(f"the video moved to did not get its own transcript: {second and second[0]}")
+    # 8. A video whose transcript never comes is not handed the rows the last video left (audit of 2026-09-29).
+    await asyncio.sleep(2)   # the slow first video's rows from step 7 land first
+    await yt.evaluate("document.dispatchEvent(new Event('yt-navigate-start')); history.pushState({}, '', '/watch?v=EMPTYVID03')")
+    third = await sw.evaluate(f"chrome.tabs.sendMessage({tab}, {{ type: 'transcript' }})")
+    print('8. a video with no rows of its own got', third if not third else third[0]['text'])
+    if third: errs.append(f"a video with no transcript was given the last video's lines: {third[0]}")
+    # 9. A capture ends when the player switches to another video under it (audit of 2026-09-29, fourth pass: YouTube reuses
+    # one player, no seek fires, and the recording ran on through the wrong video).
+    await pv.click('#videoMode .csChange') if await pv.locator('#videoMode .csChange').is_visible() else None
+    await pv.evaluate("() => { const b = document.querySelector('#videoMode .capBtn'); b.disabled = false; b.click(); }")
+    await asyncio.sleep(2)
+    await yt.evaluate("() => { const v = document.querySelector('video'); v.src = '/media/src.webm?other=1'; v.load(); }")
+    await asyncio.sleep(4)
+    st = await pv.evaluate("({ err: (document.querySelector('#videoMode .capErr') || {}).textContent || '', capturing: !document.querySelector('#videoMode .progress').hidden })")
+    print('9. after the player switched video mid capture:', st)
+    if st['capturing'] or 'changed' not in st['err']: errs.append(f'a capture went on after the video changed under it: {st}')
     # 5. No transcript, no sheet.
     await yt.goto('https://www.youtube.com/watch?v=NOTRANS001'); await asyncio.sleep(6)
     hidden = await pv.evaluate("document.querySelector('#videoMode .vTrans').hidden")

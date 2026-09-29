@@ -2,7 +2,11 @@
 // shortcuts do: open the side panel, or show the floating panel on the page.
 let P = { display: 'side' };
 const sync = () => chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: P.display !== 'float' }).catch(() => {});
-chrome.storage.local.get('annotatedPrefs').then((o) => { P = { ...P, ...(o.annotatedPrefs || {}) }; sync(); });
+// The worker sleeps when idle, and wakes with P at its default. The event that woke it arrives before the saved
+// setting is read, so choosing waits for that read (audit of 2026-09-29: floating mode opened the side panel on the
+// first click after a pause).
+let loaded = false;
+const ready = chrome.storage.local.get('annotatedPrefs').then((o) => { P = { ...P, ...(o.annotatedPrefs || {}) }; loaded = true; sync(); }).catch(() => { loaded = true; });
 chrome.storage.onChanged.addListener(async (ch, area) => {
   if (area !== 'local' || !ch.annotatedPrefs) return;
   const was = P.display;
@@ -34,6 +38,8 @@ chrome.runtime.onInstalled.addListener((details) => {
   chrome.contextMenus.create({ id: 'annotate', title: 'Annotate this passage', contexts: ['selection'] }, () => void chrome.runtime.lastError);
 });
 chrome.runtime.onStartup.addListener(sync);
+// A floating panel's key is kept only while its tab is open.
+chrome.tabs.onRemoved.addListener((id) => { chrome.storage.local.remove('floatKey' + id).catch(() => {}); });
 
 // Chrome does not let extensions draw on its own pages, so those always use the side panel.
 const restricted = (u) => !/^https?:/.test(u || '') || /^https:\/\/(chromewebstore\.google\.com|chrome\.google\.com\/webstore)/.test(u);
@@ -44,12 +50,25 @@ async function showFloat(tab, type) {
   return true;
 }
 function openFor(tab, type = 'float-open') {
+  if (!loaded) {
+    chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+    return ready.then(() => {
+      if (P.display === 'float' && !restricted(tab.url)) {
+        // Chrome before 141 has no close; turning the panel off for the tab closes it, and it is turned back on.
+        if (chrome.sidePanel.close) chrome.sidePanel.close({ windowId: tab.windowId }).catch(() => {});
+        else chrome.sidePanel.setOptions({ tabId: tab.id, enabled: false })
+          .then(() => chrome.sidePanel.setOptions({ tabId: tab.id, enabled: true, path: 'sidepanel.html' })).catch(() => {});
+        return showFloat(tab, type);
+      }
+    });
+  }
   if (P.display === 'float' && !restricted(tab.url)) return showFloat(tab, type);
   chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
 }
 
 // Toolbar button and Alt+Shift+K. In side panel mode Chrome opens the panel itself and this never fires.
-chrome.action.onClicked.addListener((tab) => openFor(tab, 'float-toggle'));
+// It fires only when the panel is not opened by Chrome itself, which is floating mode, so it needs no wait.
+chrome.action.onClicked.addListener((tab) => ((restricted(tab.url) || (loaded && P.display !== 'float')) ? chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {}) : showFloat(tab, 'float-toggle')));
 
 // Right-click "Annotate this passage".
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {

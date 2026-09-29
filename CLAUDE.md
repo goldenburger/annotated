@@ -1247,6 +1247,163 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `.cthumb.sounding`, shown even with reduced motion); the preview observer leaves it alone except to pause it out of
   sight; a press on its controls does not open the annotation; Play with sound on another card quiets it again. A
   podcast card, which has no picture to play in, keeps its player under the card.
+- **Audit of 2026-09-29, after 2.38.0** (2.38.1; three reviews, bugs, security and performance, each finding checked
+  in the code before fixing). Bugs: a transcript reading is per video (`transcriptBusy` a Map) and kept only if the page
+  still shows that video, and rows are told apart by their words rather than marked, since YouTube may reuse them (a
+  quick move to another video drew the first video's lines under the second, and published them with its clip); no
+  transcript yet is asked again three times (`trTries`); a post's panel is keyed by the post up to `/status/<id>`, so
+  X's `/video/1` view keeps the clip and the take; a post panel up four seconds, or used with the Annotate button, is
+  settled (`p.born`), where the trimmer took over the moment the video reported its length; a clip panel survives a
+  moment the post's video cannot be found; a GIF whose frames cannot be read (`blocked` from a 1 by 1 draw, unknown
+  until it has a frame) is quoted as a post, and a trimmer the panel chose is switched back when that turns out
+  (`autoMode`); only the post's own video counts, not one in a post it quotes (`ownVideo`); a panel dropped mid capture
+  stops it on the page, and a panel takes `capture-done` only while it is capturing; lines chosen at the very end
+  still make three seconds; the transcript list scrolls by its own measure; a failed delete gives its button back;
+  the silent preview no longer restarts a video playing with sound. Security: profile pictures only from Google, X or
+  annotated's own storage (`AVATAR_OK` pinned to this project, `Cloud.avatarOk` on every path, the website's profile
+  header too); `shotThumb` is dropped from shared rows; a clip of a video on X links only to a post on X (`xPost`); the
+  Back path opens a source only if it is http(s); migration 22 makes an empty videoId count as none in Most talked
+  about, where every X clip shared one key and the first one's title and link. Performance: the small grain
+  (`--grain`) is baked from its SVG filter into 64 colour PNGs at twice the size (`paper/grain-l.png`, `grain-d.png`,
+  `image-set` 2x), measured at about one level in 255 from the filter; the transcript list is built in a fragment and
+  its line found by binary search; the hover lift no longer animates a blur that a stronger rule held still; the page
+  underneath lost a drop shadow its own mask cut away. Tried and taken out: `content-visibility` on feed cards, since
+  cards not yet drawn are guessed at a height and the page's length and scroll positions shifted. Not done: a stall
+  watchdog in the capture engine, expanding the `:is()` paper rules (their specificity is an id's), removing the
+  overridden paper blocks from `ui.css`, and podcast artwork and page images still load from any host, as og images do.
+- **Second pass of the audit of 2026-09-29** (2.38.1, with the first). Security: the panel checks its floating key
+  whenever it is inside any frame (`FRAMED`), since a site framing `sidepanel.html` without `embed=float` got the whole
+  signed-in panel with every button live (`tests/uxpass0929.py` part 15 frames it from another site). Migration 23:
+  comments carry `inserted_at`, always the database's time, and the twenty a minute counts that, since backdated
+  comments walked around it; past ten claims an hour on one annotation a claim is kept and marked `throttled` rather
+  than refused, so an author cannot keep real claims out with junk (the thirty a minute across the site still
+  refuses). Regressions the first pass made: the stale-transcript check ran before a last read that overwrote it, and
+  rows unchanged by the click are now never used (a panel YouTube left open shows another video's rows, and they cannot
+  be told apart; a missing transcript is better than another video's words); a reading for a video the page has left
+  stops at once; no button answers null (asked again), a button with no rows answers an empty list (not asked again);
+  a panel takes `capture-error` only while capturing; a post panel is settled as a post by any press or typing in it,
+  not after four seconds, so a slow video still turns into the trimmer; a GIF is not offered Clip the video
+  (`blocked` in `p-info`); a clip made on mobile.x.com or www.x.com still links to its post. Performance: a click on a
+  page with nothing marked does no document-wide search (`liveMarks`); the post on X is read once per 300 ms, not twice
+  per look; the trimmer writes its words only when they change (`setText`); the comment clock moves only the times,
+  where it rebuilt every comment every thirty seconds and closed an open reaction picker; the podcast example loads
+  only what plays (`preload = 'metadata'`); the website's scripts, styles and paper keep a day (`_headers`, listed by
+  name). Not done: two accounts can still put a link in Most talked about (needs a higher bar or an account age),
+  Trending has no bar, the podcast fetches check a redirect after following it, the session is readable by content
+  scripts (`setAccessLevel` would need `article.js` and `float.js` moved behind the background), the email sits in our
+  own site's page for `login_hint`, polls are not checked against their options in the database, the annotation limit
+  resets on delete, and whether X ever wraps a post's own video in a `role="link"` (which `ownVideo` would skip) was
+  not checked on the real site.
+- **Third pass of the audit of 2026-09-29** (2.38.1, with the first two). Publishing: one publish at a time in each
+  panel (`publishing`, `tests/publish2x.py`; a double press made two annotations); an id already in the database and
+  yours counts as published (a publish that timed out and landed, or whose answer was lost, failed on the key when
+  tried again); a refused insert takes back the files it had uploaded; Undo and Delete of an annotation not marked
+  shared still take down a copy that landed late; reactions, votes and edits the database refuses now say so on the
+  annotation page and the website (`must` in `cloud.js`), where they looked saved, and an edit goes online before this
+  computer's copy changes; `Store.update` reads and writes in one transaction (two at once could undo the late
+  "shared" mark), and a write the browser aborts (a full disk) fails rather than hanging Publish; the microphone
+  cannot be left on by a double press on Record or a panel dropped while permission is asked; a published take is not
+  offered back as a draft; local comments carried over go in groups of fifteen a minute, under the comment limit.
+  Transcript: whose rows are in YouTube's panel is known from YouTube's own `yt-navigate-start`, which records the
+  leaving video's rows (`staleSig`); rows unlike those that fit the video (first under two minutes, last within its
+  length) are used, including a transcript the person opened themselves or rows that came late, and the request names
+  its video (`v`), answered with nothing by a page that has moved on. Selecting words in a post settles it as a post.
+  Migration 23 now also gives existing comments their own times. Website: a saved row holding something that is not a
+  card is skipped, and one card that cannot be drawn no longer takes Features, the install steps and the foot with it;
+  an address with a broken escape shows Not found; a moment playing from Yours so far stops when the row is redrawn;
+  Undo puts back only what was removed, keeping cards made meanwhile in another tab; the name from the extension is
+  written as text; switching browser tabs just before the example plays no longer loses it for the visit. Not done:
+  planes waiting on a delay are not finished by a click, the front page loads `annotation-page.js`, `panel-kit.js`
+  and `cloud.js` though only Sign in uses them, the example media is fetched early on purpose, and `annotation.js` and
+  `feed.js` have no guard against an older load drawing over a newer one.
+- **Fourth pass of the audit of 2026-09-29** (2.38.1, with the first three). Capture: a capture ends when the video under
+  it changes (the player's source, the element, or a jump back before the start; YouTube reuses one player and fires no
+  seek, so a capture ran on through the next video, possibly past Chrome's 64 MB message limit) and when nothing moves
+  for thirty seconds, video, audio and a tab's playing range alike (`tests/transcript.py` part 9). Podcasts from a
+  feed: an episode opened, or a search answered, after a newer one is dropped (`pickGen`; a slow probe put episode A's
+  file under episode B's name); Cancel stops the clip's download, which also has a time limit (the finder's controls
+  had no abort); the finder's player stops and lets go when its panel goes; a server that ignores byte ranges is
+  refused before its whole file is downloaded; the request past a large cover image has the same limit and checks as
+  the first; `publicAddress` drops trailing dots ("localhost." is loopback); tab audio says Capture cancelled when
+  cancelled mid start, gives back the tab if the recorder cannot start, and stops after the clip's length and half a
+  minute. Shell: the toolbar button opens the float directly, and the other ways in wait for the saved display
+  setting, since a worker woken from sleep chose the side panel; Clip a podcast by name belongs to the site it was
+  asked on (`feedAsked` a Map), where it stayed on the tab for good; a panel answers only its own window's tabs, and a
+  tab moved to another window lets its panel go; the feed and annotation pages ignore a load a newer one has
+  overtaken (`loadGen`); an annotation opened from the page's own rail offers Back; the floating panel's listener goes
+  with it and closed tabs' keys are cleared; room is made before a capture is kept; a handle change that saved nothing
+  says so, and the account menu closes when someone else signs in. The third pass's regressions: a publish landing
+  after its annotation was undone is taken down; files are removed after a refused insert only when no annotation with
+  that id is live; a video with no transcript button, asked three times, is not asked again; a transcript may start up
+  to ten minutes in; many carried-over comments wait only for the first group; a reaction already there counts as
+  saved; Undo and Delete of an offline annotation do not wait on the network. Not done: the recording is still sent to
+  every extension page as a data address, the whole-file waveform can use a lot of memory on a long non-MP3 episode,
+  part of a podcast waveform can stay blank until the trimmer moves, a GIF is made in one long stretch, the panel page
+  can be used to tell annotated is installed (`use_dynamic_url` would stop it but needs the tests changed), and whether
+  the float opens on the first click after a pause was not checked in a real browser.
+- **Fifth pass of the audit of 2026-09-29** (2.38.1, with the first four). The fourth pass's wait for the saved display
+  setting lost Chrome's user gesture, so after the worker slept the side panel could not open from the right-click item,
+  the shortcut or the Annotate button: it now opens at once and gives way to the float if the setting is floating, and
+  the toolbar button in side mode opens the panel. A pause the person makes, or X pausing a post scrolled away, is no
+  longer a stall (the clock runs only while playing, tab audio's limit counts playing time); a mid-roll ad gives its own
+  message. The finder is let go of on another site only when it holds no episode (`busy`). A transcript button with no
+  rows that are this video's is pressed twice at most; `fits` reads the player's own video. Selection: sentence ends
+  looked at the whole text before every full stop, which froze a tab on a long plain page (a book, a big file;
+  `ABBR` now tests only the eight characters before it, and a 20,000 sentence page answers in milliseconds); any
+  editable area is left alone (`isContentEditable`, where only `contenteditable="true"` was); a page that swaps in a
+  new body keeps the Annotate button; an Annotate press nobody answered lets go after eight seconds; Escape clears the
+  page's selection only when annotated has something on the page; a passage with nothing drawable says so. Take and
+  comment boxes: pasted text stays text (Word and Sheets put a picture of it on the clipboard too); a take box that has
+  gone stops watching the page. The emoji picker reads the skin tone once in a while, not per emoji, and escapes what it
+  draws. A comment reaction the database refuses says so. The floating panel says its height only when it changes.
+  Website: a profile or annotation the database could not read says "This did not load" with Try again, where it said
+  it did not exist (`didNotLoad`; `Cloud.get` now throws on an error, since the client already retries for seconds). The
+  link-preview edge function asks the database while the page is fetched, gives up after 1.5 s, survives a broken
+  escape and drops the static file's validators. Tests: `tests/uxpass0929.py` parts 18 to 21. Not done: marking and
+  unmarking still merge text nodes the page made (`normalize`, a risk on React pages), `findText` can miss a quote
+  across a paragraph break on X, a comment's own files stay after its annotation is deleted, any handle can be put in
+  front of an annotation's id in a link, and the pen style of an older copy stays in a long-lived tab.
+- **Sixth pass of the audit of 2026-09-29** (2.38.1, with the first five). Database (migration 24, applied live): an
+  annotation's author may change only its take and tag, and a profile only its handle, where row level security let an
+  author rewrite an annotation's source and files after it was listed; TRUNCATE, REFERENCES and TRIGGER are taken from
+  anon and authenticated; the old comment pace index and a second updated_at trigger are dropped; a reaction may hold no
+  letters of any alphabet (it refused only Latin ones; checked against thirteen emoji, keycaps, flags and skin tones
+  included); a vote must be for one of the poll's options. The fifth pass's regressions: Try again sits in the message
+  and cannot be pressed twice; `contenteditable="false"` text can be annotated again (`isContentEditable` alone decides);
+  on Chrome before 141, which has no `sidePanel.close`, the side panel opened for a sleeping worker is turned off and on
+  so it does not stay beside the float; a page that stalls ends a tab-audio recording too, and a recording's own timer
+  cancels only itself; a second tone press in the emoji picker shows the new tone; an earlier Annotate press's timer
+  no longer cuts a later one short; the finder on another site is kept only while a clip is being cut. Tests:
+  `tests/uxpass0929.py` parts 19 and 20. Not done: a player that pauses itself mid capture (YouTube's "Continue
+  watching?") still waits rather than counting as a stall, `Cloud.gone` asks for every id in one request, and
+  `Cloud.list` reads every comment's words to find the first reply.
+- **Seventh pass of the audit of 2026-09-29** (2.38.1, with the first six). Link previews: every shared annotation link
+  showed the home page's card since 2026-09-23, because the edge function replaced a fixed `<title>annotated</title>`
+  and the page's title had changed; it now replaces any title and drops the page's own card tags
+  (`tests/previewcard.py` runs the function in Node against the real `index.html`; checked on the live site before
+  the fix). Website (`tests/audit7web.py`): the front page reads who is signed in from the stored session, where
+  `getSession` first refreshed a token near its end over the network and held the page on its outline while the auth
+  server was slow; a feed or profile tab come back into view keeps its list when the read fails and leaves the page
+  where the reader has scrolled; an annotation's counts and rails, and a profile's, are asked for with it; the reading
+  scripts download together and run in order; the clip frames are fetched only by the front page; the try-it places
+  its card once a frame on scroll. Extension (`tests/audit7ext.py`): Play selection stopped before its seek landed left
+  a listener that played the video and then paused it at the range's end for good, and a capture crossing that point
+  sat on Recording; the extension's annotation page says "This did not load" with Try again when the read fails;
+  a feed page in a hidden tab reads its list once when looked at, not on every reaction; Most talked about is asked
+  once however many boxes draw it, and not for boxes out of sight; an MP3 header's frame count may not make an
+  episode more than four times longer than its bytes (a wild one sized the waveform to days). Also fixed, without a
+  test of their own: a Home or profile draw overtaken by a newer one (a sign-in or sign-out) is dropped
+  (`browseGen`); the front tab is checked again after the picture is taken; a floating panel answers Annotate only
+  from its own tab; the thumbnail backfill writes only the thumbnail inside one transaction; a video id is escaped
+  in a selector; floating turned off while the frame is being made leaves nothing; a clip's local `blob:` address is
+  not published as its source (two live rows already hold one, which nothing reads). Found by the full run: the fifth
+  pass's reattached Annotate button came back after a newer copy of the page script had removed it, so a page held
+  two (`ghostbtn`); only a button whose body was swapped away (it still has a parent) comes back now. The second
+  pass's skip of the highlight wipe when no marks were counted is undone. `snappref` read the grown quote after a
+  fixed 2.5 s and failed about one run in five even on 2.38.0; it now waits for it. `handlesave` and `walk23` had
+  stand-ins older than the fourth pass (an update answered with no row, `feedAsked` as a Set). `explore0926`'s plane
+  limit is 250, since one of its random flights measures 243. Not done: a comment's files after its annotation is
+  deleted, and a player that pauses itself mid capture still waits.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

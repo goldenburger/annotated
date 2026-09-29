@@ -176,8 +176,8 @@ var Landing = (() => {
   // `from`: where the first play starts, the brightest frame of the clip, since the launch clip opens on night
   // and the card showed a black square for its first seconds (recording of 2026-09-25 at 03:54, 1:06 and 1:28).
   // The clip's frames are fetched as the page opens, so a new card shows its frame at once. It was a black box for
-  // half a second while the picture of frames arrived (recording of 2026-09-25 at 16:45, 2:24).
-  try { const warm = new Image(); warm.src = '/media/artemis-i-frames.jpg'; } catch { /* no images */ }
+  // half a second while the picture of frames arrived (recording of 2026-09-25 at 16:45, 2:24). Only the front
+  // page asks for it (in `mount`); the feed, profiles and annotations load this file too and never show it.
   function loopClip(frame, src, a, z, from = a) {
     const v = document.createElement('video');
     v.className = 'yClip'; v.muted = true; v.playsInline = true; v.preload = 'none';
@@ -302,7 +302,8 @@ var Landing = (() => {
     box.innerHTML = '<div class="llHead"><h2>Yours so far</h2>' + (typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : '') + '<p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. <button type="button" class="link llMake">Make one above</button>.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
-    const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };
+    const list = () => { const y = readYours(); return (Array.isArray(y) ? y : y ? [y] : []).filter((x) => x && typeof x === 'object'); };
+    const drawRow = () => { list().forEach((y) => { try { row.appendChild(yoursCard(y)); } catch (e) { console.warn('annotated: a saved card could not be drawn', e); } }); };
     const save = (arr) => { try { localStorage.setItem(YOURS, JSON.stringify(arr.slice(0, 4))); } catch { /* private window */ } };
     const tidy = () => {
       // Said once under the row, where every card used to say it (David, 2026-09-25), and not at all once
@@ -317,26 +318,27 @@ var Landing = (() => {
       const empty = box.querySelector('.llEmpty');
       if (empty) empty.hidden = !!row.children.length;
     };
-    list().forEach((y) => row.appendChild(yoursCard(y)));
+    drawRow();
     tidy();
     document.addEventListener('annotated-installed', tidy);
     // Another tab's takes and removals reach this one. A front page left open showed only what was made in it,
     // one card where there were four (recording of 2026-09-25 at 03:54, 3:02).
     addEventListener('storage', (e) => {
       if (e.key !== YOURS || row.querySelector('.pl-hidden')) return;
-      row.innerHTML = ''; list().forEach((y) => row.appendChild(yoursCard(y))); tidy();
+      if (listening) listening();
+      row.innerHTML = ''; drawRow(); tidy();
     });
     // Removing: one card by its ×, or all of them. Undo puts them back for six seconds.
     const undoBar = box.querySelector('.llUndo');
     let undoTimer = 0, lastGone = null;
-    const redraw = () => { row.innerHTML = ''; list().forEach((y) => row.appendChild(yoursCard(y))); tidy(); };
+    const redraw = () => { if (listening) listening(); row.innerHTML = ''; drawRow(); tidy(); };
     const remove = (pick, said) => {
       const all = list(), gone = all.filter(pick), kept = all.filter((y) => !pick(y));
       if (!gone.length) { row.querySelectorAll('.example').forEach((x) => x.remove()); tidy(); return; }
       save(kept);
       // Emptying the row is not an invitation to the example: it waits for another visit or Show me an example.
       try { sessionStorage.setItem('annotated-example-shown', '1'); } catch {}
-      lastGone = { all };
+      lastGone = { gone };
       redraw();
       undoBar.querySelector('span').textContent = said;
       undoBar.hidden = false; box.hidden = false;
@@ -346,7 +348,8 @@ var Landing = (() => {
     };
     box.querySelector('.llUndoBtn').addEventListener('click', () => {
       if (!lastGone) return;
-      save(lastGone.all);
+      const back = [...lastGone.gone, ...list()].filter((y, i, a) => a.findIndex((z) => z.at === y.at) === i).sort((a, b) => (b.at || 0) - (a.at || 0));
+      save(back);
       lastGone = null; clearTimeout(undoTimer); undoBar.hidden = true; redraw();
     });
     row.addEventListener('click', (e) => {
@@ -480,6 +483,7 @@ var Landing = (() => {
   }
 
   function mount(root, { signedIn = false, onSignIn = () => {}, me = null, onProfile = null } = {}) {
+    try { const warm = new Image(); warm.src = '/media/artemis-i-frames.jpg'; } catch { /* no images */ }
     planesSwitch();
     root.className = 'land';
     root.innerHTML = '';

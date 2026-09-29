@@ -47,7 +47,7 @@ const FeedPod = (() => {
   function publicAddress(url) {
     let u; try { u = new URL(url); } catch { return false; }
     if (!/^https?:$/.test(u.protocol)) return false;
-    const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+    const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '');
     if (!h || h === 'localhost' || /\.(localhost|local|internal|lan|home\.arpa|intranet|corp)$/.test(h)) return false;
     if (!h.includes('.') && !h.includes(':')) return false;
     const v4 = h.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
@@ -111,16 +111,25 @@ const FeedPod = (() => {
     // nothing about it.
     const total = Number(cr ? cr.split('/')[1] : r.headers.get('content-length'));
     const ranges = r.status === 206;
-    const b = new Uint8Array(await r.arrayBuffer());
     const finalUrl = r.url || url;
-    if (!ranges) throw new Error("This show's server doesn't allow downloading part of an episode.");
-    if (!Number.isFinite(total) || total <= 0) throw new Error("This show's server did not say how long the episode's file is, so it cannot be clipped part by part.");
+    if (!ranges || !Number.isFinite(total) || total <= 0) {
+      try { if (r.body) r.body.cancel(); } catch { /* nothing to stop */ }
+      if (!ranges) throw new Error("This show's server doesn't allow downloading part of an episode.");
+      throw new Error("This show's server did not say how long the episode's file is, so it cannot be clipped part by part.");
+    }
+    const b = new Uint8Array(await r.arrayBuffer());
     let audioStart = 0;
     if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) audioStart = 10 + ((b[6] << 21) | (b[7] << 14) | (b[8] << 7) | b[9]) + ((b[5] & 0x10) ? 10 : 0);
     let head = b;
     if (audioStart + 4096 > b.length) { // a large cover image in the tag: fetch where the audio starts
       mustBePublic(finalUrl);
-      const r2 = await fetch(finalUrl, { headers: { Range: `bytes=${audioStart}-${audioStart + 65535}` } });
+      const stop2 = new AbortController(), t2 = setTimeout(() => stop2.abort(), 20000);
+      let r2;
+      try { r2 = await fetch(finalUrl, { headers: { Range: `bytes=${audioStart}-${audioStart + 65535}` }, signal: stop2.signal }); }
+      catch { throw new Error(stop2.signal.aborted ? 'The audio file did not answer in time.' : 'The audio file could not be reached.'); }
+      finally { clearTimeout(t2); }
+      if (r2.url && !publicAddress(r2.url)) throw new Error(NOT_PUBLIC);
+      if (r2.status !== 206) throw new Error('The audio file could not be read.');
       head = new Uint8Array(await r2.arrayBuffer());
     } else head = b.subarray(audioStart);
     const s = syncFrom(head, 0);
@@ -139,7 +148,10 @@ const FeedPod = (() => {
       vbr = tag === 'Xing';
     }
     const audioBytes = (bytes || (total - firstAt)) || 1;
-    const duration = frames ? (frames * first.spf) / first.sr : audioBytes / ((first.kbps * 1000) / 8);
+    const byBytes = audioBytes / ((first.kbps * 1000) / 8);
+    // The publisher writes the frame count. A wild one claimed days, and the waveform sized itself to it.
+    const byFrames = frames ? (frames * first.spf) / first.sr : 0;
+    const duration = byFrames && byFrames < byBytes * 4 ? byFrames : byBytes;
     // Time to byte: the seek table for variable bitrate, straight proportion for constant bitrate.
     const byteAt = (t) => {
       const f = Math.max(0, Math.min(1, t / duration));
@@ -153,14 +165,24 @@ const FeedPod = (() => {
   }
 
   // The clip itself: only the bytes for start to end, cut on MP3 frame boundaries. No re-encoding.
-  async function slice(p, start, end) {
+  async function slice(p, start, end, cancel = null) {
     const pad = 8192;
     const b0 = Math.max(0, Math.floor(p.byteAt(start)) - pad), b1 = Math.min(p.total - 1, Math.ceil(p.byteAt(end)) + pad);
     mustBePublic(p.url);
-    const r = await fetch(p.url, { headers: { Range: `bytes=${b0}-${b1}` } });
+    // Half a minute, and five more seconds a megabyte; a server that sends its headers and then stalls used to leave
+    // the panel on Capturing for good (audit of 2026-09-29).
+    const stop = new AbortController(), limitTimer = setTimeout(() => stop.abort(), 30000 + Math.ceil((b1 - b0) / 1048576) * 5000);
+    if (cancel) cancel.addEventListener('abort', () => stop.abort(), { once: true });
+    let r;
+    try { r = await fetch(p.url, { headers: { Range: `bytes=${b0}-${b1}` }, signal: stop.signal }); }
+    catch { clearTimeout(limitTimer); throw new Error(cancel && cancel.aborted ? 'Capture cancelled.' : stop.signal.aborted ? 'The clip took too long to download. Try again.' : 'The clip could not be downloaded.'); }
+    const done = () => clearTimeout(limitTimer);
     if (r.url && !publicAddress(r.url)) throw new Error(NOT_PUBLIC);
-    if (r.status !== 206) throw new Error('The clip could not be downloaded.');
-    const b = new Uint8Array(await r.arrayBuffer());
+    if (r.status !== 206) { done(); throw new Error('The clip could not be downloaded.'); }
+    let b;
+    try { b = new Uint8Array(await r.arrayBuffer()); }
+    catch { throw new Error(cancel && cancel.aborted ? 'Capture cancelled.' : 'The clip took too long to download. Try again.'); }
+    finally { done(); }
     const s = syncFrom(b, Math.floor(p.byteAt(start)) - b0);
     if (!s) throw new Error('The clip could not be cut from the file.');
     // Walk whole frames until the clip's length is covered.
@@ -177,7 +199,7 @@ const FeedPod = (() => {
 
   // Waveform for the part of the episode in view, fetched a window at a time as the trimmer moves.
   function waveform(p, pps = 10) {
-    const n = Math.ceil(p.duration * pps), data = new Float32Array(n), done = new Set();
+    const n = Math.min(Math.ceil(p.duration * pps), Math.ceil(12 * 3600 * pps)), data = new Float32Array(n), done = new Set();
     let busy = false;
     const w = { pps, data, duration: p.duration, peak: 1, onupdate: null };
     w.ensure = async (t0, t1) => {

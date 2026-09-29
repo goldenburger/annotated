@@ -203,7 +203,14 @@ const PostPanel = (() => {
     }
     q('.pGrab').addEventListener('click', grab);
 
+    // One publish at a time (audit of 2026-09-29).
+    let publishing = false;
     async function publish(take, force = false) {
+      if (publishing) return;
+      publishing = true;
+      try { return await publishOnce(take, force); } finally { publishing = false; }
+    }
+    async function publishOnce(take, force = false) {
       if (!result) return;
       const item = { ...result, display: display() };
       if (item.display !== 'embed' && !item.shot) item.display = 'embed';
@@ -224,6 +231,7 @@ const PostPanel = (() => {
         pubRef = await opts.onPublish(item, take);
         published = true;
         if (opts.keep) opts.keep.clear().catch(() => {});
+        compose.forgetDraft();
         q('.pCompose').hidden = true;
         q('.pQuoteX').hidden = true;
         q('.pFragFix').hidden = true;

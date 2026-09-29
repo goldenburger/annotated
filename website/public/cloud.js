@@ -11,8 +11,11 @@ const Cloud = (() => {
   const toBlob = async (dataUrl) => (await fetch(dataUrl)).blob();
   // A profile picture only from where sign-in puts it (Google, X, our own storage), so a picture cannot be used to
   // log who looks at a profile (security audit of 2026-09-29).
-  const AVATAR_OK = /^https:\/\/([a-z0-9-]+\.)*(googleusercontent\.com|twimg\.com|supabase\.co)\//i;
-  const person = (p) => (p ? { id: p.id, name: String(p.display_name || p.handle || 'Someone'), handle: String(p.handle || ''), avatar: AVATAR_OK.test(p.avatar_url || '') ? p.avatar_url : '' } : null);
+  // Only annotated's own storage, not any Supabase project, which anyone can make and read the logs of (audit of
+  // 2026-09-29), and every path that reads a picture goes through it.
+  const AVATAR_OK = /^https:\/\/(([a-z0-9-]+\.)*(googleusercontent\.com|twimg\.com)|efuotxdeifqzdfsavekb\.supabase\.co)\//i;
+  const avatarOk = (u) => (AVATAR_OK.test(String(u || '')) ? String(u) : '');
+  const person = (p) => (p ? { id: p.id, name: String(p.display_name || p.handle || 'Someone'), handle: String(p.handle || ''), avatar: avatarOk(p.avatar_url) } : null);
   // Named links, because annotations connect to profiles in more than one way (author, reactions, votes).
   const PROFILE = 'author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url)';
   const COMMENT_PROFILE = 'author:profiles!comments_author_id_fkey(id, handle, display_name, avatar_url)';
@@ -43,6 +46,8 @@ const Cloud = (() => {
              w: Number(t.w) || 0, h: Number(t.h) || 0, alt: String(t.alt || '').slice(0, 200) };
     }
     const { blob, poster, shot, mediaUrl, ...source } = item;
+    // A clip's own preview address on this computer is no source (it went into the row as blob:chrome-extension://...).
+    if (typeof source.url === 'string' && !/^https?:/i.test(source.url)) delete source.url;
     const row = {
       id, author_id: me.id, kind: item.kind, take_text: take.text || '', tag: take.tag || null,
       poll: take.poll ? { question: take.poll.question || '', options: take.poll.options } : null,
@@ -52,7 +57,17 @@ const Cloud = (() => {
       ...(up ? { upload: up } : {}),
     };
     const { error } = await c().from('annotations').insert(row);
-    if (error) throw new Error('Could not save the annotation: ' + error.message);
+    if (error) {
+      if (error.code === '23505') {
+        const { data } = await c().from('annotations').select('id').eq('id', id).eq('author_id', me.id).maybeSingle();
+        if (data) return me;
+      }
+      // A4: the files already uploaded are taken back, so a refused annotation leaves no screenshot public by link.
+      const gone = [...Object.values(paths), up && up.path].filter(Boolean);
+      const live = await c().from('annotations').select('id').eq('id', id).maybeSingle().then((r) => !!(r && (r.data || r.error)), () => true);
+      if (gone.length && !live) await c().storage.from(BUCKET).remove(gone).catch(() => {});
+      throw new Error('Could not save the annotation: ' + error.message);
+    }
     return me;
   }
 
@@ -66,7 +81,7 @@ const Cloud = (() => {
   const thumbOk = (u) => /^https:\/\/i\.ytimg\.com\//.test(str(u));
   function cleanSource(src) {
     const s0 = isObj(src) ? { ...src } : {};
-    ['blob', 'poster', 'shot', 'mediaUrl'].forEach((k) => { delete s0[k]; });
+    ['blob', 'poster', 'shot', 'mediaUrl', 'shotThumb'].forEach((k) => { delete s0[k]; });
     if (s0.thumb && !thumbOk(s0.thumb)) delete s0.thumb;
     ['text', 'title', 'author', 'handle', 'quote', 'show', 'url', 'fragmentUrl', 'videoId', 'site', 'channel', 'posted', 'transcript'].forEach((k) => { if (k in s0) s0[k] = str(s0[k]); });
     s0.meta = isObj(s0.meta) ? { ...s0.meta } : {};
@@ -90,7 +105,8 @@ const Cloud = (() => {
   }
   async function get(id) {
     const { data, error } = await c().from('annotations').select(`*, ${PROFILE}`).eq('id', id).maybeSingle();
-    if (error || !data) return null;
+    if (error) throw error;
+    if (!data) return null;
     return toRecord(data);
   }
   // Newest annotations from everyone, or from one person.
@@ -192,16 +208,20 @@ const Cloud = (() => {
     const path = data[0].upload && data[0].upload.path;
     if (path) await c().storage.from(BUCKET).remove([path]).catch(() => {});
   };
-  const react = (id, uid, emoji, on) => (on
-    ? c().from('reactions').insert({ annotation_id: id, user_id: uid, emoji })
+  const must = async (q) => { const r = await q; if (r && r.error) throw r.error; return r; };
+  const react = (id, uid, emoji, on) => must(on
+    ? c().from('reactions').insert({ annotation_id: id, user_id: uid, emoji }).then((r) => (r && r.error && r.error.code === '23505' ? { data: null, error: null } : r))
     : c().from('reactions').delete().match({ annotation_id: id, user_id: uid, emoji }));
-  const reactComment = (dbId, uid, emoji, on) => (on
-    ? c().from('comment_reactions').insert({ comment_id: dbId, user_id: uid, emoji })
+  const reactComment = (dbId, uid, emoji, on) => must(on
+    ? c().from('comment_reactions').insert({ comment_id: dbId, user_id: uid, emoji }).then((r) => (r && r.error && r.error.code === '23505' ? { data: null, error: null } : r))
     : c().from('comment_reactions').delete().match({ comment_id: dbId, user_id: uid, emoji }));
-  const vote = (id, uid, index) => (index === null || index === undefined
+  const vote = (id, uid, index) => must(index === null || index === undefined
     ? c().from('poll_votes').delete().match({ annotation_id: id, user_id: uid })
     : c().from('poll_votes').upsert({ annotation_id: id, user_id: uid, option_index: index }));
-  const edit = (id, { text, tag }) => c().from('annotations').update({ take_text: text || '', tag: tag || null }).eq('id', id);
+  const edit = async (id, { text, tag }) => {
+    const { data } = await must(c().from('annotations').update({ take_text: text || '', tag: tag || null }).eq('id', id).select('id'));
+    if (!data || !data.length) throw new Error('That is not yours to change, so nothing was saved.');
+  };
   // The row first, then the files. The other way round, a row that then refused to delete was left live
   // with a clip and a screenshot that had already gone, which is worse than a file nobody points at.
   // A delete that matches nothing is not an error to the database, it is simply no rows. Row level security
@@ -227,7 +247,16 @@ const Cloud = (() => {
   // Sharing something first saved locally: its comments and reactions come along, as the signed-in person's.
   async function carryOver(id, uid, comments = [], reactions = []) {
     const cs = comments.filter((c) => c && c.text).map((c) => ({ annotation_id: id, author_id: uid, body: String(c.text).slice(0, 1000), created_at: new Date(c.t || Date.now()).toISOString() }));
-    if (cs.length) { const { error } = await c().from('comments').insert(cs); if (error) throw error; }
+    // In groups under the twenty-a-minute limit, which counts each comment as it arrives (migration 23). Only the
+    // first is waited for; the rest follow a minute apart, so Publish does not sit for minutes.
+    if (cs.length) { const { error } = await c().from('comments').insert(cs.slice(0, 15)); if (error) throw error; }
+    if (cs.length > 15) (async () => {
+      for (let i = 15; i < cs.length; i += 15) {
+        await new Promise((r) => setTimeout(r, 61000));
+        const { error } = await c().from('comments').insert(cs.slice(i, i + 15));
+        if (error) { console.warn('annotated: some earlier comments did not come across', error); return; }
+      }
+    })();
     const mine = [...new Set((reactions || []).map((r) => (typeof r === 'string' ? r : r.mine !== false ? r.emoji : null)).filter(Boolean))];
     if (mine.length) { const { error } = await c().from('reactions').insert(mine.map((emoji) => ({ annotation_id: id, user_id: uid, emoji }))); if (error) throw error; }
     return { comments: cs.length, reactions: mine.length };
@@ -255,7 +284,7 @@ const Cloud = (() => {
     let skip = me || null;
     if (!skip && typeof Backend !== 'undefined' && Backend.lastId) { try { skip = await Backend.lastId(); } catch { skip = null; } }
     return (data || []).filter((p) => p && p.id && p.handle && (!skip || p.id !== skip)).slice(0, lim)
-      .map((p) => ({ id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: p.avatar_url || '', annotations: p.annotations }));
+      .map((p) => ({ id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: avatarOk(p.avatar_url), annotations: p.annotations }));
   }
   // What is most talked about on annotated lately, weighed in the database by talked_about (migration 13):
   // replies count more than annotations, reactions less, newer counts more, and several people count more
@@ -295,7 +324,7 @@ const Cloud = (() => {
   async function authorNow(id) {
     if (!id) return null;
     const { data } = await c().from('profiles').select('id, handle, display_name, avatar_url').eq('id', id).maybeSingle();
-    return data ? { id: data.id, handle: data.handle, name: data.display_name || data.handle, avatar: data.avatar_url || '' } : null;
+    return data ? { id: data.id, handle: data.handle, name: data.display_name || data.handle, avatar: avatarOk(data.avatar_url) } : null;
   }
   // "For you": newer and more discussed first, lifted for people you follow and for the tags and sources you annotate.
   // For you. What someone would want to read next, and a reason for each one, so the order makes sense.
@@ -451,5 +480,5 @@ const Cloud = (() => {
     };
   }
 
-  return { publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
+  return { avatarOk, publish, carryOver, get, gone, list, social, follow, unfollow, followCounts, followingIds, people, trending, talkedAbout, authorNow, forYou, markOpened, sourceKey, discovery, homeTabs, startTab, savedTab, saveTab, addComment, deleteComment, react, reactComment, vote, edit, remove, claim, publicUrl };
 })();

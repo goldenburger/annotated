@@ -12,6 +12,10 @@ POST = '''<!doctype html><html><head><title>Test Person on X: "Watch this launch
 <div data-testid="videoPlayer"><video src="/media/src.webm" width="560" muted playsinline></video></div>
 <a href="/testperson/status/1111111111111111111"><time datetime="2026-09-28T15:00:00.000Z">Sep 28</time></a></article>
 </body></html>'''
+# A GIF: an MP4 from another host that does not allow its frames to be read. And a post whose only video is inside the
+# post it quotes (X draws a quoted post as a link card). Both are quoted as posts (audit of 2026-09-29).
+GIF = POST.replace('/media/src.webm', 'https://video.twimg.example/tweet_video/gif.webm').replace('1111111111111111111', '3333333333333333333')
+QUOTED = POST.replace('<div data-testid="videoPlayer">', '<div role="link"><div data-testid="videoPlayer">').replace('playsinline></video></div>', 'playsinline></video></div></div>').replace('1111111111111111111', '4444444444444444444')
 PLAIN = POST.replace('<div data-testid="videoPlayer"><video src="/media/src.webm" width="560" muted playsinline></video></div>', '').replace('1111111111111111111', '2222222222222222222')
 
 async def route(r):
@@ -22,6 +26,8 @@ async def route(r):
       a, b = re.match(r'bytes=(\d*)-(\d*)', rng).groups(); a = int(a or 0); b = int(b) if b else n - 1
       await r.fulfill(status=206, body=SRC[a:b + 1], headers={'Content-Type': 'video/webm', 'Accept-Ranges': 'bytes', 'Content-Range': f'bytes {a}-{b}/{n}'})
     else: await r.fulfill(status=200, body=SRC, headers={'Content-Type': 'video/webm'})
+  elif '3333333333333333333' in u: await r.fulfill(status=200, body=GIF, headers={'Content-Type': 'text/html; charset=utf-8'})
+  elif '4444444444444444444' in u: await r.fulfill(status=200, body=QUOTED, headers={'Content-Type': 'text/html; charset=utf-8'})
   elif '2222222222222222222' in u: await r.fulfill(status=200, body=PLAIN, headers={'Content-Type': 'text/html; charset=utf-8'})
   else: await r.fulfill(status=200, body=POST, headers={'Content-Type': 'text/html; charset=utf-8'})
 
@@ -32,6 +38,7 @@ async def main():
       args=[f'--disable-extensions-except={EXT}', f'--load-extension={EXT}', LOADEXT, '--autoplay-policy=no-user-gesture-required', '--headless=new'], no_viewport=True)
     await ctx.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}")
     await ctx.route('https://x.com/**', route)
+    await ctx.route('https://video.twimg.example/**', lambda r: r.fulfill(status=200, body=SRC, headers={'Content-Type': 'video/webm'}))
     sw = ctx.service_workers[0] if ctx.service_workers else await ctx.wait_for_event('serviceworker')
     await one_panel(sw)
     x = await ctx.new_page(); await x.set_viewport_size({'width': 1000, 'height': 800}); x.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
@@ -76,6 +83,22 @@ async def main():
     await pv.click('#videoMode .modeSeg label:has-text("Quote the post")')
     try: await pv.wait_for_selector('#postMode:not([hidden]) .modeSeg', timeout=8000)
     except Exception: errs.append('Quote the post did not switch to the post panel')
+    # X's own view of the same post (/video/1) keeps the panel and what it holds (audit of 2026-09-29).
+    await pv.click('#postMode .modeSeg label:has-text("Clip the video")'); await asyncio.sleep(3)
+    await x.evaluate("history.pushState({}, '', '/testperson/status/1111111111111111111/video/1')"); await asyncio.sleep(3)
+    same = await pv.evaluate("!document.querySelector('#videoMode').hidden && !!document.querySelector('#videoMode .modeSeg')")
+    print('/video/1 keeps the clip panel:', same)
+    if not same: errs.append("X's /video/1 view of the post dropped the clip panel")
+    # A GIF, whose frames cannot be read, and a video inside a quoted post are quoted as posts.
+    for pid, what in (('3333333333333333333', 'a GIF'), ('4444444444444444444', 'a video inside a quoted post')):
+      await x.goto(f'https://x.com/testperson/status/{pid}'); await asyncio.sleep(5)
+      st = await pv.evaluate("({ post: !document.querySelector('#postMode').hidden, video: !document.querySelector('#videoMode').hidden })")
+      if pid.startswith('3'):
+        xi = await sw.evaluate("chrome.tabs.query({}).then(t=>t.find(v=>v.url.includes('x.com'))).then((t) => chrome.tabs.sendMessage(t.id, { type: 'xv-info' }))")
+        print('   the GIF reports', {k: xi.get(k) for k in ('ok', 'blocked', 'duration')})
+        if not xi.get('blocked'): errs.append(f'the GIF was not found unreadable: {xi}')
+      print(what, '->', st)
+      if not st['post'] or st['video']: errs.append(f'{what} was offered as a clip: {st}')
     # A post without a video opens on the words, with no switch.
     await x.goto('https://x.com/testperson/status/2222222222222222222'); await asyncio.sleep(4)
     plain = await pv.evaluate("({ post: !document.querySelector('#postMode').hidden, video: !document.querySelector('#videoMode').hidden, seg: !!document.querySelector('#postMode .modeSeg') })")

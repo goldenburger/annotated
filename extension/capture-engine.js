@@ -107,7 +107,7 @@ var ClipEngine = (() => {
       rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
 
       const prev = { rate: v.playbackRate, loop: v.loop };
-      let stopped = false, internalSeek = false, rafId = null, poll = null, lastProgress = 0, poster = null;
+      let stopped = false, internalSeek = false, rafId = null, poll = null, lastProgress = 0, poster = null, onGone = null;
       const t0 = performance.now();
       let lastCheck = performance.now(), methodSwitches = 0, blankChecks = 0, sawPicture = false;
       const draw = () => {
@@ -139,6 +139,7 @@ var ClipEngine = (() => {
         ['pause', 'waiting'].forEach((e) => v.removeEventListener(e, onPause));
         ['play', 'playing'].forEach((e) => v.removeEventListener(e, onPlay));
         v.removeEventListener('seeking', onSeeking); v.removeEventListener('ended', onEnded);
+        if (onGone) v.removeEventListener('emptied', onGone);
         if (rafId) cancelAnimationFrame(rafId);
         clearInterval(poll);
         stream.getTracks().forEach((t) => t.stop());
@@ -172,11 +173,19 @@ var ClipEngine = (() => {
         v.addEventListener('seeking', onSeeking); v.addEventListener('ended', onEnded);
         rec.start(1000); schedule(); await v.play();
       } catch (e) { abort('Capture could not start: ' + e.message); throw e; }
+      const src0 = v.currentSrc || v.src || '';
+      let lastT = v.currentTime, lastMove = performance.now();
+      onGone = () => setTimeout(() => abort(adShowing() ? 'An ad started during capture, so the capture was cancelled. Capture again after the ad.' : 'The video changed during capture, so the capture was cancelled.'), 300);
+      v.addEventListener('emptied', onGone, { once: true });
       poll = setInterval(() => {
         if (stopped) return;
         if (adShowing()) return abort('An ad started during capture, so the capture was cancelled. Capture again after the ad.');
+        const gv = getVideo();   // a page can report no player for a moment while it redraws (X), which is not a change
+        if (!v.isConnected || (gv && gv !== v) || (src0 && (v.currentSrc || v.src || '') !== src0) || v.currentTime < start - 1) return onGone();
         if (v.currentTime >= end) return finish();
         const now = performance.now();
+        if (Math.abs(v.currentTime - lastT) > 0.05 || v.paused) { lastT = v.currentTime; lastMove = now; }
+        else if (now - lastMove > 30000) return abort('The video stopped loading for half a minute during capture, so the capture was cancelled. Capture again.');
         if (now - lastProgress > 250) { lastProgress = now; send({ type: 'capture-progress', t: v.currentTime, start, end }); }
       }, 100);
     }
@@ -263,10 +272,13 @@ var ClipEngine = (() => {
         v.addEventListener('seeking', onSeeking); v.addEventListener('ended', onEnded);
         rec.start(1000); await v.play();
       } catch (e) { abort('Capture could not start: ' + e.message); throw e; }
+      let lastT = v.currentTime, lastMove = performance.now();
       poll = setInterval(() => {
         if (stopped) return;
         if (v.currentTime >= end) return finish();
         const now = performance.now();
+        if (Math.abs(v.currentTime - lastT) > 0.05 || v.paused) { lastT = v.currentTime; lastMove = now; }
+        else if (now - lastMove > 30000) return abort('The episode stopped loading for half a minute during capture, so the capture was cancelled. Capture again.');
         if (now - lastProgress > 250) { lastProgress = now; send({ type: 'capture-progress', t: v.currentTime, start, end }); }
       }, 50);
     }
@@ -277,16 +289,23 @@ var ClipEngine = (() => {
       const v = getVideo();
       if (!v || job) return;
       if (previewStop) previewStop();
-      const onTime = () => { if (v.currentTime >= end) { v.pause(); previewStop && previewStop(); } };
-      const onSeek = () => { if (!job && (v.currentTime < start - 0.5 || v.currentTime > end + 0.5)) previewStop && previewStop(); };
-      previewStop = () => { v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onSeek); previewStop = null; };
-      v.currentTime = start;
-      v.addEventListener('seeked', function once() {
+      // Each preview takes off its own listeners, the one waiting for the seek included. Stop pressed before the seek
+      // landed used to leave that one, which later played the video and left a listener pausing it at `end` for good.
+      const stop = () => {
+        v.removeEventListener('seeked', once); v.removeEventListener('timeupdate', onTime); v.removeEventListener('seeked', onSeek);
+        if (previewStop === stop) previewStop = null;
+      };
+      const onTime = () => { if (v.currentTime >= end) { v.pause(); stop(); } };
+      const onSeek = () => { if (!job && (v.currentTime < start - 0.5 || v.currentTime > end + 0.5)) stop(); };
+      function once() {
         v.removeEventListener('seeked', once);
         v.addEventListener('timeupdate', onTime);
         v.addEventListener('seeked', onSeek);
         v.play().catch(() => {});
-      });
+      }
+      previewStop = stop;
+      v.currentTime = start;
+      v.addEventListener('seeked', once);
     }
 
     // For recording the tab's sound: plays the range once, reporting progress, then says when it is done.
@@ -301,8 +320,11 @@ var ClipEngine = (() => {
       const stop = (done) => { clearInterval(poll); v.pause(); rangeJob = null; if (done) send({ type: 'pod-range-done', start, end }); };
       rangeJob = { stop: () => stop(false) };
       await v.play();
+      let lastT = v.currentTime, lastMove = performance.now();
       poll = setInterval(() => {
         if (v.currentTime >= end || v.ended) return stop(true);
+        if (Math.abs(v.currentTime - lastT) > 0.05 || v.paused) { lastT = v.currentTime; lastMove = performance.now(); }
+        else if (performance.now() - lastMove > 30000) { stop(false); send({ type: 'capture-error', error: 'The episode stopped for half a minute during capture, so the capture was cancelled. Capture again.' }); return; }
         const now = performance.now();
         if (now - lastProgress > 250) { lastProgress = now; send({ type: 'capture-progress', t: v.currentTime, start, end }); }
       }, 40);

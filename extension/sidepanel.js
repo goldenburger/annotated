@@ -5,7 +5,11 @@ PanelKit.initDebug();
 PanelKit.compactOnScroll();
 
 // Display: side panel or floating over the page. Inside the floating frame this page runs with ?embed=float.
-const EMBED = new URLSearchParams(location.search).get('embed') === 'float';
+// Any copy of the panel inside a frame counts as floating, whatever its address says. Only ours carries the key, so a
+// site that framed this page without "embed=float" used to get the whole signed-in panel with every button live
+// (security audit of 2026-09-29). The native side panel is never in a frame.
+const FRAMED = (() => { try { return window.top !== window; } catch { return true; } })();
+const EMBED = new URLSearchParams(location.search).get('embed') === 'float' || FRAMED;
 // Floating over a page, the panel is inside that page's document, which could make it transparent, move it or lay
 // something over it to lead clicks onto it. While the browser says the panel is not plainly visible, the buttons
 // that publish, undo or delete ask to be pressed a second time, saying so on the button (security audit of
@@ -179,7 +183,11 @@ async function publish(tid, item, take) {
       if (e && e.message === 'timeout') {
         note = 'annotated did not answer in time, so it is saved on this computer. If it gets through, the page will say so.';
         // It may still land. If it does, the copy here learns it is shared, so nothing is published twice.
-        going.then((a) => { if (a) Store.update(id, { cloud: true, author: a }).then(() => log('Shared after all ' + id)); }).catch(() => {});
+        going.then((a) => {
+          if (!a) return;
+          if (Store.wasDeleted(id)) { Cloud.remove(id, a.id).then(() => log('Landed after it was undone, so taken down ' + id)).catch(() => {}); return; }
+          Store.update(id, { cloud: true, author: a }).then(() => log('Shared after all ' + id));
+        }).catch(() => {});
       } else {
         console.warn('publish', e);
         note = /lot of annotations/i.test((e && e.message) || '') ? `Saved on this computer. ${e.message}`
@@ -292,6 +300,9 @@ async function deleteAnnotation(id) {
     const me = await Backend.profile().catch(() => null);
     if (!me) { alert('This annotation is shared. Sign in from the panel first, so it is deleted everywhere.'); return false; }
     try { await Cloud.remove(id, me.id); } catch (e) { alert('It could not be deleted online, so it was kept. ' + e.message); return false; }
+  } else if (rec && navigator.onLine !== false) {
+    const me = await inTime(Backend.profile(), 3000).catch(() => null);
+    if (me) await inTime(Cloud.remove(id, me.id), 5000).catch(() => {});
   }
   await Store.del(id);
   const url = chrome.runtime.getURL('annotation.html') + '#' + id;
@@ -308,6 +319,10 @@ async function unpublish(ref) {
     const me = await Backend.profile().catch(() => null);
     if (!me) throw new Error('Sign in again to undo it, since it is published.');
     await Cloud.remove(ref.id, me.id);
+  } else if (!ref.offline && navigator.onLine !== false) {
+    // Not marked shared, but a publish that timed out may still have landed: take that copy down too, if it exists.
+    const me = await inTime(Backend.profile(), 3000).catch(() => null);
+    if (me) await inTime(Cloud.remove(ref.id, me.id), 5000).catch(() => {});
   }
   await Store.del(ref.id);
   const url = chrome.runtime.getURL('annotation.html') + '#' + ref.id;
@@ -325,7 +340,7 @@ function makeVideo(tid) {
     preview: (start, end) => sendTo(tid, { type: 'preview', start, end }).catch(() => {}),
     pause: () => sendTo(tid, { type: 'pause' }).catch(() => {}),
     frames: async () => { const sb = await sendTo(tid, { type: 'storyboard' }).catch(() => null); return sb ? Filmstrip.fromStoryboard(sb) : null; },
-    transcript: () => sendTo(tid, { type: 'transcript' }).catch(() => null),
+    transcript: (v) => sendTo(tid, { type: 'transcript', v }).catch(() => null),
     capture: (start, end) => sendTo(tid, { type: 'capture', start, end }),
     abort: () => sendTo(tid, { type: 'abort' }).catch(() => {}),
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
@@ -348,8 +363,8 @@ function makeXVideo(tid, url) {
 }
 
 // Which mode a page with audio is shown in, when someone switches it by hand.
-const modeOverride = new Map();
-const switchMode = (tid, url, mode) => { modeOverride.set(tid + ' ' + url, mode); drop(tid); refresh(); };
+const modeOverride = new Map(), autoMode = new Set();
+const switchMode = (tid, url, mode) => { modeOverride.set(tid + ' ' + url, mode); autoMode.delete(tid + ' ' + url); drop(tid); refresh(); };
 
 // Records the tab's own sound while the page plays the chosen range. Used when the episode is streamed from
 // another site that does not allow direct recording. The listener still hears it through the panel.
@@ -359,12 +374,16 @@ async function tabAudioCapture(p, tid, start, end) {
   catch (e) { log('Tab sound not available. ' + e.message); return { ok: false, error: 'This episode streams from another site. Click the annotated button in the toolbar while on this tab, then Capture clip again.' }; }
   const stream = await navigator.mediaDevices.getUserMedia({ audio: { mandatory: { chromeMediaSource: 'tab', chromeMediaSourceId: id } }, video: false });
   const ac = new AudioContext();
-  ac.createMediaStreamSource(stream).connect(ac.destination);
+  let rec;
   const mime = ['audio/webm;codecs=opus', 'audio/webm'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
-  const rec = new MediaRecorder(stream, { mimeType: mime || undefined, audioBitsPerSecond: 64000 });
+  try {
+    ac.createMediaStreamSource(stream).connect(ac.destination);
+    rec = new MediaRecorder(stream, { mimeType: mime || undefined, audioBitsPerSecond: 64000 });
+  } catch (e) { stream.getTracks().forEach((t) => t.stop()); ac.close().catch(() => {}); return { ok: false, error: 'The tab sound could not be recorded. ' + e.message }; }
+  let cancelled = false, wall = null;
   const chunks = [];
   rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
-  const cleanup = () => { stream.getTracks().forEach((t) => t.stop()); ac.close().catch(() => {}); p.tabRec = null; };
+  const cleanup = () => { clearInterval(wall); stream.getTracks().forEach((t) => t.stop()); ac.close().catch(() => {}); p.tabRec = null; };
   p.tabRec = {
     finish() {
       rec.onstop = () => {
@@ -375,12 +394,20 @@ async function tabAudioCapture(p, tid, start, end) {
       };
       if (rec.state !== 'inactive') rec.stop();
     },
-    abort(reason) { rec.onstop = () => { cleanup(); p.api.engine({ type: 'capture-error', error: reason }); }; if (rec.state !== 'inactive') rec.stop(); else { cleanup(); } },
+    abort(reason) { cancelled = true; rec.onstop = () => { cleanup(); p.api.engine({ type: 'capture-error', error: reason }); }; if (rec.state !== 'inactive') rec.stop(); else { cleanup(); } },
   };
   const t0 = performance.now();
   const r = await sendTo(tid, { type: 'pod-play-range', start, end }).catch((e) => ({ ok: false, error: e.message }));
+  if (cancelled) { cleanup(); return { ok: false, error: 'Capture cancelled.' }; }
   if (!r || !r.ok) { cleanup(); return { ok: false, error: (r && r.error) || 'The episode could not be played.' }; }
   rec.start(1000);
+  // The tab's sound is recorded as long as it plays; a player that never reaches the end cannot keep it going for good.
+  let played = 0, lastTick = performance.now();
+  wall = setInterval(() => {
+    const now = performance.now(); if (rec.state === 'recording') played += now - lastTick; lastTick = now;
+    if (played > (end - start) * 1000 + 30000 && p.tabRec === mine) mine.abort('The episode did not finish playing, so the capture was cancelled. Capture again.');
+  }, 1000);
+  const mine = p.tabRec;
   log('Recording the tab sound for this episode');
   return { ok: true };
 }
@@ -451,13 +478,15 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
   const q = (s) => el.querySelector(s);
   const audio = document.createElement('audio');
   audio.preload = 'metadata';
-  let probe = null, ep = null, api = null, stopAt = null, startAt = null;
+  let probe = null, ep = null, api = null, stopAt = null, startAt = null, cutting = null, pickGen = 0;
   audio.addEventListener('timeupdate', () => { if (stopAt !== null && audio.currentTime >= stopAt) { audio.pause(); stopAt = null; } });
   const info = () => ({
     ok: !!probe, duration: probe ? probe.duration : NaN, currentTime: startAt != null ? startAt : audio.currentTime, paused: audio.paused,
     title: ep ? ep.title : '', show: ep ? ep.show : '', url: ep ? episodeLink() : url, artwork: ep ? ep.artwork : '',
   });
-  const p = { kind: 'audio', url, el, feed: true, api: null, pages: [] };
+  const p = { kind: 'audio', url, el, feed: true, api: null, pages: [],
+    stop: () => { audio.pause(); audio.removeAttribute('src'); audio.load(); if (cutting) cutting.abort(); },
+    busy: () => !!cutting };
   // Where "Listen to the episode" goes. The app's own page for the episode when the tab showed one whose
   // title matches the chosen episode, otherwise the episode's page in Apple's directory. It used to be the
   // tab's address as it was when you clipped, which on Spotify was the show page you had moved on to.
@@ -475,26 +504,32 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
     // The clip is cut straight from the episode's file: only those bytes are downloaded.
     async capture(start, end) {
       const t0 = performance.now();
+      cutting = new AbortController();
       try {
-        const cut = await FeedPod.slice(probe, start, end);
+        const cut = await FeedPod.slice(probe, start, end, cutting.signal);
         const i = info();
         api.engine({ type: 'capture-done', blob: cut.blob, size: cut.blob.size, recorderMime: 'audio/mpeg (cut from the original file, not re-recorded)',
           start, end, audioOnly: true, elapsedMs: Math.round(performance.now() - t0), url: i.url, title: i.title, show: i.show, artwork: i.artwork });
         log(`Cut ${cut.seconds.toFixed(2)}s from the episode file. Downloaded ${(cut.downloaded / 1024).toFixed(0)} KB of ${(probe.total / 1048576).toFixed(0)} MB.`);
         return { ok: true };
       } catch (e) { return { ok: false, error: e.message }; }
+      finally { cutting = null; }
     },
+    abort: () => { if (cutting) cutting.abort(); },
     peaks: async () => (probe ? FeedPod.waveform(probe, 10) : null),
   }, { kind: 'audio', log, onPublish: (i, t) => publish(tid, { ...i, feedUrl: ep && ep.feedUrl, audioUrl: ep && ep.audioUrl }, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked });
   p.api = { update: () => probe && api.update(info()), engine: (m) => api.engine(m) };
   const tick = setInterval(() => { if (!el.isConnected) return clearInterval(tick); if (probe && !q('.fpClip').hidden) api.update(info()); }, 400);
 
   async function choose(e) {
+    const my = ++pickGen;
     ep = e; probe = null;
     q('.fpStatus').textContent = /["“”]/.test(e.title) ? `Opening ${e.title}…` : `Opening "${e.title}"…`;
     q('.fpList').innerHTML = '';
     try {
-      probe = await FeedPod.probe(e.audioUrl);
+      const got = await FeedPod.probe(e.audioUrl);
+      if (my !== pickGen) return;
+      probe = got;
       audio.src = probe.url;
       q('.fpTitle').textContent = e.title;
       q('.fpNote').textContent = `${e.show}. From the show's public feed.`;
@@ -506,6 +541,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       const tabPage = p.pages[p.pages.length - 1];
       if (tabPage && sameEpisode(tabPage.title, e.title)) {
         const pos = await sendTo(tid, { type: 'app-pos' }).catch(() => null);
+        if (my !== pickGen) return;
         if (pos && Number.isFinite(pos.secs) && pos.secs > 0 && pos.secs < probe.duration - 3) { startAt = Math.floor(pos.secs); try { audio.currentTime = startAt; } catch { /* not loaded yet */ } }
       }
       q('.fpNow').hidden = true;
@@ -515,6 +551,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       startAt = null;
       log(`Episode file: ${(probe.total / 1048576).toFixed(1)} MB, ${probe.kbps} kbps${probe.vbr ? ' variable' : ''}, ${Math.round(probe.duration)}s`);
     } catch (err) {
+      if (my !== pickGen) return;
       q('.fpStatus').textContent = err.message + ' Try another result.';
       ep = null;
     }
@@ -527,8 +564,10 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
       return;
     }
     q('.fpStatus').textContent = 'Searching…';
+    const my = ++pickGen;
     let res = [];
-    try { res = await FeedPod.search(term); } catch (err) { q('.fpStatus').textContent = err.message; return; }
+    try { res = await FeedPod.search(term); } catch (err) { if (my === pickGen) q('.fpStatus').textContent = err.message; return; }
+    if (my !== pickGen) return;
     if (!res.length) { q('.fpStatus').textContent = term ? 'No episodes found. Try the show name and a few words of the title.' : ''; return; }
     q('.fpStatus').textContent = res.length === 1 ? '1 episode found.' : `${res.length} episodes found. Pick the right one.`;
     q('.fpList').innerHTML = res.map((r, i) => `<li><button type="button" data-i="${i}">
@@ -552,7 +591,7 @@ function makeFeedPod(tid, url, pageTitle, why = 'protected') {
   const noteFor = () => (isPodcastApp(url) ? (WHY[why] || WHY.protected) : 'Search for any podcast episode by name. annotated clips it from the show\'s public feed.');
   let quietChange = false;
   q('.fpChange').addEventListener('click', () => {
-    audio.pause(); q('.fpClip').hidden = true; q('.fpChange').hidden = true; q('.fpSearch').hidden = false; q('.fpHead').hidden = false;
+    pickGen++; audio.pause(); q('.fpClip').hidden = true; q('.fpChange').hidden = true; q('.fpSearch').hidden = false; q('.fpHead').hidden = false;
     q('.fpTitle').textContent = 'Find the episode'; q('.fpQ').focus();
     // The episode that was open is let go of entirely. Keeping it made the panel go on ignoring the tab, so
     // the box kept the old episode, and the note under the heading kept its show's name.
@@ -664,7 +703,7 @@ function makeArticle(tid, url, hasAudio = false) {
   }, { log, onPublish: (i, t) => publish(tid, i, t), onView: viewPublished, onUndo: unpublish, findDuplicate, onMicBlocked,
     switchTo: hasAudio ? { label: "Clip this page's audio instead", onClick: () => switchMode(tid, url, 'audio') } : null,
     // Only a page with audio of its own offers it. On every news page it was clutter, and Home has it.
-    onFindPodcast: hasAudio ? () => { feedAsked.add(tid); drop(tid); refresh(); } : null,
+    onFindPodcast: hasAudio ? () => { feedAsked.set(tid, null); drop(tid); refresh(); } : null,
     xHost: onXHost(url), ytHost: onYtHost(url), pasteForm, wirePaste, draftKey: 'a:' + url, keep: keepFor('a:' + url) });
   return p;
 }
@@ -685,6 +724,10 @@ async function tabShot(tid, r) {
     if (EMBED) sendTo(tid, { type: 'float-show' }).catch(() => {});
     sendTo(tid, { type: 'fold-restore' }).catch(() => {});
   }
+  // Checked again once taken, since a tab switch can land while the frame
+  // is being hidden or the picture made.
+  const [after] = await chrome.tabs.query({ active: true, windowId: tab.windowId });
+  if (!after || after.id !== tid) throw new Error('Another tab was in front, so the picture would have been of that page. Go back to the page and capture again.');
   const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = shotUrl; });
   const k = img.width / r.vw;
   r.image = img;
@@ -718,10 +761,10 @@ const keepFor = (key) => {
   // The session store holds ten megabytes in all and other things live there too, such as where Back goes
   // after publishing, so only the five newest captures are kept and older ones make room.
   const save = async (v) => {
-    await s.set({ [k]: { ...v, at: Date.now() } });
     const all = await s.get(null);
-    const caps = Object.keys(all).filter((x) => x.startsWith('annotated-cap:')).sort((a, b) => ((all[b] && all[b].at) || 0) - ((all[a] && all[a].at) || 0));
-    if (caps.length > 5) await s.remove(caps.slice(5));
+    const caps = Object.keys(all).filter((x) => x.startsWith('annotated-cap:') && x !== k).sort((a, b) => ((all[b] && all[b].at) || 0) - ((all[a] && all[a].at) || 0));
+    if (caps.length > 4) await s.remove(caps.slice(4));
+    await s.set({ [k]: { ...v, at: Date.now() } });
   };
   return s ? { load: () => s.get(k).then((o) => o[k] || null), save, clear: () => s.remove(k) } : null;
 };
@@ -732,7 +775,10 @@ const PROTECTED = [[/(^|\.)spotify\.com$/, 'Spotify'], [/^music\.apple\.com$/, '
 const protectedService = (url) => { try { const h = new URL(url).hostname; const hit = PROTECTED.find(([re]) => re.test(h)); return hit ? hit[1] : null; } catch { return null; } };
 let lastProtected = '';
 // Tabs where someone chose "Clip a podcast by name" from the empty panel.
-const feedAsked = new Set();
+// Tab id to the site it was asked on (null until the next look notes it). The finder used to stay for good, so a news
+// story opened in that tab afterwards could not be annotated until the tab was closed (audit of 2026-09-29).
+const feedAsked = new Map();
+const hostOf = (u) => { try { return new URL(u).host; } catch { return ''; } };
 function showProtected(tab, service) {
   const key = tab.id + ' ' + tab.url + ' ' + tab.title;
   if (key === lastProtected && !$('#empty').hidden) return;
@@ -776,12 +822,16 @@ function talkWhy(r) {
   if (rep) bits.push(`${rep} repl${rep === 1 ? 'y' : 'ies'}`);
   return bits.join(' · ');
 }
+let talkAsk = null;
 async function drawTalked(box) {
   const el = box.querySelector('.talked');
   if (!el || typeof Cloud === 'undefined') return;
   if (!talkRows || Date.now() - talkAt > 60000) {
-    talkAt = Date.now();
-    try { talkRows = await inTime(Cloud.talkedAbout(3), 6000); } catch { talkRows = talkRows || []; }
+    if (!talkAsk) {
+      talkAt = Date.now();
+      talkAsk = inTime(Cloud.talkedAbout(3), 6000).then((r) => { talkRows = r; }, () => { talkRows = talkRows || []; }).finally(() => { talkAsk = null; });
+    }
+    await talkAsk;
   }
   const list = el.querySelector('.talkList');
   list.textContent = '';
@@ -806,7 +856,7 @@ async function drawTalked(box) {
 // deleted annotations for two minutes, through a change of account, in the recording of 2026-09-23 at 03:16.
 function staleTalk() {
   talkRows = null; talkAt = 0;
-  document.querySelectorAll('.talked').forEach((el) => { const box = el.closest('.esAction, .startBlock'); if (box && !el.closest('.suggest[hidden]')) drawTalked(box); });
+  document.querySelectorAll('.talked').forEach((el) => { const box = el.closest('.esAction, .startBlock'); if (box && !el.closest('.suggest[hidden]') && box.getClientRects().length) drawTalked(box); });
 }
 chrome.storage.onChanged.addListener((ch, area) => { if (area === 'local' && (ch.annotatedStamp || ch.annotatedFollows)) staleTalk(); });
 // Anyone who wants a clean slate turns the suggestions off in Display settings, which takes the talked
@@ -874,9 +924,9 @@ function wireStart(box, beside = false) {
   box.querySelector('.fpAny').addEventListener('click', async () => {
     const t = await activeTabNow();
     if (!t) return;
-    if (!beside || isBlankTab(t)) { feedAsked.add(t.id); if (browsing) closeBrowse(); else refresh(); return; }
+    if (!beside || isBlankTab(t)) { feedAsked.set(t.id, null); if (browsing) closeBrowse(); else refresh(); return; }
     const n = await chrome.tabs.create({}).catch(() => null);
-    if (n) { feedAsked.add(n.id); refresh(); }
+    if (n) { feedAsked.set(n.id, null); refresh(); }
   });
   showSuggest(box);
 }
@@ -988,8 +1038,9 @@ async function annotateNow(tid) {
     await new Promise((r) => setTimeout(r, 100));
   }
 }
+let browseGen = 0;
 async function drawBrowse({ quick = false } = {}) {
-  const kind = browsing;
+  const kind = browsing, gen = ++browseGen;
   const all = await Store.allMeta().catch(() => []);
   const pruned = quick ? { records: all, dropped: 0 } : await Store.pruneGone(all);
   const local = pruned.records;
@@ -1029,13 +1080,14 @@ async function drawBrowse({ quick = false } = {}) {
     // (recording of 2026-09-25 at 16:02, 0:05).
     else if (quick) { records = []; note = ''; emptyNote = 'Loading annotations…'; tabs = null; }
     else {
+      if (gen !== browseGen) return;
       lastHome = { who: me && me.id, records: records.map(slim), note, emptyNote, current: cur };
       // Kept for the next time the panel opens too, where the first Home said "Loading annotations…" under For you
       // and then jumped to Everyone (recording of 2026-09-25 at 15:38, 0:17.75 to 0:18.25).
       chrome.storage.session.set({ 'annotated-lastHome': lastHome }).catch(() => {});
     }
   }
-  if (browsing !== kind) return;
+  if (browsing !== kind || gen !== browseGen) return;
   // Where Back goes, by name. Beside a bare tab Home has nowhere to go back to, and Your profile goes to Home.
   const bare = bareTab(browseFrom && browseFrom.url) || /^https:\/\/annotated-app\.netlify\.app\//.test((browseFrom && browseFrom.url) || '');
   const backTo = bare ? (kind === 'home' ? '' : 'Back to Home') : `Back to ${cleanTitle(browseFrom && browseFrom.title) || 'this page'}`;
@@ -1145,6 +1197,8 @@ function drop(tid) {
   // away used to keep the microphone or the tab's sound running, with nothing on screen, until its time ran out.
   p.el.querySelectorAll('[data-compose]').forEach((r) => { try { r.__stopRec && r.__stopRec(); } catch { /* already stopped */ } });
   if (p.tabRec) { try { p.tabRec.abort('The panel for this tab closed.'); } catch { /* already stopped */ } }
+  if (p.stop) { try { p.stop(); } catch { /* already stopped */ } }
+  if (p.api && p.api.capturing && (p.kind === 'video' || p.kind === 'audio')) sendTo(tid, { type: p.x ? 'xv-abort' : p.kind === 'audio' ? 'pod-abort' : 'abort' }).catch(() => {});
   p.el.querySelectorAll('video, audio, img, source').forEach((m) => {
     const s = m.currentSrc || m.src || '';
     if (m.pause) { try { m.pause(); } catch { /* not playing */ } }
@@ -1185,6 +1239,15 @@ async function refresh() {
     // Test hook: sidepanel.html?tab=<id> pins the panel to one tab.
     const pinned = Number(new URLSearchParams(location.search).get('tab'));
     const [tab] = pinned ? [await chrome.tabs.get(pinned).catch(() => null)] : await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab && feedAsked.has(tab.id) && isWeb(tab.url)) {
+      const was = feedAsked.get(tab.id);
+      if (was === null) feedAsked.set(tab.id, hostOf(tab.url));
+      else if (was !== hostOf(tab.url)) {
+        // A clip being cut keeps the finder until it is done; the next look after that lets it go.
+        const fp = panels.get(tab.id);
+        if (!(fp && fp.feed && fp.busy && fp.busy())) { feedAsked.delete(tab.id); if (fp && fp.feed) drop(tab.id); }
+      }
+    }
     // Beside annotated's home page, help does not offer to open it. Pressed there it only closed help, and it
     // was pressed twice in the recording of 2026-09-25 at 14:08 (2:55, 2:59).
     const wSite = document.querySelector('.welcome .wSite');
@@ -1232,7 +1295,8 @@ async function refresh() {
       busyRefresh = false; return openBrowse('home', { byHand: false });
     }
     if (isPost(tab.url)) {
-      const url = tab.url.split('?')[0], key = tab.id + ' ' + url;
+      // One panel per post: X's own views of it (/video/1, /photo/1, /quotes) used to drop the clip and the take.
+      const url = (tab.url.split(/[?#]/)[0].match(/^.*?\/status\/\d+/) || [tab.url.split('?')[0]])[0], key = tab.id + ' ' + url;
       if (p && (!(p.kind === 'post' || p.x) || p.url !== url)) { drop(tab.id); p = null; }
       // A post with a video is clipped like a YouTube video (2.36.0), unless words in it were chosen with the
       // Annotate button or the person picked Quote the post. It is decided once, when the video can say how long it is.
@@ -1248,14 +1312,19 @@ async function refresh() {
           const xi = await sendTo(tab.id, { type: 'xv-info' }).catch(() => null);
           const ai = !p && await sendTo(tab.id, { type: 'a-info' }).catch(() => null);
           if (ai && ai.autoCapture) mode = 'post';
+          else if (xi && xi.ok && xi.blocked) mode = 'post';
+          else if (xi && xi.ok && xi.blocked === null) mode = null;   // no frame yet: whether it can be recorded is not known
           else if (xi && xi.ok && isFinite(xi.duration) && xi.duration > 0) mode = 'video';
           else if (xi && xi.ok && xi.duration === Infinity) mode = 'post';
         }
-        if (mode) modeOverride.set(key, mode);
+        if (mode) { modeOverride.set(key, mode); autoMode.add(key); }
       }
       if (mode === 'video') {
         if (p && !p.x) { drop(tab.id); p = null; }
         const info = await sendTo(tab.id, { type: 'xv-info' }).catch(() => null);
+        if ((!info || !info.ok) && p && p.x) return show(tab.id);
+        // Chosen by the panel, then found to be a video whose frames cannot be read (a GIF): quoted as a post instead.
+        if (info && info.ok && info.blocked && autoMode.has(key) && !(p && p.api && p.api.capturing)) { modeOverride.set(key, 'post'); if (p) { drop(tab.id); p = null; } return refresh(); }
         if (!info || !info.ok) { modeOverride.set(key, 'post'); if (p) { drop(tab.id); p = null; } }
         else {
           if (!p) { p = makeXVideo(tab.id, url); panels.set(tab.id, p); }
@@ -1268,9 +1337,13 @@ async function refresh() {
       try { await inject(tab.id, ['post-core.js', 'article-core.js', 'capture-engine.js', 'article.js'], 'aping'); }
       catch { return show(null, 'Reload the X tab, then open this panel again.'); }
       p = makePost(tab.id, url); panels.set(tab.id, p);
+      // Typing or pressing anything in the post panel settles it as a post, so it never turns into the trimmer under
+      // a take in progress. Choosing Clip the video overrides this, since that switch comes after its click.
+      { const settle = () => { if (!modeOverride.has(key)) modeOverride.set(key, 'post'); };
+        p.el.addEventListener('input', settle); p.el.addEventListener('click', settle); }
       // The post has a video: say so, and offer to clip it instead.
       sendTo(tab.id, { type: 'p-info' }).then((pi) => {
-        if (pi && pi.ok && pi.hasVideo && panels.get(tab.id) === p && !p.el.querySelector('.modeSeg'))
+        if (pi && pi.ok && pi.hasVideo && !pi.blocked && panels.get(tab.id) === p && !p.el.querySelector('.modeSeg'))
           PanelKit.modeSwitch(p.el, 'post', (v) => switchMode(tab.id, url, v), [['video', 'clip', 'Clip the video'], ['post', 'post', 'Quote the post']]);
       }).catch(() => {});
       show(tab.id);
@@ -1418,15 +1491,24 @@ async function refresh() {
   } finally { busyRefresh = false; if (refreshAgain) { refreshAgain = false; setTimeout(refresh, 0); } }
 }
 
+let myWindow = null;
+chrome.windows.getCurrent().then((w) => { myWindow = w.id; }).catch(() => {});
+chrome.tabs.onDetached.addListener((id) => { if (!PINNED) drop(id); });
 chrome.runtime.onMessage.addListener((m, sender) => {
+  // Every panel in every window hears every page; only the one beside that page answers (audit of 2026-09-29).
+  if (sender.tab && myWindow != null && !PINNED && sender.tab.windowId !== myWindow) return;
+  if (PINNED && sender.tab && sender.tab.id !== PINNED) return;
   if (browsing && m.type === 'annotate-request' && sender.tab) { annotateNow(sender.tab.id); return; }
   const p = sender.tab && panels.get(sender.tab.id);
   if (!p) return;
   if (m.type === 'sel-update' && p.kind === 'article') return p.selCb(m.sel);
   if (m.type === 'annotate-request' && p.kind === 'article') return p.api.captureNow();
   // On a post page, the Annotate button captures the post with the selected words as its quote.
-  if (m.type === 'sel-update' && p.kind === 'post') return p.api.onSelection(m.sel);
-  if (m.type === 'annotate-request' && p.kind === 'post') return p.api.captureNow();
+  if (m.type === 'sel-update' && p.kind === 'post') {
+    if (m.sel && m.sel.text && !modeOverride.has(sender.tab.id + ' ' + p.url)) modeOverride.set(sender.tab.id + ' ' + p.url, 'post');
+    return p.api.onSelection(m.sel);
+  }
+  if (m.type === 'annotate-request' && p.kind === 'post') { modeOverride.set(sender.tab.id + ' ' + p.url, 'post'); return p.api.captureNow(); }
   if (m.type === 'annotate-request' && p.x) { switchMode(sender.tab.id, p.url, 'post'); return; }
   if (p.kind !== 'video' && p.kind !== 'audio') return;
   if (m.type === 'pod-range-done') { if (p.tabRec) p.tabRec.finish(); return; }
@@ -1435,7 +1517,11 @@ chrome.runtime.onMessage.addListener((m, sender) => {
     fetch(m.dataUrl).then((res) => res.blob())
       .then((b) => p.api.engine({ ...m, blob: new Blob([b], { type }) }))
       .catch(() => p.api.engine({ type: 'capture-error', error: 'The recording could not be read.' }));
-  } else if (m.type === 'capture-progress' || m.type === 'capture-error') p.api.engine(m);
+  } else if (m.type === 'capture-progress' || m.type === 'capture-error') {
+    // A stalled page ends the tab's recording too, or it would go on and its timer could cancel the next capture.
+    if (m.type === 'capture-error' && p.tabRec) { p.tabRec.abort(m.error); return; }
+    p.api.engine(m);
+  }
 });
 chrome.tabs.onActivated.addListener(() => {
   // Another tab closes help that was opened by hand. The first welcome stays until it is answered.
@@ -1448,6 +1534,7 @@ chrome.tabs.onRemoved.addListener((id) => {
   rowNames.delete(id);
   feedAsked.delete(id);
   for (const k of [...modeOverride.keys()]) if (k.startsWith(id + ' ')) modeOverride.delete(k);
+  for (const k of [...autoMode]) if (k.startsWith(id + ' ')) autoMode.delete(k);
 });
 // The panel polls for the tab it should follow. A hidden panel has nobody watching it, so it rests until it
 // comes back, which it does immediately rather than on the next tick.

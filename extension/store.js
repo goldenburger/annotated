@@ -51,6 +51,7 @@ const Store = (() => {
       const out = fn(...[].concat(stores).map((s) => t.objectStore(s)));
       t.oncomplete = () => res(typeof out === 'function' ? out() : out && out.result);
       t.onerror = () => rej(t.error);
+      t.onabort = () => rej(t.error || new Error('Saving on this computer was stopped (the disk may be full).'));
     });
   };
   const stamp = () => { try { chrome.storage.local.set({ annotatedStamp: Date.now() }); } catch {} };
@@ -70,7 +71,14 @@ const Store = (() => {
     const metas = await allOf('meta');
     for (const m of metas.filter((x) => x.item && x.item.hasShot && !x.item.shotThumb).slice(0, 20)) {
       const full = await Store.get(m.id);
-      if (full && full.item && full.item.shot) await put(m.id, full);
+      if (!(full && full.item && full.item.shot)) continue;
+      const shotThumb = await thumbOf(full.item.shot);
+      if (!shotThumb) continue;
+      // Written onto the record as it is now, since an update may have landed while the picture was made.
+      await tx(['annotations', 'meta'], 'readwrite', (a, mm) => {
+        const g = a.get(m.id);
+        g.onsuccess = () => { const v = g.result; if (!v || !v.item) return; const next = { ...v, item: { ...v.item, shotThumb } }; a.put(next, m.id); mm.put(light(next), m.id); };
+      });
     }
   }
   const Store = {
@@ -83,7 +91,15 @@ const Store = (() => {
       try { const g = JSON.parse(localStorage.getItem('annotated-deleted') || '[]').filter((x) => x !== id); g.push(id); localStorage.setItem('annotated-deleted', JSON.stringify(g.slice(-300))); } catch { /* nothing to remember with */ }
     },
     wasDeleted: (id) => { try { return JSON.parse(localStorage.getItem('annotated-deleted') || '[]').includes(id); } catch { return false; } },
-    async update(id, patch) { const v = await this.get(id); if (v) await put(id, { ...v, ...patch }); },
+    async update(id, patch) {
+      if (patch && patch.item) { const v = await this.get(id); if (v) await put(id, { ...v, ...patch }); return; }
+      let done = false;
+      await tx(['annotations', 'meta'], 'readwrite', (a, m) => {
+        const g = a.get(id);
+        g.onsuccess = () => { const v = g.result; if (!v) return; const full = { ...v, ...patch }; a.put(full, id); m.put(light(full), id); done = true; };
+      });
+      if (done) stamp();
+    },
     // Everything, files included. Only for the rare case that needs every file.
     all: () => allOf('annotations'),
     // Light copies, for lists, feeds and duplicate checks. Copies still missing a thumbnail get one first.

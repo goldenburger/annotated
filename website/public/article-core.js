@@ -53,7 +53,7 @@ var ArticleCore = (() => {
     const anc = range.commonAncestorContainer;
     const ancEl = anc.nodeType === 1 ? anc : anc.parentElement;
     if (!ancEl || !root.contains(ancEl)) return null;
-    if (ancEl.closest('input, textarea, [contenteditable="true"], .annotated-ui')) return null;
+    if (ancEl.isContentEditable || ancEl.closest('input, textarea, .annotated-ui')) return null;
     const text = quoteText(expandToWords(range.cloneRange()));
     if (!text) return { state: 'empty' };
     if (text.length < min && !coversWholeBlock(range)) return { state: 'error', text, len: text.length, aligned: isSentenceAligned(range),
@@ -349,7 +349,7 @@ var ArticleCore = (() => {
       if (rest.length && !/^\s/.test(rest)) continue;
       const next = rest.trimStart();
       if (next.length && !/^["'“‘(\[A-Z0-9]/.test(next)) continue;
-      if (m[0][0] === '.' && ABBR.test(text.slice(0, m.index))) continue;
+      if (m[0][0] === '.' && ABBR.test(text.slice(Math.max(0, m.index - 8), m.index))) continue;
       out.push(e);
     }
     return out;
@@ -485,7 +485,7 @@ var ArticleCore = (() => {
 // Shared by the extension content script and the preview.
 var ArticlePage = (() => {
   function create({ root, metaRoot, loc, send, scrollBy, viewport, buttonEnabled = () => true }) {
-    let pinned = null, exact = true, defaultExact = true, last = { state: 'empty' }, pendingAnnotate = false, timer = null;
+    let pinned = null, exact = true, defaultExact = true, last = { state: 'empty' }, pendingAnnotate = false, timer = null, pendTimer = null;
     // The range the last capture used, kept so the quote can be grown to its sentence without selecting again.
     let lastRange = null;
     const frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -547,6 +547,9 @@ var ArticlePage = (() => {
     // Put the button in the margin beside the passage so it never covers text.
     // Falls back to above the first line, then below the last line.
     function positionButton(range, d) {
+      // Only a button whose page swapped in a new body comes back; one taken off on purpose (a newer copy claiming the
+      // page removes every older button) has no parent and stays off.
+      if (!host.isConnected && host.parentNode) (document.body || document.documentElement).appendChild(host);
       moreBtn.hidden = !(d && d.state === 'ok' && d.canExpand && !d.expanded);
       if (!buttonEnabled()) return hideButton();
       const rects = range.getClientRects();
@@ -600,9 +603,13 @@ var ArticlePage = (() => {
     // press Escape. That covers the stroke a capture left as well as a passage waiting to be captured, so the
     // page does not fill up with old marks. The annotation keeps its quote, which is in the panel.
     // Clicks in the side panel are outside the page, so they keep it while you work there.
+    // A live list of the marks on the page, so Escape with nothing marked or pending leaves the page's selection alone.
+    const liveMarks = document.getElementsByClassName('annotated-hl');
     const wipe = () => {
       const had = !!pinned;
       pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
+      // Always, even with no marks counted: skipping it when none were counted left growing a quote to its sentence
+      // working one time in three (snappref, seventh pass of the audit of 2026-09-29).
       try { ArticleCore.clearHighlights(document); } catch { /* the page moved on */ }
       if (had) { last = { state: 'empty' }; push(); }
     };
@@ -616,7 +623,7 @@ var ArticlePage = (() => {
       if (!area.contains(e.target) && !(area === document.body && e.target === document.documentElement)) return;
       wipe();
     };
-    const onKey = (e) => { if (e.key === 'Escape' && !pendingAnnotate && !shooting && !(e.target.closest && e.target.closest('.tryit'))) { window.getSelection().removeAllRanges(); wipe(); } };
+    const onKey = (e) => { if (e.key === 'Escape' && !pendingAnnotate && !shooting && !(e.target.closest && e.target.closest('.tryit')) && (pinned || liveMarks.length || host.style.display === 'block')) { window.getSelection().removeAllRanges(); wipe(); } };
     document.addEventListener('mousedown', onDown, true);
     document.addEventListener('keydown', onKey, true);
 
@@ -721,6 +728,7 @@ var ArticlePage = (() => {
       pendingAnnotate = true;
       hideButton();
       send({ type: 'annotate-request' });
+      clearTimeout(pendTimer); pendTimer = setTimeout(() => { pendingAnnotate = false; }, 8000);
     }
 
     async function capture() {
@@ -737,6 +745,7 @@ var ArticlePage = (() => {
       const text = postEl ? ArticleCore.rangeText(range).replace(/[ \t\u00a0]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim() : ArticleCore.quoteText(range);
       const marks = ArticleCore.highlightRange(range);
       ArticleCore.clearHighlights(document, marks);
+      if (!marks.length && !postEl) { shooting = false; return { ok: false, error: 'Those words cannot be marked on this page. Select text that is shown as ordinary text.' }; }
       lastRange = range.cloneRange();
       pinned = null; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
@@ -783,6 +792,7 @@ var ArticlePage = (() => {
     }
 
     function clear() {
+      pendingAnnotate = false;
       pinned = null; exact = defaultExact; ArticleCore.showPending(null); hideButton();
       window.getSelection().removeAllRanges();
       last = { state: 'empty' }; push();

@@ -201,7 +201,7 @@ var Features = (() => {
     const setPlaying = (on) => { d.querySelector('.ftPlay').innerHTML = icon(on ? 'stop' : 'play'); d.querySelector('.ftPlay').setAttribute('aria-label', on ? 'Pause' : 'Play the episode'); d.querySelector('.ftWave').classList.toggle('playing', on && stopAt != null); };
     const play = (from, to) => {
       if (!audio) {
-        audio = new Audio('/media/astronaut.mp3'); audio.preload = 'auto';
+        audio = new Audio('/media/astronaut.mp3'); audio.preload = 'metadata';
         audio.addEventListener('timeupdate', () => {
           if (stopAt != null && audio.currentTime >= stopAt) { audio.pause(); }
           const bar = d.querySelector('.ftProg i'); if (bar && audio.duration) bar.style.width = (audio.currentTime / audio.duration * 100) + '%';

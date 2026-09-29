@@ -123,7 +123,8 @@ const Account = (() => {
       if (!HANDLE.test(h)) { msg.textContent = 'Use 2 to 30 lowercase letters, numbers or underscores.'; return; }
       if (h === me.handle) { msg.textContent = 'That is already your handle.'; return; }
       msg.textContent = 'Saving';
-      const { error } = await Backend.client.from('profiles').update({ handle: h }).eq('id', me.id);
+      const { data: savedRows, error } = await Backend.client.from('profiles').update({ handle: h }).eq('id', me.id).select('handle');
+      if (!error && (!savedRows || !savedRows.length)) { msg.textContent = 'It did not save. Sign in again and try once more.'; return; }
       if (error) { msg.textContent = /duplicate|unique/i.test(error.message) ? 'Someone already has that handle.' : 'It did not save. ' + error.message; return; }
       const was = me.handle; me = { ...me, handle: h };
       // The first span inside .who is the avatar, so writing there put the handle inside the circle and
@@ -183,7 +184,7 @@ const Account = (() => {
     setTimeout(known, 3000);
     draw();
     Backend.profile().then((p) => { me = p; draw(); known(); }).catch(known);
-    Backend.onChange((p) => { me = p; draw(); known(); if (p && waiting) { close(); } });
+    Backend.onChange((p) => { const was = me; me = p; draw(); known(); if (p && waiting) { close(); } else if (pop && (!p || !was || p.id !== was.id)) close(); });
   }
   return { mount, signIn, close, get me() { return me; }, onChange: (f) => subs.push(f), setActions: (a) => { actions = a || {}; } };
 })();

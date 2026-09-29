@@ -200,6 +200,8 @@ const VideoPanel = (() => {
       return result && (Math.abs(sel.start - result.start) > 0.05 || Math.abs(sel.end - result.end) > 0.05);
     }
 
+    // Text is written only when it changes: this runs every 400 ms and each write replaced the text node.
+    function setText(el, t) { if (el && el.textContent !== t) el.textContent = t; }
     function render() {
       if (!info || !sel) return;
       // Keep the zoomed view inside the video, even mid-animation or mid-drag.
@@ -213,9 +215,9 @@ const VideoPanel = (() => {
       const rEdge = pctView(Math.min(view.start + view.len, Math.max(sel.end, view.start)));
       q('.dimR').style.left = rEdge + '%'; q('.dimR').style.width = (100 - rEdge) + '%';
       if (previewing && info.paused && Date.now() > previewGrace) setPlaying(false);
-      q('.hStart .hBubble').textContent = fmt(sel.start, true);
-      q('.hEnd .hBubble').textContent = fmt(sel.end, true);
-      q('.ovLen').textContent = fmt(info.duration);
+      setText(q('.hStart .hBubble'), fmt(sel.start, true));
+      setText(q('.hEnd .hBubble'), fmt(sel.end, true));
+      setText(q('.ovLen'), fmt(info.duration));
       if (document.activeElement !== q('.rStart')) q('.rStart').value = fmt(sel.start, true);
       if (document.activeElement !== q('.rEnd')) q('.rEnd').value = fmt(sel.end, true);
       for (const [c, t] of [['.hStart', sel.start], ['.hEnd', sel.end]]) {
@@ -223,16 +225,16 @@ const VideoPanel = (() => {
         h.setAttribute('aria-valuemin', '0'); h.setAttribute('aria-valuemax', String(Math.round(info.duration)));
         h.setAttribute('aria-valuenow', t.toFixed(1)); h.setAttribute('aria-valuetext', fmt(t, true));
       }
-      q('.rLen').textContent = `${len.toFixed(1)}s`;
+      setText(q('.rLen'), `${len.toFixed(1)}s`);
       q('.rLen').classList.toggle('over', len > MAX);
       // Dragging an end until it stops is silent otherwise, and the clip that comes out is a second long.
       q('.rLen').classList.toggle('floor', len <= MIN + 0.05);
       q('.rFloor').hidden = len > MIN + 0.05;
       // Capturing plays the clip through once, so a thirty second clip takes thirty seconds. Nothing said so,
       // and the wait looked like the panel had stuck.
-      q('.capTime').textContent = `Capturing plays the clip once, so it takes about ${Math.max(1, Math.round(len))} seconds.`;
+      setText(q('.capTime'), `Capturing plays the clip once, so it takes about ${Math.max(1, Math.round(len))} seconds.`);
       // The same fact while it happens, with this clip's own length rather than an example of sixty seconds.
-      q('.realTime').textContent = `Capture runs in real time, so this clip takes about ${Math.max(1, Math.round(len))} seconds.`;
+      setText(q('.realTime'), `Capture runs in real time, so this clip takes about ${Math.max(1, Math.round(len))} seconds.`);
       q('.range').style.left = pctView(sel.start) + '%';
       q('.range').style.width = (pctView(sel.end) - pctView(sel.start)) + '%';
       q('.hStart').style.left = pctView(sel.start) + '%';
@@ -240,8 +242,8 @@ const VideoPanel = (() => {
       const p = pctView(info.currentTime);
       q('.playhead').style.display = p >= 0 && p <= 100 ? '' : 'none';
       q('.playhead').style.left = p + '%';
-      q('.vStart').textContent = fmt(view.start);
-      q('.vEnd').textContent = fmt(view.start + view.len);
+      setText(q('.vStart'), fmt(view.start));
+      setText(q('.vEnd'), fmt(view.start + view.len));
       q('.owin').style.left = pctAll(view.start) + '%';
       q('.owin').style.width = pctAll(view.len) + '%';
       q('.osel').style.left = pctAll(sel.start) + '%';
@@ -644,7 +646,14 @@ const VideoPanel = (() => {
       setCollapsed(false);
       q('.capBtn').click();
     });
+    // One publish at a time (audit of 2026-09-29).
+    let publishing = false;
     async function publish(take, force = false) {
+      if (publishing) return;
+      publishing = true;
+      try { return await publishOnce(take, force); } finally { publishing = false; }
+    }
+    async function publishOnce(take, force = false) {
       if (!result) return;
       if (!force && checksFailed) {
         q('.vDup').innerHTML = `<div class="dupcard" role="alert"><p>This clip didn't pass its checks. Publish it anyway?</p>
@@ -689,14 +698,16 @@ const VideoPanel = (() => {
     }
 
     // ---- The transcript (2.38.0). Lines are {t, e, text}; e is where the next line starts.
+    const trTries = new Map();
     let trans = null, transFor = null, nowIdx = -1, following = true, trSig = '', hits = [], hitAt = -1, autoScroll = false;
     const trList = q('.trList');
-    const lineAt = (t) => { if (!trans) return -1; let i = -1; for (let k = 0; k < trans.length; k++) { if (trans[k].t <= t + 0.05) i = k; else break; } return i; };
+    const lineAt = (t) => { if (!trans || !trans.length) return -1; let lo = 0, hi = trans.length - 1, i = -1;
+      while (lo <= hi) { const mid = (lo + hi) >> 1; if (trans[mid].t <= t + 0.05) { i = mid; lo = mid + 1; } else hi = mid - 1; } return i; };
     const inClip = (l) => sel && l.e > sel.start + 0.3 && l.t < sel.end - 0.3;
     const clipWords = () => (trans || []).filter(inClip).map((l) => l.text).join(' ').replace(/\s+/g, ' ').trim().slice(0, 1500);
     function scrollToLine(i, smooth) {
       const li = trList.children[i]; if (!li) return;
-      const top = li.offsetTop - trList.clientHeight / 3;
+      const top = li.offsetTop - trList.offsetTop - trList.clientHeight / 3;
       autoScroll = true; trList.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
       setTimeout(() => { autoScroll = false; }, smooth ? 500 : 50);
     }
@@ -704,13 +715,15 @@ const VideoPanel = (() => {
     function drawTranscript(lines) {
       trans = lines.map((l, i) => ({ t: l.t, e: i + 1 < lines.length ? lines[i + 1].t : (info && isFinite(info.duration) ? info.duration : l.t + 5), text: String(l.text) }));
       trList.textContent = '';
+      const frag = document.createDocumentFragment();
       // Written with textContent only: every word comes from the page.
       trans.forEach((l, i) => {
         const li = document.createElement('li'); li.dataset.i = String(i);
         const b = document.createElement('button'); b.type = 'button'; b.className = 'trT num'; b.textContent = fmt(l.t); b.setAttribute('aria-label', 'Jump to ' + fmt(l.t));
         const x = document.createElement('span'); x.className = 'trX'; x.textContent = l.text;
-        li.append(b, x); trList.appendChild(li);
+        li.append(b, x); frag.appendChild(li);
       });
+      trList.appendChild(frag);
       nowIdx = -1; trSig = ''; hits = []; hitAt = -1; q('.trQ').value = ''; q('.trCount').textContent = '';
       q('.vTrans').hidden = false; setFollowing(true); syncTranscript();
     }
@@ -740,7 +753,7 @@ const VideoPanel = (() => {
           const D = info.duration;
           let st = trans[i0].t, en = Math.min(D, trans[i1].e), said = '';
           if (en - st > MAX) { en = st + MAX; said = ' Clips go up to 90 seconds, so it stops there.'; }
-          if (en - st < MIN) { en = Math.min(D, st + MIN); }
+          if (en - st < MIN) { en = Math.min(D, st + MIN); st = Math.max(0, en - MIN); }
           userSet = true; sel = { start: snap(st), end: snap(en) };
           previewSeek(sel.start); recenter(); drawTicks(); render();
           sayMoved(`The clip is now those lines, ${fmt(sel.start, true)} to ${fmt(sel.end, true)}.${said}`);
@@ -778,10 +791,14 @@ const VideoPanel = (() => {
     function askTranscript(key) {
       if (isAudio || !ad.transcript || !info.videoId || key === transFor) return;
       transFor = key; trans = null; q('.vTrans').hidden = true; trList.textContent = ''; foldTranscript(false);
-      ad.transcript().then((lines) => {
+      ad.transcript(info.videoId).then((lines) => {
         if (transFor !== key) return;
         if (Array.isArray(lines) && lines.length) { drawTranscript(lines.filter((l) => l && isFinite(l.t) && l.text)); log(`Transcript: ${lines.length} lines`); }
-        else log('No transcript for this video');
+        else {
+          log('No transcript for this video yet');
+          const n = (trTries.get(key) || 0) + 1; trTries.set(key, n);
+          if (lines === null && n < 4) setTimeout(() => { if (root.isConnected && transFor === key && !trans) { transFor = null; if (info) askTranscript(key); } }, 2500 * n);
+        }
       }).catch(() => {});
     }
 
@@ -850,8 +867,8 @@ const VideoPanel = (() => {
         if (m.type === 'capture-progress') {
           q('.fill').style.width = clamp(((m.t - m.start) / (m.end - m.start)) * 100, 0, 100) + '%';
           q('.pText').textContent = `Recording ${(m.t - m.start).toFixed(0)}s of ${(m.end - m.start).toFixed(0)}s`;
-        } else if (m.type === 'capture-done') { setCapturing(false); onDone(m); }
-        else if (m.type === 'capture-error') { setCapturing(false); showError(m.error); }
+        } else if (m.type === 'capture-done') { if (!capturing) return; setCapturing(false); onDone(m); }
+        else if (m.type === 'capture-error') { if (!capturing) return; setCapturing(false); showError(m.error); }
       },
       get capturing() { return capturing; },
     };

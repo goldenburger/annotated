@@ -134,6 +134,75 @@ async def web_part(p, errs):
   print('drawings on the feed, repeated on', len(twice), 'of 8 visits')
   if twice: errs.append(f'a drawing shows twice on one page: {twice}')
   await c.close()
+  # 13. Audit of 2026-09-29, security: a picture only from Google, X or annotated's own storage, and a clip of a video
+  # on X links only to a post on X.
+  c = await b.new_context(viewport={'width': 1200, 'height': 800})
+  await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
+  pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.card.mf')
+  sec = await pg.evaluate("""() => ({
+    ok: [Cloud.avatarOk('https://lh3.googleusercontent.com/a/x'), Cloud.avatarOk('https://pbs.twimg.com/p.jpg'), Cloud.avatarOk('https://efuotxdeifqzdfsavekb.supabase.co/storage/v1/object/public/media/a.png')].every(Boolean),
+    refused: [Cloud.avatarOk('https://evil.supabase.co/x.png'), Cloud.avatarOk('https://tracker.example/p.png'), Cloud.avatarOk('javascript:alert(1)')].every((x) => x === ''),
+    xOk: AnnotationPage.srcUrlOf({ kind: 'video', site: 'x', url: 'https://x.com/a/status/123' }),
+    xBad: AnnotationPage.srcUrlOf({ kind: 'video', site: 'x', url: 'https://evil.example/status/1' }) }) """)
+  print('13. pictures and links:', sec)
+  if not sec['ok'] or not sec['refused']: errs.append(f'the picture check lets the wrong addresses through: {sec}')
+  if sec['xOk'] != 'https://x.com/a/status/123' or sec['xBad'] != '': errs.append(f'a clip on X links somewhere other than a post on X: {sec}')
+  await c.close()
+  # 16. A saved row holding something that is not a card no longer blanks the front page below the hero, and 17. an
+  # address with a broken escape shows Not found (audit of 2026-09-29, third pass).
+  c = await b.new_context(viewport={'width': 1300, 'height': 900})
+  await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
+  await c.add_init_script("try{localStorage.setItem('annotated-yours', JSON.stringify([null, 5, {take:'ok', kind:'article', quote:'words', at: 1}]))}catch(e){}")
+  pg = await c.new_page(); bad = []; pg.on('pageerror', lambda e: bad.append(str(e)))
+  await pg.goto('https://annotated-app.netlify.app/?noplanes'); await asyncio.sleep(3)
+  y = await pg.evaluate("({ get: !!document.querySelector('#get'), features: !!document.querySelector('.ftDemo'), cards: document.querySelectorAll('.llRow > li').length })")
+  print('16. with a corrupted saved row:', y, bad[:1])
+  if not y['get'] or not y['features'] or bad: errs.append(f'a corrupted saved row broke the front page: {y} {bad[:1]}')
+  await pg.goto('https://annotated-app.netlify.app/@%E0%A4%A'); await asyncio.sleep(3)
+  nf = await pg.evaluate("document.body.innerText.includes('Not found') || !!document.querySelector('.missing, .notFound')")
+  print('17. a broken address shows Not found:', nf)
+  if not nf: errs.append('an address with a broken escape did not show Not found')
+  await c.close()
+  # 18. Fifth pass: a very long plain page answers a one-word selection at once (sentence ends scanned the whole text
+  # before every full stop), and 19. text in an editable area is left alone. ArticleCore is on the home page (try-it).
+  c = await b.new_context(viewport={'width': 1300, 'height': 900})
+  await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
+  pg = await c.new_page(); await pg.goto('https://annotated-app.netlify.app/?noplanes'); await asyncio.sleep(2)
+  perf = await pg.evaluate("""() => {
+    const pre = document.createElement('pre'); pre.textContent = Array.from({ length: 20000 }, (_, i) => 'Sentence number ' + i + ' ends here.').join(' ');
+    document.body.appendChild(pre);
+    const n = pre.firstChild, at = n.nodeValue.indexOf('number 19000');
+    const r = document.createRange(); r.setStart(n, at); r.setEnd(n, at + 6);
+    const t0 = performance.now(); const d = ArticleCore.describeRange(r, document.body); const ms = performance.now() - t0;
+    pre.remove();
+    const ed = document.createElement('div'); ed.setAttribute('contenteditable', ''); ed.textContent = 'Words typed into an editor.'; document.body.appendChild(ed);
+    const r2 = document.createRange(); r2.setStart(ed.firstChild, 0); r2.setEnd(ed.firstChild, 5);
+    const inEditor = ArticleCore.describeRange(r2, document.body); ed.remove();
+    // Sixth pass: read-only text marked contenteditable="false" is still annotatable.
+    const ro = document.createElement('div'); ro.setAttribute('contenteditable', 'false'); ro.textContent = 'Words on a read-only page.'; document.body.appendChild(ro);
+    const r3 = document.createRange(); r3.setStart(ro.firstChild, 0); r3.setEnd(ro.firstChild, 5);
+    const readOnly = ArticleCore.describeRange(r3, document.body); ro.remove();
+    return { ms: Math.round(ms), state: d && d.state, inEditor, readOnly: readOnly && readOnly.state }; }""")
+  print('18-19. a long page answers in', perf['ms'], 'ms,', perf['state'], '| in an editor:', perf['inEditor'])
+  if perf['ms'] > 500: errs.append(f"a one-word selection on a long page took {perf['ms']} ms")
+  if perf['inEditor'] is not None: errs.append('a selection in an editable area was taken for annotating')
+  print('   read-only contenteditable="false":', perf['readOnly'])
+  if not perf['readOnly']: errs.append('text marked contenteditable="false" could not be annotated')
+  # 20. A profile the database could not read says so, with Try again, not "Nobody has that handle".
+  async def failing(route):
+    if '/rest/v1/profiles' in route.request.url: return await route.fulfill(status=503, content_type='application/json', body='{"message":"down"}')
+    return await db(route)
+  await c.unroute(SUPA + '/**'); await c.route(SUPA + '/**', failing)
+  await pg.goto('https://annotated-app.netlify.app/@robotaxi'); await asyncio.sleep(14)
+  txt = await pg.evaluate("document.body.innerText")
+  print('   page text:', ' '.join(txt.split())[:300])
+  print('20. a profile that did not load says:', 'This did not load' in txt, '| Try again:', 'Try again' in txt, '| not found:', 'Nobody has that handle' in txt)
+  if 'This did not load' not in txt or 'Nobody has that handle' in txt: errs.append('a profile that could not be read said it does not exist')
+  # Sixth pass: Try again sits with the message, not under the whole page.
+  near = await pg.evaluate("() => { const b = [...document.querySelectorAll('button')].find((x) => x.textContent === 'Try again'); return !!(b && b.closest('.shellEmpty')); }")
+  print('   Try again inside the message:', near)
+  if not near: errs.append('Try again was not placed with its message')
+  await c.close()
   # 1 and 7 on the home page.
   c = await b.new_context(viewport={'width': 1440, 'height': 900})
   await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
@@ -179,6 +248,36 @@ async def ext_part(p, errs):
   print('side view sheets:', side['now'], side['list'], '| right margin is a plane:', 'pdFace' in side['right'] and 'pdPage' not in side['right'])
   if not side['now'] or not side['list']: errs.append(f'the panel beside an annotation is not on sheets: {side}')
   if 'pdKeel' not in side['right'] and 'pdFace' not in side['right']: errs.append('the right margin is not a plane')
+  # 15. A website that frames the panel, with no floating key, is turned away (security audit of 2026-09-29).
+  await ctx.route('https://framer.example/**', lambda r: r.fulfill(status=200, headers={'Content-Type': 'text/html'},
+    body=f'<!doctype html><iframe id="f" src="chrome-extension://{sw.url.split("/")[2]}/sidepanel.html" width="400" height="600"></iframe>'))
+  fp = await ctx.new_page(); await fp.goto('https://framer.example/'); await asyncio.sleep(6)
+  fr = [f for f in fp.frames if 'sidepanel.html' in f.url]
+  txt = (await fr[0].evaluate('document.body.innerText')).strip() if fr else '(no frame)'
+  btns = await fr[0].evaluate("document.querySelectorAll('button').length") if fr else -1
+  print('15. a framed panel shows:', repr(txt[:60]), '| buttons:', btns)
+  if txt != 'Open annotated from its own button.' or btns: errs.append(f'a website framing the panel got it: {txt[:80]!r}, {btns} buttons')
+  await fp.close()
+  # 14. A delete that fails gives its button back (audit of 2026-09-29).
+  dl = await pg.evaluate("""async () => { const rec = { id: 'd1', created: Date.now(), cloud: true, author: { id: 'u', name: 'R', handle: 'r' },
+      item: { kind: 'post', text: 'A post', author: 'T', handle: '@T', url: 'https://x.com/t/status/1' }, take: { text: 'Mine', tag: null, poll: null }, comments: [], reactions: [] };
+    const m = document.createElement('main'); document.body.appendChild(m);
+    AnnotationPage.renderSide(m, { current: rec, records: [rec], youId: 'u', permalinkOf: (id) => id, onOpen() {}, onFeed() {}, onDelete: async () => false });
+    m.querySelector('.sideDelBtn').click(); await new Promise((r) => setTimeout(r, 100));
+    const yes = m.querySelector('.sdYes'); if (!yes) return 'no confirm';
+    yes.click(); await new Promise((r) => setTimeout(r, 2500));
+    const out = document.contains(yes) ? (yes.disabled ? 'disabled' : 'enabled') : 'gone'; m.remove(); return out; }""")
+  print('14. after a failed delete the button is', dl)
+  if dl != 'enabled': errs.append(f'a failed delete left its button {dl}')
+  # 21. Pasted text stays text, though Word and Sheets put a picture of it on the clipboard too (fifth pass).
+  pasted = await pg.evaluate("""() => { const box = document.createElement('div'); document.body.appendChild(box);
+    Compose.create(box, { placeholder: 'x' });
+    const ta = box.querySelector('.takeInput'); const dt = new DataTransfer();
+    dt.setData('text/plain', 'Words from a spreadsheet'); dt.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'image.png', { type: 'image/png' }));
+    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }); ta.dispatchEvent(ev);
+    const out = { prevented: ev.defaultPrevented, photo: !!box.querySelector('.upShown:not([hidden]), .upPrev:not([hidden]) img') }; box.remove(); return out; }""")
+  print('21. pasting text with a picture beside it:', pasted)
+  if pasted['prevented']: errs.append('pasting text from a spreadsheet attached a picture instead of the words')
   print('panel:', r)
   if r['btn'] != 'Sign in' or r['svg']: errs.append(f"the panel's Sign in still carries the Google mark: {r}")
   if r['titles'] != ['Can overnight buses work?', 'Kenya', 'Harbor story', 'the post on X', 'A - B']: errs.append(f"the way back's names: {r['titles']}")
@@ -191,4 +290,4 @@ async def main():
     await web_part(p, errs)
     await ext_part(p, errs)
   print('errors:', errs)
-asyncio.run(main())
+if __name__ == "__main__": asyncio.run(main())

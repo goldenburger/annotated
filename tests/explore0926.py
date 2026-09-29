@@ -54,7 +54,8 @@ async def main():
     print('1. largest example plane in flight:', round(big), '| header z-index', z)
     # The measure counts the folds' hidden faces too, so it reads larger than the plane looks: about 225 here for a plane
     # 110 pixels tall on screen, where the old sizes measured 266 and more.
-    if big > 240: errs.append(f'an example plane was {round(big)} pixels across')
+    # The flights are drawn at random, and one of them measures 243 on the same sizes (seen 2026-09-29), so 250.
+    if big > 250: errs.append(f'an example plane was {round(big)} pixels across')
     if int(z) <= 60: errs.append('the header sits under the planes')
     # 2, 4. The feed, signed out.
     await pg.goto(URL + '?feed'); await asyncio.sleep(2.5)

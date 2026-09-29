@@ -37,7 +37,7 @@ async def main():
     print('the source card says:', shared['card'].strip().replace('\n', ' ')[:120])
     if 'September 17, 2026' not in shared['card']: errs.append(f"a plain date came out wrong: {shared['card']!r}")
 
-    await pan.evaluate(f'feedAsked.add({tid}); refresh()'); await asyncio.sleep(2.5)
+    await pan.evaluate(f'feedAsked.set({tid}, null); refresh()'); await asyncio.sleep(2.5)
     await pan.fill('.fpQ', 'overnight buses'); await pan.press('.fpQ', 'Enter'); await asyncio.sleep(2)
     row = (await pan.inner_text('.fpList')).replace('\n', ' | ')
     print('the episode row:', row)

@@ -60,8 +60,13 @@ async def main():
     # Taking the offer in the panel after capture does the same, and the next selection is exact again.
     await sel(['a', 12, 40])
     await pan.click('#articleMode .grab'); await pan.wait_for_selector('#articleMode .aFragFix:not([hidden])', timeout=15000)
-    await pan.click('#articleMode .aFragFix'); await asyncio.sleep(2.5)
-    grown=(await pan.inner_text('#articleMode .capQuote')).strip()
+    await pan.click('#articleMode .aFragFix')
+    # Growing the quote is a whole capture again, the pen and the picture included, so it is waited for rather than
+    # read after a fixed 2.5 s, which failed about one run in five (audit of 2026-09-29).
+    for _ in range(40):
+      await asyncio.sleep(.25)
+      grown=(await pan.inner_text('#articleMode .capQuote')).strip()
+      if grown.startswith('The council met'): break
     print('offer taken ->', repr(grown[:52]))
     if not (grown.startswith('The council met') and grown.endswith('buses.')): errs.append(f'the offer gave {grown!r}')
     quote2, _, _, _ = await sel(['b', 4, 30])

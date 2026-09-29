@@ -487,8 +487,10 @@ const PanelKit = (() => {
       }
       const pad = parseFloat(getComputedStyle(root).paddingBottom) || 0;
       const need = Number(document.body.dataset.popNeed || 0);
-      cb(Math.ceil(Math.max(h + pad + 4, need)));
+      const next = Math.ceil(Math.max(h + pad + 4, need));
+      if (next !== lastH) { lastH = next; cb(next); }
     };
+    let lastH = -1;
     new MutationObserver(() => requestAnimationFrame(measure)).observe(document.body, { attributes: true, attributeFilter: ['data-pop-need'] });
     const ro = new ResizeObserver(() => requestAnimationFrame(measure));
     ro.observe(root);

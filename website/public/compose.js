@@ -209,7 +209,7 @@ const Compose = (() => {
     // A picture dropped or pasted onto the take goes in the same way as one chosen with the button.
     q('.takefield').addEventListener('dragover', (e) => { if (e.dataTransfer && [...e.dataTransfer.items].some((i) => i.kind === 'file')) e.preventDefault(); });
     q('.takefield').addEventListener('drop', (e) => { const f = e.dataTransfer && e.dataTransfer.files[0]; if (f) { e.preventDefault(); takeFile(f); } });
-    q('.takeInput').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f) { e.preventDefault(); takeFile(f); } });
+    q('.takeInput').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f && !e.clipboardData.getData('text/plain')) { e.preventDefault(); takeFile(f); } });
     root._resetUp = () => { upShown(null); upErr(''); };
     root._upValue = () => (upload ? { ...upload, alt: q('.upAlt').value.trim() } : null);
     root._takeFile = takeFile;
@@ -274,7 +274,7 @@ const Compose = (() => {
       }
     }
     // Signing in or out changes what that line should say, and it happens in the account button, not here.
-    if (typeof MutationObserver !== 'undefined') new MutationObserver(() => validate()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    if (typeof MutationObserver !== 'undefined') { const mo = new MutationObserver(() => { if (!root.isConnected) { mo.disconnect(); return; } validate(); }); mo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); }
     function setBusy(b) { busy = b; validate(); }
     function hideMic() { q('.micMsg').hidden = true; q('.micFix').hidden = true; }
 
@@ -292,11 +292,15 @@ const Compose = (() => {
       log(`Mic error ${name || ''}. ${(e && e.message) || ''}`);
     }
 
+    let micAsking = false, micGone = false;
     async function startRec() {
-      if (rec) return;
+      if (rec || micAsking) return;
       hideMic();
+      micAsking = true;
       try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); }
-      catch (e) { return micError(e); }
+      catch (e) { micAsking = false; return micError(e); }
+      micAsking = false;
+      if (micGone || !root.isConnected) { stream.getTracks().forEach((t) => t.stop()); stream = null; return; }
       setVoice(null);
       const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
       const chunks = [];
@@ -371,8 +375,8 @@ const Compose = (() => {
     }
     // A panel that goes away stops a voice note being recorded, so the microphone is never left on unseen.
     root.dataset.compose = '1';
-    root.__stopRec = () => stopRec(true);
-    return { reset, value, setBusy };
+    root.__stopRec = () => { micGone = true; stopRec(true); };
+    return { reset, value, setBusy, forgetDraft };
   }
   // What may be uploaded, and how it is checked. The take box and the comment box both ask here, so the two
   // cannot come to disagree about what a file may be.

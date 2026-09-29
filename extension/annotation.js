@@ -30,7 +30,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
                       : 'That did not save. Check your connection and try again in a moment.');
   };
 
+  let loadGen = 0, movedHere = false;
   const load = async () => {
+    const my = ++loadGen;
     // Who you are and the local copy are asked for together, and the rest below too, since one after another they
     // left the page white for most of a second before the plane from Publish arrived (recording of 2026-09-25 at
     // 15:38, 1:02).
@@ -46,14 +48,26 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       if (o && o.annFrom === 'publish') from = 'publish';
       await chrome.storage.session.remove('annFrom');
     } catch { /* no session storage, so treat it as any other arrival */ }
-    if (from !== 'publish' && beenHereBefore) from = 'history';
+    if (from !== 'publish' && (beenHereBefore || movedHere)) from = 'history';
     const local = await localP;
     await meP;
     window.scrollTo(0, 0);
     // Saved on this computer, or shared by anyone.
     let rec = local ? { id, ...local } : null;
     let shared = !!(local && local.cloud);
-    if (!rec && id) { rec = await Cloud.get(id).catch(() => null); shared = !!rec; }
+    let failed = false;
+    if (!rec && id) { rec = await Cloud.get(id).catch(() => { failed = true; return null; }); shared = !!rec; }
+    if (my !== loadGen) return;
+    if (!rec && failed) {
+      page.className = '';
+      document.title = 'Did not load | annotated';
+      AnnotationPage.renderMissing(page, { title: 'This did not load', why: 'Check your connection and try again.', siteNav: false, onHome: () => { location.href = 'feed.html'; } });
+      const home = page.querySelector('.shellEmpty .missHome');
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'ghost sm'; b.textContent = 'Try again';
+      b.addEventListener('click', () => { if (b.disabled) return; b.disabled = true; load(); });
+      if (home) { home.parentElement.insertBefore(b, home); home.parentElement.insertBefore(document.createTextNode(' '), home); } else page.appendChild(b);
+      return;
+    }
     if (!rec) {
       const gone = Store.wasDeleted && Store.wasDeleted(id);
       page.className = '';
@@ -107,6 +121,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); return true; } return false; };
 
     // Everything is here, so the skeleton comes down and the page goes up in the same breath.
+    if (my !== loadGen) return;
     page.className = '';
     await AnnotationPage.render(page, {
       id, item: rec.item, take: rec.take, created: rec.created,
@@ -130,7 +145,8 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         const ok = local && local.sourceTabId ? await chrome.tabs.update(local.sourceTabId, { active: true }).then(() => true).catch(() => false) : false;
         // The tab it was captured from is gone, so the source opens in one of its own. Sending this tab there
         // would take the annotation with it, and this is the only tab annotated keeps.
-        if (!ok) chrome.tabs.create({ url: AnnotationPage.srcUrlOf(rec.item) });
+        const src = String(AnnotationPage.srcUrlOf(rec.item) || '');
+        if (!ok && /^https?:\/\//i.test(src)) chrome.tabs.create({ url: src });
       } : () => history.back(),
       onHome: () => { location.href = 'feed.html'; },
       onProfile: () => { location.href = mine ? 'feed.html#profile' : 'feed.html#user=' + encodeURIComponent(author.id); },
@@ -150,14 +166,12 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       onReactions: async (list, change) => {
         if (!shared) return Store.update(id, { reactions: list });
         if (needSignIn() || !change) return;
-        await Cloud.react(id, me.id, change.emoji, change.on);
-        nudgePanel();
+        try { await Cloud.react(id, me.id, change.emoji, change.on); nudgePanel(); } catch (e) { sayProblem(e); }
       },
       onPollVote: async (vote) => {
         if (!shared) return Store.update(id, { take: { ...rec.take } });
         if (needSignIn()) return;
-        await Cloud.vote(id, me.id, vote);
-        nudgePanel();
+        try { await Cloud.vote(id, me.id, vote); nudgePanel(); } catch (e) { sayProblem(e); }
       },
       onClaim: shared ? (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }) : null,
       // Saved here but not shared (signed out at the time, or the upload failed): share it now. Signed out,
@@ -183,8 +197,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
           location.href = 'feed.html#profile';
         },
         onEdit: async ({ text, tag }) => {
+          // Online first, so a refused edit leaves this computer's copy as it was too.
+          if (shared) { try { await Cloud.edit(id, { text, tag }); } catch (e) { sayProblem(e); throw e; } }
           if (local) await Store.update(id, { take: { ...local.take, text, tag } });
-          if (shared) await Cloud.edit(id, { text, tag });
           document.title = `${text || title} | annotated`;
         },
       } : {}),
@@ -192,7 +207,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     // The banner is for the first visit only.
     if (local && !local.seen) Store.update(id, { seen: true });
   };
-  window.addEventListener('hashchange', load);
+  window.addEventListener('hashchange', () => { movedHere = true; load(); });
   // Signing in or out in the panel changes what this page may offer, and the page does not reload by itself.
   Backend.onChange((who) => { if ((who && who.id) !== (me && me.id)) load(); });
   load();

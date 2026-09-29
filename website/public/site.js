@@ -5,11 +5,12 @@
 // that show annotations: a visitor's front page never uses it, and it was about 69 KB of the page (audit of
 // 2026-09-24). It is loaded in order, with the version this page was stamped with.
 const SITE_V = (document.currentScript && new URL(document.currentScript.src, location.href).searchParams.get('v')) || '';
-const loadReading = () => ['/emoji-data.js', '/emojikit.js', '/giphy.js', '/compose.js', '/waveform.js', '/gifmaker.js']
-  .reduce((p, src) => p.then(() => new Promise((res) => {
-    const el = document.createElement('script'); el.src = src + (SITE_V ? '?v=' + SITE_V : '');
+// They are fetched together and run in order (async = false), where each waited for the one before to arrive.
+const loadReading = () => Promise.all(['/emoji-data.js', '/emojikit.js', '/giphy.js', '/compose.js', '/waveform.js', '/gifmaker.js']
+  .map((src) => new Promise((res) => {
+    const el = document.createElement('script'); el.src = src + (SITE_V ? '?v=' + SITE_V : ''); el.async = false;
     el.onload = res; el.onerror = res; document.head.appendChild(el);
-  })), Promise.resolve());
+  })));
 // A tab left open across a new release catches up when it is next looked at. The logo on the extension's pages
 // switched to a home page tab opened before a deploy, and it showed the old wording (recording of 2026-09-25 at
 // 23:23, 0:41). It reloads only when nothing is being typed or made, and asks at most once a minute.
@@ -51,7 +52,7 @@ function matchExtension(me) {
   const ext = Backend.extUser && Backend.extUser();
   document.querySelectorAll('.webSignIn').forEach((b) => {
     if (!b.dataset.plain) b.dataset.plain = b.innerHTML;
-    b.innerHTML = ext && ext.name ? `Sign in as ${firstName(ext.name)}` : b.dataset.plain;
+    if (ext && ext.name) b.textContent = `Sign in as ${firstName(ext.name)}`; else b.innerHTML = b.dataset.plain;
     b.setAttribute('aria-label', ext && ext.name ? `Sign in as ${ext.name}` : 'Sign in with Google or X');
   });
   const old = document.querySelector('.acctMismatch'); if (old) old.remove();
@@ -72,7 +73,8 @@ function matchExtension(me) {
   const tidy = () => { if (/[?&][\w-]+=(?=&|$)/.test(location.search)) history.replaceState(history.state, '', location.pathname + location.search.replace(/([?&][\w-]+)=(?=&|$)/g, '$1') + location.hash); };
   tidy(); setTimeout(tidy, 1500);
   Backend.client.auth.onAuthStateChange(() => setTimeout(tidy, 0));
-  const parts = location.pathname.split('/').filter(Boolean).map(decodeURIComponent);
+  const dec = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+  const parts = location.pathname.split('/').filter(Boolean).map(dec);
   const query = new URLSearchParams(location.search);
   // The front page waits for nothing on the network. Whether anyone is signed in is read from this browser,
   // which is instant, and a visitor's front page is drawn before the database is asked anything. It used to
@@ -81,7 +83,11 @@ function matchExtension(me) {
   const frontPage = !parts.length && !query.has('tag') && !query.has('feed');
   if (frontPage && typeof Landing !== 'undefined') {
     let session = null;
-    try { session = (await Backend.client.auth.getSession()).data.session; } catch { /* no storage */ }
+    // Only who it is is needed here, so the stored session is read directly. getSession first refreshes a token
+    // near its end over the network, retrying for up to thirty seconds, which held a returning person's front page
+    // on its outline (audit of 2026-09-29, seventh pass). Coming back from sign-in it is still asked, as it swaps the code.
+    if (!query.has('code')) try { const s = JSON.parse(localStorage.getItem('annotated-auth') || 'null'); if (s && s.user && s.user.id) session = s; } catch { /* no storage */ }
+    if (query.has('code')) { try { session = (await Backend.client.auth.getSession()).data.session; } catch { /* no storage */ } }
     // The home page for everyone, signed in or not. Signed in it used to be the feed, so "Open annotated's home
     // page" landed on an empty feed and the example was one small link away (recording of 2026-09-25 at 05:34).
     // The feed is at /?feed, a link in the header.
@@ -170,13 +176,15 @@ function matchExtension(me) {
     }
   }
 
-  async function home(tag) {
+  async function home(tag, quiet) {
     const first = !tag && earlyList; earlyList = null;   // only the first drawing uses it; a tab switch asks again
+    const socP = discover();
     const got = await listOrNull({ limit: 100 }, first);
+    if (quiet && !got) return;
     const all = got || [];
     all.forEach((r) => { r.mine = !!(me && r.author && r.author.id === me.id); });
     remember(all);
-    const soc = await discover();
+    const soc = await socP;
     const mine = all.filter((r) => r.mine);
     const social = soc ? { ...soc, you: youOf(soc, mine.length) } : null;
     let records = all;
@@ -193,15 +201,20 @@ function matchExtension(me) {
     // Signed in, the front page is the feed, with the try-it one line away.
   }
 
-  async function profile(handle) {
-    const { data: p } = await Backend.client.from('profiles').select('id, handle, display_name, avatar_url').eq('handle', handle).maybeSingle();
+  async function profile(handle, quiet) {
+    // The database client already tries again for several seconds before it gives up, so one answer is enough.
+    const r = await Backend.client.from('profiles').select('id, handle, display_name, avatar_url').eq('handle', handle).maybeSingle();
+    const p = r.error ? null : r.data, failed = !!r.error;
+    if (failed) return quiet ? undefined : didNotLoad(() => profile(handle));
     if (!p) return notFound('Nobody has that handle.');
+    const socP = discover({ personId: p.id });
     const got = await listOrNull({ authorId: p.id, limit: 80 });
+    if (quiet && !got) return;
     const records = got || [];
     records.forEach((r) => { r.mine = !!(me && me.id === p.id); });
     remember(records);
-    const person = me && me.id === p.id ? null : { id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: p.avatar_url || '' };
-    const soc = await discover({ personId: p.id });
+    const person = me && me.id === p.id ? null : { id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: Cloud.avatarOk ? Cloud.avatarOk(p.avatar_url) : '' };
+    const soc = await socP;
     const social = soc ? { ...soc, you: youOf(soc, me && me.id === p.id ? records.length : 0) } : null;
     if (social && !person) { social.onFollow = null; social.personStats = soc.personStats; }
     document.title = `${p.display_name || p.handle} | annotated`;
@@ -226,10 +239,13 @@ function matchExtension(me) {
   }
 
   async function annotation(id) {
-    const rec = await Cloud.get(id).catch(() => null);
+    let rec = null, failed = false;
+    const scP = Cloud.social(id, me && me.id).catch(() => null), socP = discover();
+    try { rec = await Cloud.get(id); } catch { failed = true; }
+    if (failed) return didNotLoad(() => annotation(id));
     if (!rec) return notFound('This annotation was deleted, or the link is wrong.');
     const mine = !!(me && rec.author && rec.author.id === me.id);
-    const sc = await Cloud.social(id, me && me.id).catch(() => null);
+    const sc = await scP;
     if (sc && rec.take.poll) rec.take = { ...rec.take, poll: { ...rec.take.poll, counts: sc.poll.counts, vote: sc.poll.vote } };
     let records = [];
     try { records = await Cloud.list({ authorId: rec.author && rec.author.id, limit: 40 }); } catch {}
@@ -238,7 +254,7 @@ function matchExtension(me) {
     const title = AnnotationPage.titleOf(rec.item);
     document.title = `${rec.take.text || title} | annotated`;
     // Your own card counts your annotations. It said 0 beside one of your own (recording of 2026-09-25 at 03:54).
-    const [soc, yours] = await Promise.all([discover(), mine ? records : me ? Cloud.list({ authorId: me.id, limit: 100 }).catch(() => []) : []]);
+    const [soc, yours] = await Promise.all([socP, mine ? records : me ? Cloud.list({ authorId: me.id, limit: 100 }).catch(() => []) : []]);
     const social = soc ? { ...soc, followsAuthor: !!(rec.author && soc.followed.has(rec.author.id)), you: youOf(soc, yours.length) } : null;
     const needSignIn = () => { if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: signIn }); return true; } return false; };
     await AnnotationPage.render(page, {
@@ -265,12 +281,12 @@ function matchExtension(me) {
           if (change.reaction && change.comment && change.comment.dbId) await Cloud.reactComment(change.comment.dbId, me.id, change.reaction.emoji, change.reaction.on);
         } catch (e) { alert('That did not save. ' + (e.message || '')); }
       },
-      onReactions: async (list, change) => { if (needSignIn() || !change) return; await Cloud.react(id, me.id, change.emoji, change.on); },
-      onPollVote: async (vote) => { if (needSignIn()) return; await Cloud.vote(id, me.id, vote); },
+      onReactions: async (list, change) => { if (needSignIn() || !change) return; try { await Cloud.react(id, me.id, change.emoji, change.on); } catch (e) { alert(/lot of|as many/i.test(e.message || '') ? e.message : 'That did not save. Check your connection and try again in a moment.'); } },
+      onPollVote: async (vote) => { if (needSignIn()) return; try { await Cloud.vote(id, me.id, vote); } catch { alert('That vote did not save. Check your connection and try again in a moment.'); } },
       onClaim: (data) => Cloud.claim(id, data).then((r) => { if (r.error) throw r.error; }),
       ...(mine ? {
         onDelete: async () => { await Cloud.remove(id, me.id); location.href = '/@' + me.handle; },
-        onEdit: async ({ text, tag }) => { await Cloud.edit(id, { text, tag }); document.title = `${text || title} | annotated`; },
+        onEdit: async ({ text, tag }) => { try { await Cloud.edit(id, { text, tag }); } catch (e) { alert(e.message && /not yours/i.test(e.message) ? e.message : 'That edit did not save. Check your connection and try again in a moment.'); throw e; } document.title = `${text || title} | annotated`; },
       } : {}),
     });
     headerAccount();
@@ -292,6 +308,17 @@ function matchExtension(me) {
 
   // Drawn in the site's own frame, with the header, like every other page. It was a line of small text alone at
   // the top of a blank page (UX audit of 2026-09-25).
+  // A page whose data could not be read (a dropped connection, the database waking) says so and offers to try again.
+  function didNotLoad(retry) {
+    document.title = 'Did not load | annotated';
+    page.className = '';
+    AnnotationPage.renderMissing(page, { title: 'This did not load', why: 'Check your connection and try again.', ...nav });
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'ghost sm'; b.textContent = 'Try again';
+    b.addEventListener('click', () => { if (b.disabled) return; b.disabled = true; page.className = 'loading'; retry(); });
+    const home = page.querySelector('.shellEmpty .missHome');
+    if (home) { home.parentElement.insertBefore(b, home); home.parentElement.insertBefore(document.createTextNode(' '), home); } else page.appendChild(b);
+    headerAccount();
+  }
   function notFound(msg) {
     document.title = 'Not found | annotated';
     page.className = '';
@@ -312,8 +339,11 @@ function matchExtension(me) {
       if (!hiddenAt || Date.now() - hiddenAt < 1500 || page.querySelector('.delAllAsk:not([hidden]), textarea:focus')) return;
       hiddenAt = 0;
       const y = scrollY;
-      if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1)); else await home(query.get('tag'));
-      scrollTo(0, y);
+      let moved = false; const mark = () => { moved = true; };
+      const evs = ['wheel', 'touchstart', 'keydown']; evs.forEach((e) => addEventListener(e, mark, { passive: true }));
+      try { if (parts[0] && parts[0].startsWith('@')) await profile(parts[0].slice(1), true); else await home(query.get('tag'), true); }
+      finally { evs.forEach((e) => removeEventListener(e, mark)); }
+      if (!moved) scrollTo(0, y);
     });
   }
   matchExtension(me);

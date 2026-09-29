@@ -20,7 +20,7 @@ const AnnotationPage = (() => {
     const write = (v) => { cache = null; try { localStorage.setItem(K, JSON.stringify(v.slice(0, 500))); } catch { /* nowhere to keep it */ } };
     try { addEventListener('storage', (e) => { if (e.key === K) cache = null; }); } catch { /* no window */ }
     return {
-      has: (id) => { read(); return cache.set.has(id); },
+      has: (id) => { if (!cache) read(); return cache.set.has(id); },
       ids: () => read(),
       toggle: (id) => { const v = read(); const i = v.indexOf(id); if (i >= 0) v.splice(i, 1); else v.unshift(id); write(v); return i < 0; },
     };
@@ -28,11 +28,13 @@ const AnnotationPage = (() => {
 
   // Deleting: the sheet crumples into the bin while the delete runs, and comes back if the delete fails (it used to
   // crumple first and stay hidden after a refused delete, and a second press ran a second delete; bug audit 2026-09-29).
-  async function crumpleWhile(el, del) {
+  async function crumpleWhile(el, del, btn = null) {
     const anim = typeof Fold !== 'undefined' && Fold.trash && el ? Fold.trash(el).catch(() => {}) : Promise.resolve();
     let ok = true;
     try { const r = await del(); if (r === false) ok = false; } catch { ok = false; }
     if (!ok && el) { await anim; el.style.visibility = ''; }
+    // The card comes back when the delete fails, and so does its button (it stayed greyed out, audit of 2026-09-29).
+    if (!ok && btn) btn.disabled = false;
   }
   function relTime(t) {
     const s = Math.round((Date.now() - t) / 1000);
@@ -62,7 +64,8 @@ const AnnotationPage = (() => {
   }
   const xUrl = (item, take, permalink) => `https://x.com/intent/post?text=${encodeURIComponent(xText(item, take))}&url=${encodeURIComponent(permalink)}`;
   // The video id comes from whoever published it, so it is encoded rather than trusted to be eleven letters.
-  const srcUrlOf = (item) => item.kind === 'video' && item.site === 'x' ? item.url : item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
+  const xPost = (u) => (/^https:\/\/((mobile|www)\.)?(x|twitter)\.com\/[^/?#]+\/status\/\d+/i.test(String(u || '')) ? String(u) : '');
+  const srcUrlOf = (item) => item.kind === 'video' && item.site === 'x' ? xPost(item.url) : item.kind === 'video' ? `https://www.youtube.com/watch?v=${encodeURIComponent(item.videoId || '')}&t=${Math.floor(Number(item.start) || 0)}s`
     : item.kind === 'post' || item.kind === 'audio' ? item.url : item.fragmentUrl;
   const titleOf = (item) => item.kind === 'video' || item.kind === 'audio' ? item.title : item.kind === 'post' ? `${item.author} on X` : item.meta.title;
   const kindLabel = (item) => ({ video: 'Video', post: 'Post', article: 'Article', audio: 'Podcast' }[item.kind] || 'Article');
@@ -744,8 +747,10 @@ const AnnotationPage = (() => {
           // Words may go when something else of yours stays: a voice note, a GIF, a photo or a poll.
           const rest = take.voice || take.gif || take.upload || (take.poll && take.poll.options && take.poll.options.length >= 2);
           if (!text && !rest) { box.querySelector('.editErr').hidden = false; return; }
+          const was = { text: take.text, tag: take.tag };
           take.text = text; take.tag = tag;
-          await hooks.onEdit({ text, tag });
+          // An edit that did not save leaves the box open with the words in it.
+          try { await hooks.onEdit({ text, tag }); } catch { take.text = was.text; take.tag = was.tag; return; }
           q('.take').textContent = text;
           q('.tagSlot').innerHTML = tag ? `<button type="button" class="tag tagLink" title="See all ${esc(tag)} annotations">${esc(tag)}</button>` : '';
           bindTag();
@@ -761,7 +766,7 @@ const AnnotationPage = (() => {
         del.innerHTML = `<span class="delAsk">Delete this annotation? This cannot be undone.</span>
           <span><button type="button" class="quiet delNo">Keep it</button><button type="button" class="quiet danger delYes">${Brand.icon('trash')} Delete</button></span>`;
         del.hidden = false;
-        del.querySelector('.delYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(q('.annCard'), () => hooks.onDelete()); });
+        del.querySelector('.delYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(q('.annCard'), () => hooks.onDelete(), e.currentTarget); });
         del.querySelector('.delNo').addEventListener('click', () => { del.hidden = true; });
       });
     }
@@ -914,7 +919,7 @@ const AnnotationPage = (() => {
       q('.cUpBtn').addEventListener('click', (e) => { q('.cUpFile').click(); if (e.detail) e.currentTarget.blur(); });
       q('.cUpFile').addEventListener('change', (e) => { cTakeFile(e.target.files && e.target.files[0]); e.target.value = ''; });
       q('.cUpChosen .upRemove').addEventListener('click', () => { cUpShown(null); q('.cUpBtn').focus(); });
-      q('.cText').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f) { e.preventDefault(); cTakeFile(f); } });
+      q('.cText').addEventListener('paste', (e) => { const f = e.clipboardData && [...e.clipboardData.files][0]; if (f && !e.clipboardData.getData('text/plain')) { e.preventDefault(); cTakeFile(f); } });
       container._takeCommentFile = cTakeFile;
     }
     const post = () => {
@@ -971,7 +976,7 @@ const AnnotationPage = (() => {
       // The page this clock keeps current can be replaced without a new render, when the annotation is
       // deleted while it is open, and the clock then threw every thirty seconds for as long as the tab stayed.
       if (!container.isConnected || !q('.cTitle') || !q('.when')) return stopClock(container);
-      drawComments();
+      q('.cList').querySelectorAll('time[datetime]').forEach((t) => { const v = relTime(Date.parse(t.getAttribute('datetime'))); if (t.textContent !== v) t.textContent = v; });
       q('.when').textContent = relTime(created);
     }, 30000);
 
@@ -1059,7 +1064,7 @@ const AnnotationPage = (() => {
         let src = safeLink(r.item.mediaUrl);
         if (!src && r.item.blob) { src = URL.createObjectURL(r.item.blob); previewBlobs.push(src); }
         if (!src && r.item.hasMedia && getMedia) { const b = await getMedia(r.id).catch(() => null); if (b) { r.item.blob = b; src = URL.createObjectURL(b); previewBlobs.push(src); } }
-        if (!src || !v.isConnected) return;
+        if (!src || !v.isConnected || v.src || v.dataset.sound) return;
         v.src = src;
         v.addEventListener('playing', () => v.closest('.cthumb').classList.add('live'), { once: true });
       }
@@ -1433,7 +1438,7 @@ const AnnotationPage = (() => {
     if (sd) sd.addEventListener('click', () => {
       const p = sd.parentElement;
       p.innerHTML = 'Delete this annotation? <button type="button" class="link sdYes">Delete</button> <button type="button" class="link sdNo">Keep</button>';
-      p.querySelector('.sdYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(container.querySelector('.sideNow') || p, () => onDelete(current.id)); });
+      p.querySelector('.sdYes').addEventListener('click', (e) => { e.currentTarget.disabled = true; crumpleWhile(container.querySelector('.sideNow') || p, () => onDelete(current.id), e.currentTarget); });
       p.querySelector('.sdNo').addEventListener('click', () => renderSide(container, { current, records, youId, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware }));
     });
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));

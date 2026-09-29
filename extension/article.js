@@ -95,15 +95,40 @@
   const pod = ClipEngine.create({ getVideo: pickAudio, meta: podMeta, send: podSend, audioOnly: true });
   // The video in a post on X, clipped like a YouTube video (2.36.0). It was saved as a screenshot of the player,
   // a still of whatever frame it was on (recording of 2026-09-29 at 02:24).
-  const xvPost = () => { const r = PostCore.isStatusUrl(location.href) ? PostCore.extract(document, location) : null; return r && r.el.querySelector('video') ? r : null; };
+  // The post's own video, not one inside a post it quotes (X draws a quoted post as a link card inside the article), so
+  // a clip is never published under the wrong author (audit of 2026-09-29).
+  const ownVideo = (el) => [...el.querySelectorAll('video')].find((v) => { const q = v.closest('div[role="link"]'); return !q || !el.contains(q); }) || null;
+  let xvLast = null;
+  const xvPost = () => {
+    const now = Date.now();
+    if (xvLast && xvLast.href === location.href && now - xvLast.at < 300 && (!xvLast.r || xvLast.r.el.isConnected)) return xvLast.r;
+    const r0 = PostCore.isStatusUrl(location.href) ? PostCore.extract(document, location) : null;
+    const r = r0 && ownVideo(r0.el) ? r0 : null;
+    xvLast = { href: location.href, at: now, r };
+    return r;
+  };
+  // A GIF on X plays an MP4 from another host without asking to be read, so its frames cannot be recorded. It is
+  // quoted as a post instead of being offered a trimmer whose capture would fail every time. Checked once per source.
+  const readable = new Map();
+  const framesReadable = (v) => {
+    const src = v.currentSrc || v.src || '';
+    if (!src || v.readyState < 2) return null;   // not known until it has a frame
+    if (readable.has(src)) return readable.get(src);
+    let ok = true;
+    try { const c = document.createElement('canvas'); c.width = c.height = 1; const x = c.getContext('2d'); x.drawImage(v, 0, 0, 1, 1); x.getImageData(0, 0, 1, 1); } catch { ok = false; }
+    readable.set(src, ok);
+    return ok;
+  };
   const xvMeta = () => {
     const r = xvPost();
-    if (!r) return { site: 'x', url: location.href.split('?')[0], videoId: '', title: 'A video on X', channel: '' };
+    if (!r) return { site: 'x', url: location.href.split('?')[0], title: 'A video on X', channel: '' };
     const { el, ...rest } = r;
     const first = (r.text || '').split('\n').find((l) => l.trim()) || '';
-    return { ...rest, site: 'x', videoId: '', title: first.length > 120 ? first.slice(0, 117).trimEnd() + '…' : (first || `${r.author || 'A post'} on X`), channel: r.author || '' };
+    const v = ownVideo(el);
+    const fr = v ? framesReadable(v) : true;
+    return { ...rest, site: 'x', blocked: fr === null ? null : !fr, title: first.length > 120 ? first.slice(0, 117).trimEnd() + '…' : (first || `${r.author || 'A post'} on X`), channel: r.author || '' };
   };
-  const xv = ClipEngine.create({ getVideo: () => { const r = xvPost(); return r ? r.el.querySelector('video') : null; }, meta: xvMeta, send: podSend });
+  const xv = ClipEngine.create({ getVideo: () => { const r = xvPost(); return r ? ownVideo(r.el) : null; }, meta: xvMeta, send: podSend });
   // How this episode can be recorded: 'direct' from the page's player, 'copy' through a second player the
   // audio server allows, or 'tab' by recording the tab's sound. Checked once per episode.
   const routes = new Map();
@@ -207,7 +232,7 @@
       case 'p-info': {
         const r = PostCore.extract(document, location);
         if (!r) { reply({ ok: false, error: 'Waiting for the post to load.' }); return; }
-        const { el, ...rest } = r; reply({ ok: true, ...rest, hasVideo: !!el.querySelector('video') }); return;
+        const { el, ...rest } = r; const ov = ownVideo(el); reply({ ok: true, ...rest, hasVideo: !!ov, blocked: !!ov && framesReadable(ov) === false }); return;
       }
       // Sent once the screenshot has been taken, so a post folded behind Show more goes back to how it was.
       // The stroke is already on the page by then, drawn before the picture rather than after it.

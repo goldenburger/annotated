@@ -13,7 +13,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   const signIn = (p) => Backend.signIn(p).then(() => load()).catch(() => {});
   let tab = Cloud.savedTab(), pressed = false;
 
+  let loadGen = 0;
   const load = async () => {
+    const my = ++loadGen;
     const h = location.hash;
     const m = h.match(/tag=([^&]+)/), u = h.match(/user=([^&]+)/);
     const tag = m ? decodeURIComponent(m[1]) : null;
@@ -71,6 +73,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       social.tabs = { current: cur, note: tabs[cur].note, empty: tabs[cur].empty, onTab: (k) => { tab = k; pressed = true; Cloud.saveTab(k); el.classList.add('busy'); load(); } };
     }
     document.title = tag ? `${tag} | annotated` : person ? `${person.name} | annotated` : mode === 'profile' ? 'Your profile | annotated' : 'Feed | annotated';
+    if (my !== loadGen) return;
     el.className = '';   // also clears the busy mark a tab switch puts there
     AnnotationPage.renderFeed(el, {
       records, yours, tag, mode, person, social,
@@ -108,12 +111,15 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
   // Annotations deleted or published from the panel beside this page (or another window) change the store's
   // stamp. The page draws again, so it never lists, or offers to delete, what is already gone (recording of
   // 2026-09-24 at 20:19). Its own delete all is left to finish first.
-  let deleting = false, again = 0;
+  let deleting = false, again = 0, staleWhileHidden = false;
   try {
     chrome.storage.onChanged.addListener((ch, area) => {
       if (area !== 'local' || !ch.annotatedStamp || deleting) return;
+      // Every reaction and vote moves the stamp, and a feed in a tab nobody is looking at read its whole list for each.
+      if (document.hidden) { staleWhileHidden = true; return; }
       clearTimeout(again); again = setTimeout(() => { if (!deleting) load(); }, 400);
     });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && staleWhileHidden && !deleting) { staleWhileHidden = false; load(); } });
   } catch { /* not in the extension */ }
   Backend.onChange((who) => { if ((who && who.id) !== (me && me.id)) load(); });
   load();
