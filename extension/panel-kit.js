@@ -179,7 +179,13 @@ const PanelKit = (() => {
     const onScroll = (e) => {
       const el = e.target === document ? document.scrollingElement : e.target;
       if (!el || !el.classList || !(el.classList.contains('panel') || el === document.scrollingElement)) return;
-      document.querySelectorAll('.phead').forEach((h) => h.classList.toggle('scrolled', el.scrollTop > 24));
+      // Hysteresis: compacting the header shortens the page, which pulled the scroll back under one threshold and
+      // undid it, every frame, a 2px jitter under the Publish button (2.35.1). Compact past 40, open again under 8.
+      document.querySelectorAll('.phead').forEach((h) => {
+        const on = h.classList.contains('scrolled');
+        if (!on && el.scrollTop > 40) h.classList.add('scrolled');
+        else if (on && el.scrollTop < 8) h.classList.remove('scrolled');
+      });
     };
     document.addEventListener('scroll', onScroll, true);
   }

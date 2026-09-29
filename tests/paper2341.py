@@ -24,6 +24,14 @@ async def main():
       <div id="pub" style="margin-top:20px"></div>`; document.body.appendChild(m);
       PanelKit.published(m.querySelector('#pub'), { permalink: 'https://annotated-app.netlify.app/@robotaxi/abc', xHref: 'https://x.com', onView(){}, onNew(){} }); }""")
     await asyncio.sleep(1)
+    # 2.35.1: the header compacts with hysteresis, so scrolling near the line no longer flips it every frame.
+    hy = await pg.evaluate("""async () => { const pan = document.createElement('div'); pan.className = 'panel'; pan.style.cssText = 'position:fixed;inset:0;overflow:auto;z-index:999';
+      const h = document.createElement('div'); h.className = 'phead'; pan.appendChild(h); document.body.appendChild(pan);
+      const at = async (y) => { pan.scrollTop = y; pan.dispatchEvent(new Event('scroll')); await new Promise((r) => setTimeout(r, 30)); return h.classList.contains('scrolled'); };
+      const pad = document.createElement('div'); pad.style.height = '3000px'; pan.appendChild(pad);
+      return [await at(30), await at(60), await at(20), await at(4)].join(','); }""")
+    print('header at 30, 60, 20, 4:', hy)
+    if hy != 'false,true,true,false': errs.append(f'the header does not compact with hysteresis: {hy}')
     look = await pg.evaluate("""() => { const q = getComputedStyle(document.querySelector('.pQuote')), t = getComputedStyle(document.querySelector('.takefield textarea')), c = getComputedStyle(document.querySelector('.takefield'), '::after');
       return { torn: (q.maskImage || q.webkitMaskImage || '').includes('conic'), ruled: t.backgroundImage.includes('repeating-linear-gradient'), corner: c.content !== 'none' && c.content !== 'normal', sent: !!document.querySelector('.pubcard .pd-sent svg') }; }""")
     print('panel paper:', look)

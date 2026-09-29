@@ -1927,3 +1927,16 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 :root { --sheet-paper: #FDFBF6; }
 :root { --sheet-paper: #FEFCF8; }
 .acctPop, .dmPop, .menu, .signAsk { --sp: 0px; }
+
+/* The sheet's shadow is its own still layer behind the paper, where it was a filter over the whole window: a filter
+   redraws everything inside it every frame something moves (a clip preview, the pen), which starved the page's
+   animations and made buttons read as unstable to the tests (2.35.1). Same torn shape, blurred, a little low. */
+.paperSheet, section.makeOne, section.passage, section.result, section.compose, section.clipper, section.act, .fpCard, .welcome, .browseList, .card.mf, .railcard, .annBody .annCard, .pubcard, .acctPop, .signAsk, .dmPop, .ftDemo, .landGet, dialog#annotated-claim, .menu, .emptyState, .browseEmpty, .card-s, .annBody section.comments, #browseMode .startBlock, #browseMode .sideList, .mirrorStart { filter: none !important; }
+.paperSheet::after, section.makeOne::after, section.passage::after, section.result::after, section.compose::after, section.clipper::after, section.act::after, .fpCard::after, .welcome::after, .browseList::after, .card.mf::after, .railcard::after, .annBody .annCard::after, .pubcard::after, .acctPop::after, .signAsk::after, .dmPop::after, .ftDemo::after, .landGet::after, dialog#annotated-claim::after, .menu::after, .emptyState::after, .browseEmpty::after, .card-s::after, .annBody section.comments::after, #browseMode .startBlock::after, #browseMode .sideList::after, .mirrorStart::after {
+  content: "" !important; position: absolute !important; inset: calc(-1 * var(--sp, 10px)) !important; z-index: -2 !important; pointer-events: none !important;
+  width: auto !important; height: auto !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  background: var(--sheet-shadow) !important; transform: translateY(2px); filter: blur(3px);
+  -webkit-mask: var(--tear-top) top left / 240px 9px repeat-x, var(--tear-bot) bottom left / 240px 7px repeat-x, var(--tear-left) top left / 9px 240px repeat-y, var(--tear-right) top right / 7px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat;
+          mask: var(--tear-top) top left / 240px 9px repeat-x, var(--tear-bot) bottom left / 240px 7px repeat-x, var(--tear-left) top left / 9px 240px repeat-y, var(--tear-right) top right / 7px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 14px) calc(100% - 14px) no-repeat; }
+.card.mf::after, .annBody .annCard::after, .ftDemo::after, .landGet::after, .annBody section.comments::after { left: -34px !important; }
+.acctPop::after, .dmPop::after, .menu::after, .signAsk::after { inset: 0 !important; }
