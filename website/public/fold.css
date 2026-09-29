@@ -41,3 +41,4 @@ html:has(> body > .pl-layer) { overflow-x: hidden; }
 /* A tiny plane off a button: a copied link sent on its way (2.34.0). */
 .pl-toss { position: fixed; z-index: 2147483000; width: 18px; height: 18px; pointer-events: none; will-change: transform, opacity; }
 .pl-toss svg { width: 18px; height: 18px; display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.18)); }
+.pl-bin svg { width: 88px; height: auto; }

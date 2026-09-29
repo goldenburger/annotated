@@ -301,7 +301,7 @@ var Landing = (() => {
   function latest(root) {
     const box = document.createElement('section');
     box.className = 'landLatest'; box.hidden = true;
-    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2><p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. <button type="button" class="link llMake">Make one above</button>.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
+    box.innerHTML = '<div class="llHead"><h2>Yours so far</h2>' + (typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : '') + '<p class="llNote"><span class="llUndo" role="status" hidden><span></span> <button type="button" class="link llUndoBtn">Undo</button></span> Only on this computer <button type="button" class="link llClear">Clear all</button></p></div><ul class="llRow"></ul><p class="llEmpty" hidden>All cleared. <button type="button" class="link llMake">Make one above</button>.</p><p class="llGet"><a class="link" href="#get">Get the extension to do this on any page</a></p>';
     root.appendChild(box);
     const row = box.querySelector('.llRow');
     const list = () => { const y = readYours(); return Array.isArray(y) ? y : y ? [y] : []; };

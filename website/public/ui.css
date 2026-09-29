@@ -1715,14 +1715,14 @@ html[data-annotated-installed="1"] .esMake { display: none !important; }
    white, and the soft shadow of a sheet lifted a hair off the desk, a little deeper toward the bottom right as a
    page curls. Nothing moves and nothing is added to read. Dark mode keeps the grain fainter. */
 :root {
-  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .18  0 0 0 .1 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .28  0 0 0 0 .18  0 0 0 .16 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
   --sheet-warm: color-mix(in srgb, var(--sheet) 94%, #F6EFDC);
   --lift: 0 1px 1px rgba(60, 45, 20, .05), 0 3px 6px -3px rgba(60, 45, 20, .10), 6px 10px 16px -12px rgba(60, 45, 20, .22);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --sheet-warm: var(--sheet); --lift: 0 1px 1px rgba(0,0,0,.35), 6px 10px 18px -12px rgba(0,0,0,.6);
-  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .035 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); } }
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .06 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); } }
 :root[data-theme="dark"] { --sheet-warm: var(--sheet); --lift: 0 1px 1px rgba(0,0,0,.35), 6px 10px 18px -12px rgba(0,0,0,.6);
-  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .035 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .06 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
 .card.mf, .annCard, .railcard, .card-s, .pubcard, .acctPop, .signAsk, .dmPop, .sideCard {
   background-color: var(--sheet-warm); background-image: var(--grain); background-size: 160px 160px;
   box-shadow: var(--lift);
@@ -1740,3 +1740,50 @@ html[data-annotated-installed="1"] .esMake { display: none !important; }
 .card.mf, .annCard, .railcard, .card-s, .pubcard, .acctPop, .signAsk, .dmPop { border-color: var(--rule-warm); }
 .card.mf .cthumb.caudio, .card.mf .csource, .annCard .src, .annCard .audioWrap { border-color: var(--rule-warm); }
 .card.mf .cthumb.caudio { background-color: var(--well-warm); }
+
+/* Paper in the panel too, and a turned corner on every sheet (2.34.1, David: "even these windows need to look like
+   paper", "slightly folded edges"). Same grain, same warmth, same corner everywhere. */
+:root { --corner: linear-gradient(225deg, var(--paper) 0 50%, color-mix(in srgb, var(--sheet-warm) 80%, #CBBE9C) 50% 100%); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --corner: linear-gradient(225deg, var(--paper) 0 50%, #2A2E36 50% 100%); } }
+:root[data-theme="dark"] { --corner: linear-gradient(225deg, var(--paper) 0 50%, #2A2E36 50% 100%); }
+/* The quote: a strip torn from the page, highlighter down its side, the bottom edge torn. */
+.quote { position: relative; background-color: var(--sheet-warm); background-image: var(--grain); background-size: 160px 160px;
+  box-shadow: var(--lift); border-radius: 0 6px 2px 0; margin-bottom: 6px;
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 5px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 9px 5px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 5px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 9px 5px repeat-x;
+  padding-bottom: 14px; }
+/* The take box: a notecard, faint ruled lines and a margin line in the highlighter's colour. */
+.takefield { position: relative; background-color: var(--sheet-warm); border-color: var(--rule-warm); box-shadow: var(--lift); }
+.takefield textarea { background-image: linear-gradient(90deg, transparent 22px, color-mix(in srgb, var(--hi) 55%, transparent) 22px 23px, transparent 23px),
+  repeating-linear-gradient(transparent 0 23px, color-mix(in srgb, var(--rule-warm) 38%, transparent) 23px 24px);
+  background-attachment: local; background-position: 0 10px; line-height: 24px; padding-left: 32px; }
+/* Every sheet gets the same small turned corner (the annotation page's card already had one; a folded card's is yellow). */
+.card.mf, .railcard, .pubcard, .takefield, .quote { position: relative; }
+.card.mf::after, .railcard::after, .pubcard::after, .acctPop::after, .takefield::after {
+  content: ""; position: absolute; top: -1px; right: -1px; width: 14px; height: 14px; pointer-events: none;
+  background: var(--corner); border-top-right-radius: var(--r-l); border-bottom-left-radius: 2px; box-shadow: -1px 1px 1px rgba(60, 45, 20, .10); }
+.takefield::after { border-top-right-radius: var(--r-m); }
+.card.mf.folded::after { width: 22px; height: 22px; }
+/* The panel's working surface is a desk, and the header a strip of paper. */
+.phead { background-color: var(--paper); background-image: var(--grain); background-size: 160px 160px; }
+
+/* Drawings where they are seen (2.34.1): under the published card, beside the feed's heading, and the desk's
+   margins on ordinary laptop screens too, smaller there. */
+.pubcard .pd-sent { display: flex; justify-content: center; margin: 4px 0 -4px; opacity: .85; }
+.pubcard .pd-sent svg { width: 150px; height: auto; }
+.pd-feedTop { position: absolute; right: 0; top: -6px; opacity: .9; }
+.pd-feedTop svg { width: 96px; height: auto; }
+.feedHead, .feedTop { position: relative; }
+@media (min-width: 1180px) and (max-width: 1439px) and (hover: hover) {
+  .pdDesk { display: block; position: fixed; inset: 0; z-index: 0; }
+  .pdDesk .pd svg { width: 96px !important; height: auto; }
+  .pdDesk .pdL { position: absolute; left: 10px; bottom: var(--pdy, 48px); opacity: .8; }
+  .pdDesk .pdR { position: absolute; right: 12px; top: var(--pdy, 120px); opacity: .75; }
+  .pdDesk .pdT { display: none; }
+}
+@media (min-width: 1440px) and (hover: hover) {
+  .pdDesk .pd-swallow svg, .pdDesk .pd-loose svg { width: 120px; height: auto; } .pdDesk .pd-creased svg, .pdDesk .pd-smoothed svg { width: 124px; height: auto; }
+}
+/* The boxes inside a card (its source line, a podcast's well) take the paper too, so no plain white box sits in a sheet. */
+.card.mf .csource, .annCard .src, .annCard .srcCard, .sideNow { background-color: var(--sheet-warm); background-image: var(--grain); background-size: 160px 160px; border-color: var(--rule-warm); }
+.acctPop::after { top: 0; right: 0; }

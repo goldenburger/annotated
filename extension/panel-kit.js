@@ -102,6 +102,7 @@ const PanelKit = (() => {
           ${xHref ? `<a class="ghost sm" href="${esc(xHref)}" target="_blank" rel="noopener">${Brand.icon('x')} Post to X</a>` : ''}
         </div>`}
         <button type="button" class="link new">Start a new annotation</button>
+        ${typeof PaperDeco !== 'undefined' ? `<div class="pd pd-sent" aria-hidden="true">${PaperDeco.ART[local ? 'lone' : 'trail']()}</div>` : ''}
       </div>`;
     const undo = container.querySelector('.pubUndo');
     if (undo) {

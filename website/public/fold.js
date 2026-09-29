@@ -522,5 +522,69 @@ var Fold = (() => {
     const a = p.animate(kf, { duration: 850, easing: 'cubic-bezier(.25,.1,.3,1)', fill: 'forwards' });
     a.onfinish = () => p.remove(); setTimeout(() => p.remove(), 1500);
   }
-  return { FOLDS, ROUTES, on, toss, make, clamp, dir, pageBox, dart, inView, buildPlane, bezier, line, lenOf, pace, flight, landPath, descend, track, crease, handOver, arrive, away, flying, skipAll };
+  // Deleting: the sheet crumples in on itself into a ball, which is tossed in an arc into a wastepaper basket that
+  // rises at the bottom corner, lands with a small shake, and the basket goes (2.34.1, David: "if someone deletes a
+  // post, it used crumple up in a cool way and going into a recycle bin"). Resolves when it is gone; with the planes
+  // off it resolves at once and the caller simply removes the thing.
+  function trash(el) {
+    if (!on() || !el || !el.getBoundingClientRect || typeof PaperDeco === 'undefined') return Promise.resolve();
+    const r = el.getBoundingClientRect();
+    if (!r.width || !r.height) return Promise.resolve();
+    const layer = make('div', 'pl-trash', 'position:fixed;inset:0;z-index:2147483000;pointer-events:none;overflow:hidden');
+    document.body.appendChild(layer);
+    const sheet = el.cloneNode(true);
+    sheet.removeAttribute('id');
+    sheet.style.cssText += `;position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;box-sizing:border-box;transform-origin:50% 50%;`;
+    layer.appendChild(sheet);
+    el.style.visibility = 'hidden';
+    const ball = make('div', 'pl-ball', `position:absolute;left:${r.left + r.width / 2 - 32}px;top:${r.top + r.height / 2 - 28}px;width:64px;height:56px;opacity:0`);
+    ball.innerHTML = PaperDeco.ART.ball();
+    layer.appendChild(ball);
+    const vw = document.documentElement.clientWidth, vh = innerHeight;
+    const bin = make('div', 'pl-bin', `position:absolute;left:${vw - 124}px;top:${vh - 118}px;width:88px;height:96px;transform:translateY(140px)`);
+    bin.innerHTML = PaperDeco.ART.bin();
+    layer.appendChild(bin);
+    // Crumpling: the outline pulls in to a jagged ring as the sheet shrinks and turns.
+    const jag = (k) => {
+      const pts = [];
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2, rr = (i % 2 ? 1 - .28 * k : 1) * (50 - 8 * k);
+        pts.push(`${(50 + Math.cos(a) * rr * (1 + (1 - k) * .45)).toFixed(1)}% ${(50 + Math.sin(a) * rr * (1 + (1 - k) * .45)).toFixed(1)}%`);
+      }
+      return `polygon(${pts.join(',')})`;
+    };
+    const s0 = Math.min(1, 64 / Math.max(r.width, r.height));
+    const crush = sheet.animate([
+      { transform: 'scale(1) rotate(0deg)', clipPath: 'inset(0 round 12px)', filter: 'brightness(1)' },
+      { transform: 'scale(.82, .7) rotate(-6deg)', clipPath: jag(.25), filter: 'brightness(.97)', offset: .3 },
+      { transform: `scale(${(s0 * 2.2).toFixed(3)}) rotate(14deg)`, clipPath: jag(.7), filter: 'brightness(.92)', offset: .7 },
+      { transform: `scale(${s0.toFixed(3)}) rotate(40deg)`, clipPath: jag(1), filter: 'brightness(.9)', opacity: 0 },
+    ], { duration: 620, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' });
+    const up = bin.animate([{ transform: 'translateY(120px)' }, { transform: 'translateY(-6px)', offset: .8 }, { transform: 'translateY(0)' }], { duration: 420, delay: 180, easing: 'cubic-bezier(.3,.7,.2,1)', fill: 'forwards' });
+    return new Promise((resolve) => {
+      const done = () => { layer.remove(); resolve(); };
+      setTimeout(done, 3200);
+      // The ball is there before the sheet has quite gone, so there is never a moment with nothing.
+      ball.animate([{ opacity: 0, transform: 'scale(1.5) rotate(-30deg)' }, { opacity: 1, transform: 'scale(1) rotate(0deg)' }], { duration: 220, delay: 400, easing: 'ease-out', fill: 'forwards' });
+      crush.finished.then(() => {
+        ball.getAnimations().forEach((a) => a.finish()); ball.style.opacity = '1';
+        // Tossed: an arc up and over into the basket's mouth, spinning.
+        const from = { x: r.left + r.width / 2 - 32, y: r.top + r.height / 2 - 28 }, to = { x: vw - 112, y: vh - 122 };
+        const kf = [];
+        for (let i = 0; i <= 16; i++) {
+          const t = i / 16, peak = Math.min(from.y, to.y) - 90;
+          const x = from.x + (to.x - from.x) * t, y = (1 - t) * (1 - t) * from.y + 2 * (1 - t) * t * peak + t * t * to.y;
+          kf.push({ transform: `translate(${(x - from.x).toFixed(1)}px, ${(y - from.y).toFixed(1)}px) rotate(${(t * 420).toFixed(0)}deg) scale(${(1 - .25 * t).toFixed(3)})` });
+        }
+        const toss = ball.animate(kf, { duration: 560, easing: 'cubic-bezier(.3,.1,.7,1)', fill: 'forwards' });
+        toss.finished.then(() => {
+          ball.style.opacity = '0';
+          const shake = bin.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-5deg)' }, { transform: 'rotate(4deg)' }, { transform: 'rotate(-2deg)' }, { transform: 'rotate(0)' }], { duration: 360, easing: 'ease-out' });
+          shake.finished.then(() => bin.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(110px)', opacity: 0 }], { duration: 380, delay: 150, easing: 'ease-in', fill: 'forwards' }).finished).then(done, done);
+        }, done);
+      }, done);
+      void up;
+    });
+  }
+  return { FOLDS, ROUTES, on, toss, trash, make, clamp, dir, pageBox, dart, inView, buildPlane, bezier, line, lenOf, pace, flight, landPath, descend, track, crease, handOver, arrive, away, flying, skipAll };
 })();

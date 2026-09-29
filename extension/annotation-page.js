@@ -745,7 +745,7 @@ const AnnotationPage = (() => {
         del.innerHTML = `<span class="delAsk">Delete this annotation? This cannot be undone.</span>
           <span><button type="button" class="quiet delNo">Keep it</button><button type="button" class="quiet danger delYes">${Brand.icon('trash')} Delete</button></span>`;
         del.hidden = false;
-        del.querySelector('.delYes').addEventListener('click', () => hooks.onDelete());
+        del.querySelector('.delYes').addEventListener('click', async () => { if (typeof Fold !== 'undefined' && Fold.trash) await Fold.trash(q('.annCard')).catch(() => {}); hooks.onDelete(); });
         del.querySelector('.delNo').addEventListener('click', () => { del.hidden = true; });
       });
     }
@@ -1079,7 +1079,7 @@ const AnnotationPage = (() => {
                ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div>${twoWays('pSignIn')}`
                  : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
-            : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
+            : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() + `<div class="pd pd-feedTop" aria-hidden="true">${PaperDeco.ART[['swallow', 'stunt', 'lock', 'banking', 'loose'][Math.floor(Math.random() * 5)]]()}</div>` : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
         <div class="feedBar">
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
@@ -1387,7 +1387,7 @@ const AnnotationPage = (() => {
     if (sd) sd.addEventListener('click', () => {
       const p = sd.parentElement;
       p.innerHTML = 'Delete this annotation? <button type="button" class="link sdYes">Delete</button> <button type="button" class="link sdNo">Keep</button>';
-      p.querySelector('.sdYes').addEventListener('click', () => onDelete(current.id));
+      p.querySelector('.sdYes').addEventListener('click', async () => { if (typeof Fold !== 'undefined' && Fold.trash) await Fold.trash(container.querySelector('.sideNow') || p).catch(() => {}); onDelete(current.id); });
       p.querySelector('.sdNo').addEventListener('click', () => renderSide(container, { current, records, youId, permalinkOf, onOpen, onFeed, onDelete, onPublishNow, localAware }));
     });
     container.querySelectorAll('.sideList li button').forEach((b) => b.addEventListener('click', () => onOpen(b.dataset.id)));

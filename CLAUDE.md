@@ -1131,6 +1131,15 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   of them played backwards folds a plane); Publish folds in one of five styles and leaves by one of five routes
   (`Fold.FOLDS`, `Fold.ROUTES`: climb, loop, sweep, zip, glide), the annotation page opens one of seven ways, and the
   front page's examples draw from nine flights.
+- **2.34.1, paper in the panel** (`tests/paper2341.py`, David: "even these windows need to look like paper", "slightly
+  folded edges"). The quote is a strip with a torn bottom edge (a CSS mask), the take box a notecard with faint rules and
+  a highlighter margin line, every sheet (feed and rail cards, the published card, the account menu, the take box) has
+  the same small turned corner (`--corner`), the grain is a little stronger, and the panel header sits on grained paper.
+  Drawings now show where they are seen: under the published card (`.pd-sent`), beside the feed's heading
+  (`.pd-feedTop`), and in the desk margins from 1180 pixels, smaller below 1440. The try-it's margin note was removed at
+  David's word; the install one stays. **/paper.html** (`paperpage.js`, not linked, noindex) shows every drawing (D1 to
+  D17, press to redraw) and plays every opening (O1 to O10) and every fold and flight (F1 to F5, R1 to R5), numbered so
+  David can name favourites.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

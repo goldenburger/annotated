@@ -275,6 +275,11 @@ var PaperDeco = (() => {
     strip: () => svg(180, 60, strip(6, 6, -4 + jit(4), 1)),
     folded: () => svg(140, 116, folded(8, 8, jit(5), 1)),
     ball: () => svg(64, 56, ballV(Math.floor(Math.random() * 3), 6, 2, 1)),
+    // A wastepaper basket, woven wire, drawn in the paper's own ink (the bin a deleted annotation is crumpled into).
+    bin: () => svg(70, 76, `<ellipse class="pdShadow" cx="35" cy="72" rx="26" ry="3.5"/>
+      <path class="pdFar" d="M8 12 L62 12 L55 70 L15 70 Z"/>
+      <path class="pdCrease2" d="M14 12 L20 70 M22 12 L25 70 M30 12 L30 70 M38 12 L35 70 M46 12 L40 70 M54 12 L45 70 M10 26 L60 26 M11 40 L58 40 M13 54 L57 54"/>
+      <path class="pdEdge" d="M8 12 L62 12 L55 70 L15 70 Z"/><ellipse class="pdFace" cx="35" cy="12" rx="27" ry="4.5"/><ellipse class="pdEdge" cx="35" cy="12" rx="27" ry="4.5" style="fill:none"/>`, 'pdBin'),
     trail: () => svg(220, 90, pick(TRAILS)(220, 90)),
     lone: () => pick([() => svg(120, 110, plane(0, -4, 6 + jit(10), 1, true)), () => svg(130, 80, glider(4, 4, jit(8), 1, true)), () => svg(110, 120, landed(20, 8, 0, 1)),
       () => svg(130, 90, swallow(4, 6, jit(8), 1, true)), () => svg(130, 96, stunt(4, 10, jit(8), 1, true)), () => svg(120, 116, lockPlane(0, -2, 4 + jit(8), 1, true)), () => svg(150, 100, banking(0, 0, 0, 1))])(),
