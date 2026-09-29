@@ -931,3 +931,11 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
   -webkit-mask-clip: border-box, border-box, content-box, content-box, border-box; mask-clip: border-box, border-box, content-box, content-box, border-box; }
 .tiPaper::after, .tryPanel.sceneTry::after { translate: 0 4px; filter: blur(6px); }
 .tiPaper, .tryPanel.sceneTry { --sheet-shadow: rgba(60, 45, 20, .08); --fray-top: none; --fray-bot: none; --fray-left: none; --fray-right: none; }
+
+/* In Chrome: the real panel, from the demo, in a browser frame (comparison with the other entries, 2026-09-29). */
+.landChrome { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 20px 40px; align-items: center; margin: 10px 0 34px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.lcH { margin: 0 0 6px; font: 600 clamp(20px, 2.2vw, 26px)/1.2 var(--serif); }
+.lcCopy p { margin: 12px 0 0; font: 400 var(--t-s)/1.55 var(--sans); color: var(--ink-2); max-width: 34em; }
+.lcFrame { margin: 0; border-radius: var(--r-l); overflow: hidden; background: #1b1b1f; border: 1px solid var(--rule); box-shadow: 0 1px 2px rgba(40, 30, 10, .08), 0 14px 34px -12px rgba(40, 30, 10, .28); }
+.lcVideo { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #1b1b1f; }
+@media (max-width: 760px) { .landChrome { grid-template-columns: 1fr; } }

@@ -482,6 +482,27 @@ var Landing = (() => {
     return b;
   }
 
+  // The real extension, in Chrome. Nothing else on the page showed the panel the brief asks for (comparison with the
+  // other entries, 2026-09-29), so 0:03 to 0:30 of the submitted demo plays here silently, in a browser frame, while
+  // it is in sight. With reduced motion it is the still with controls.
+  function inChrome(root) {
+    const s = document.createElement('section');
+    s.className = 'landChrome'; s.id = 'chrome';
+    s.innerHTML = `<div class="lcCopy"><h2 class="lcH">In Chrome</h2>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : ''}
+        <p>annotated opens as a panel beside whatever you are reading. Select words, write your take, publish. This is the demo, recorded in Chrome, on a post on X.</p>
+        <p><a class="heroDemo" href="https://youtu.be/VTbDJ9a-2XE" target="_blank" rel="noopener"><span class="hdPlay" aria-hidden="true"></span>Watch the whole demo <span class="num">2:44</span></a></p></div>
+      <figure class="lcFrame">
+        <video class="lcVideo" muted playsinline loop preload="none" poster="/media/panel-demo.jpg" aria-label="The annotated panel beside a post on X: words selected and marked, a take written and tagged, then published."></video></figure>`;
+    root.appendChild(s);
+    const v = s.querySelector('video');
+    const src = () => { if (!v.src) v.src = '/media/panel-demo.mp4'; };
+    if (still()) { v.controls = true; v.preload = 'metadata'; src(); return; }
+    if (!('IntersectionObserver' in window)) { src(); v.autoplay = true; return; }
+    new IntersectionObserver((es) => es.forEach((e) => {
+      if (e.isIntersecting) { src(); v.play().catch(() => {}); } else v.pause();
+    }), { threshold: 0.35 }).observe(v);
+  }
+
   function mount(root, { signedIn = false, onSignIn = () => {}, me = null, onProfile = null } = {}) {
     try { const warm = new Image(); warm.src = '/media/artemis-i-frames.jpg'; } catch { /* no images */ }
     planesSwitch();
@@ -493,6 +514,7 @@ var Landing = (() => {
     // comes after (audit of 2026-09-24: on a laptop the row was below the fold and the planes flew off screen).
     hero(main);
     const l = latest(main);
+    inChrome(main);
     // What else the extension does, shown working, before the steps to get it (David, 2026-09-25).
     if (typeof Features !== 'undefined') Features.mount(main);
     install(main);

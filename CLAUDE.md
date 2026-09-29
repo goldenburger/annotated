@@ -1404,6 +1404,12 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   stand-ins older than the fourth pass (an update answered with no row, `feedAsked` as a Set). `explore0926`'s plane
   limit is 250, since one of its random flights measures 243. Not done: a comment's files after its annotation is
   deleted, and a player that pauses itself mid capture still waits.
+- **In Chrome on the home page** (2.38.2, `tests/inchrome.py`). Compared with the other entries on 2026-09-29, nothing on
+  the home page showed the panel the brief asks for. A section under Yours so far (`inChrome` in `landing.js`,
+  `.landChrome` in `web.css`) plays 0:03 to 0:30 of the submitted demo (`media/panel-demo.mp4`, cut from
+  `C:\Users\dswin\Videos\annotated-demo-4.mp4`, 1280 wide, no sound, 617 KB; still `panel-demo.jpg` from 0:16), muted and
+  looping while at least a third of it is on screen, fetched only then, with its controls and no autoplay under
+  reduced motion. The recording carries Chrome's own address bar and David's captions, so the frame adds none.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
