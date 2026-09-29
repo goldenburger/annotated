@@ -436,7 +436,8 @@ const Cloud = (() => {
         // Signed out nobody can follow anyone, so telling them to follow people pointed at nothing they could do.
         note: !me ? 'Sign in to follow people and see their annotations here.'
           : soc.followed.size ? `Annotations from the ${soc.followed.size === 1 ? 'person' : soc.followed.size + ' people'} you follow.` : 'Follow people to see their annotations here.',
-        empty: !me ? (IN_EXT ? 'Sign in from the panel, then follow people from their annotations.' : 'Sign in, then follow people from their annotations.')
+        // Said once: the line above already asks for a sign-in, and "from the panel" read oddly inside the panel (UX pass of 2026-09-29).
+        empty: !me ? 'Follow people from their annotations, and what they publish shows up here.'
           : soc.followed.size ? 'Nothing from them yet.' : 'Follow someone and their annotations show up here.' },
       // Everyone means what everyone published. Annotations saved only on this computer are in nobody else's
       // feed, so counting them here told you the site held things it did not.

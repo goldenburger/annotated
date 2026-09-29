@@ -289,6 +289,9 @@ const AnnotationPage = (() => {
   // Google or X, the two ways in, as equal buttons. onSignIn is handed 'google' or 'x'.
   function signInPrompt({ text, near = null, onSignIn = null, onClose = null }) {
     document.querySelectorAll('.signAsk').forEach((x) => x.remove());
+    // A prompt with nothing beside it opens at the top right, where the account card opens too, so that card goes
+    // (it covered the prompt's buttons, 2.37.0).
+    if (!near && typeof Account !== 'undefined' && Account.close) { try { Account.close(); } catch { /* not open */ } }
     const box = document.createElement('p');
     box.className = 'signAsk' + (near ? '' : ' floating');
     box.setAttribute('role', 'status');
@@ -505,6 +508,7 @@ const AnnotationPage = (() => {
         </div>
         ${opts.localOnly ? `<p class="localNote" role="status">${Brand.icon('info')} <span>Only on this computer. Nobody else can see it yet.</span>${hooks.onShareNow ? (hooks.shareNeedsSignIn ? `<span class="note">Sign in to publish it.</span>${twoWays('shareNow')}` : '<button type="button" class="strong sm shareNow">Publish it now</button>') : ''}</p><p class="error shareErr" role="alert" hidden></p>` : ''}
         <article class="annCard${Folded.has(opts.id) ? ' folded' : ''}">
+          <span class="underSheet" aria-hidden="true"></span>
           <button type="button" class="foldBtn" aria-pressed="${Folded.has(opts.id)}" aria-label="${Folded.has(opts.id) ? 'Folded. Unfold the corner' : 'Fold the corner to keep this'}" title="${Folded.has(opts.id) ? 'Folded, under Folded in the feed. Press to unfold' : 'Fold the corner to keep this'}"></button>
           <header class="who">
             <button type="button" class="avatar asLink profileLink ${(opts.author || me).avatar ? 'hasImg' : ''}" aria-label="${opts.author && !opts.mine ? esc(pName(opts.author)) + "'s profile" : 'Your profile'}">${opts.author ? pInner(opts.author) : avInner()}</button>
@@ -1153,6 +1157,8 @@ const AnnotationPage = (() => {
           // silently while its card is on screen, and Play with sound opens the full player under it.
           const preview = it.kind === 'video' && playable;
           // A passage with no picture shows the words themselves, inked, as its picture. They are what was chosen.
+          // A post's screenshot already shows its marked words, so the line under it names the post and does not quote
+          // it again (UX pass of 2026-09-29).
           const inkQuote = !thumb && it.kind === 'article' && it.text ? `<span class="cquote"><span class="cqInk">${esc(cut(it.text, 220))}</span></span>` : '';
           const media = inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num" title="${esc(fmt(it.end - it.start))} long">${fmt(it.start)}–${fmt(it.end)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
           // The card is a link to the annotation rather than a button, so Play with sound can be a real button on
@@ -1163,7 +1169,7 @@ const AnnotationPage = (() => {
               <span class="cmeta">${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
               <span class="ctake">${esc(takeLine(r.take))}</span>
               ${media}
-              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
+              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || (it.kind === 'post' && thumb) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
               ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
               ${r.firstReply && r.firstReply.text ? `<span class="creply"><b>${esc(r.firstReply.name)}</b> <span>${esc(r.firstReply.text.length > 140 ? r.firstReply.text.slice(0, 139) + '…' : r.firstReply.text)}</span></span>` : ''}
             </span>
@@ -1188,10 +1194,12 @@ const AnnotationPage = (() => {
           // 2026-09-25 at 06:58, 1:00 and 1:22). With the extension already installed there is nothing to offer.
           const web = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
           const hasExt = document.documentElement.dataset.annotatedInstalled === '1';
+          // Following, signed out on the website: what helps is signing in, not the extension (UX pass of 2026-09-29).
+          const followIn = web && onSignIn && tabs && tabs.current === 'following';
           // A list that did not load is not an empty one. The profile said "0 annotations" and "Nothing here yet"
           // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
           if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
-          return `<li class="emptyState">${emptyArt()}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
+          return `<li class="emptyState">${emptyArt()}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })(); })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
       // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button

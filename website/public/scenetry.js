@@ -152,7 +152,7 @@ var SceneTry = (() => {
       </div>
       <div class="stBar"><p class="stHint" role="status">Drag the ends, or the middle.</p>
         <button type="button" class="ghost sm stPlay">${icon('play')} <span>Play selection</span></button>
-        <button type="button" class="stGo"><i aria-hidden="true"></i>${video ? 'Capture clip' : 'Clip it'}</button></div>
+        <button type="button" class="stGo"><i aria-hidden="true"></i>Capture clip</button></div>
       <div class="stTake" hidden></div>`;
     root.querySelector('.stSrc a').textContent = media.credit.text;
     const track = root.querySelector('.stTrack'), sel = root.querySelector('.stSel'), ha = root.querySelector('.stHandle.a'), hz = root.querySelector('.stHandle.z');

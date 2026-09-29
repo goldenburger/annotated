@@ -18,7 +18,7 @@ const Account = (() => {
       btn.setAttribute('aria-label', `Signed in as ${me.name}. Account menu`);
       btn.title = me.name;
     } else {
-      btn.innerHTML = `${G} Sign in`;
+      btn.textContent = 'Sign in'; // No Google mark: it offers Google or X (UX pass of 2026-09-29).
       btn.setAttribute('aria-label', 'Sign in with Google or X');
       btn.title = 'Sign in with Google or X';
     }

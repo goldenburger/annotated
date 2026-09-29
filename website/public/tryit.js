@@ -53,7 +53,7 @@ var TryIt = (() => {
         <svg class="tiWire" aria-hidden="true"><line x1="0" y1="0" x2="0" y2="0"/></svg>
         <span class="tiPen" aria-hidden="true" hidden>${PEN}</span>
       </div>
-      <div class="tiBar"><p class="tiHint" role="status">Select any words on this page.</p><span class="tiLinks"><button type="button" class="link tiWhole" hidden>Use the whole sentence</button><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="link tiShowMe">Show me an example</button></span><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
+      <div class="tiBar"><p class="tiHint" role="status">Select any words in the brief.</p><span class="tiLinks"><button type="button" class="link tiWhole" hidden>Use the whole sentence</button><button type="button" class="link tiForMe">Mark a sentence for me</button><button type="button" class="link tiShowMe">Show me an example</button></span><button type="button" class="tiBtn" hidden><i aria-hidden="true"></i>Annotate</button></div>
       <form class="tiTake" hidden>
         <label class="tiLabel" for="tiInput">Your take</label>
         <textarea id="tiInput" rows="3" maxlength="${MAX_TAKE}" placeholder="What should people notice?"></textarea>
@@ -155,7 +155,7 @@ var TryIt = (() => {
       clear(); form.hidden = true; form.classList.remove('up');
       if (!lift.hidden) sinkLift();
       q('.tiAfter').hidden = true;
-      hint.textContent = 'Select any words on this page.';
+      hint.textContent = 'Select any words in the brief.';
       return true;
     };
     const say = (t) => { const s = q('.tiSay'); s.textContent = t || ''; s.hidden = !t; };
@@ -171,7 +171,7 @@ var TryIt = (() => {
       if (demoing) return;
       const s = getSelection();
       if (!s || !s.rangeCount || s.isCollapsed) {
-        if (!marks.length && !btn.hidden) { btn.hidden = true; hint.textContent = 'Select any words on this page.'; }
+        if (!marks.length && !btn.hidden) { btn.hidden = true; hint.textContent = 'Select any words in the brief.'; }
         return;
       }
       const r = s.getRangeAt(0);
@@ -271,7 +271,7 @@ var TryIt = (() => {
       await sinkLift();
       if (g !== resetGen) return;
       clear();
-      hint.textContent = 'Select any words on this page.';
+      hint.textContent = 'Select any words in the brief.';
     };
     q('.tiAgain').addEventListener('click', reset);
     q('.tiRedo').addEventListener('click', reset);
@@ -335,7 +335,7 @@ var TryIt = (() => {
       if (!force) try { sessionStorage.setItem('annotated-example-shown', '1'); } catch { /* no storage */ }
       demoing = true;
       let live = true;
-      stopDemo = () => { live = false; demoing = false; document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words on this page.'; };
+      stopDemo = () => { live = false; demoing = false; document.dispatchEvent(new CustomEvent('annotated-tryit-demo-done')); pen.hidden = true; pen.classList.remove('go'); sinkLift(); clear(); hint.textContent = 'Select any words in the brief.'; };
       const s = stage.getBoundingClientRect(), rs = [...r.getClientRects()].filter((x) => x.width);
       // The paper is out of sight, on another tab, so there is nothing to show the example on.
       if (!rs.length || !s.width) { demoing = false; return skip(); }

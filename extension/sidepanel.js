@@ -1074,7 +1074,7 @@ async function drawBrowse({ quick = false } = {}) {
   if (kind === 'home') {
     const st = document.createElement('div');
     st.className = 'startBlock esAction';
-    st.innerHTML = (bare ? '<p class="startHint">Open a YouTube video, an article, a podcast episode or a post on X in this tab and annotated is ready to annotate it. Or start here.</p>' : '') + startHtml();
+    st.innerHTML = (bare ? '<p class="startHint">Open a YouTube video, an article, a podcast episode or a post on X in this tab to annotate it, or start here.</p>' : '') + startHtml();
     $('#browseMode .browseHead').after(st);
     wireStart(st, true);
   }
@@ -1094,6 +1094,10 @@ const cleanTitle = (t) => {
   // (recording of 2026-09-26 at 04:06, 1:46).
   if (/^your profile$/i.test(s)) return 'your profile page';
   if (/^feed$/i.test(s)) return 'the feed page';
+  // A page's own title usually ends with its site ("Can overnight buses work? - The Transit Hour"), which made the
+  // way back run to two lines (UX pass of 2026-09-29). A short tail after a dash or bar is the site, so it goes.
+  const m = s.match(/^(.{3,}?)\s+[-|–—]\s+([^-|–—]{2,32})$/);
+  if (m) return m[1];
   return s;
 };
 // A tab with nothing to annotate and no page of ours: a new tab, a blank page, a browser page.

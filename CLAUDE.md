@@ -1177,6 +1177,52 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   duplicates and "Same video" go by the post's address. The trimmer has no filmstrip, since X has no storyboard. A GIF
   on X plays an MP4 straight from video.twimg.com, which may not allow its frames to be read; that and the real x.com
   are not yet checked.
+- **2.37.0, the UX pass and paper notes of 2026-09-29** (`tests/uxpass0929.py`; backup before it: tag
+  `backup-2026-09-29-before-ux100` on 2.36.0 and `E:\claude_code\backups\annotated-backup-2026-09-29-before-ux100.zip`).
+  The pass was scripted tours of every screen of the site (served locally, desktop light and dark and phone) and of the
+  panel in every mode beside stand-in pages; the scripts live in the session's scratchpad (`ux2/`). At David's word the
+  binder holes are gone from every window, with the margin they needed, the torn edges stay, and the paper has more
+  grain (`paper/grain2.png`, fine light and dark speckle and a few fibres; `grain2-dark.png` is a quieter copy for
+  dark mode). Cards in a list are separate sheets, 36 pixels apart, which is more than two sheets' reach, so both
+  tears show between them. Fixes from the tours: the panel's Sign in has no Google mark, since it offers Google or X;
+  the way back drops a site's name from a page title (`cleanTitle`); tag chips keep their own width and their label
+  has room above it; Following signed out says one thing and, on the website, offers Google or X instead of the
+  extension; a sign-in asked for with nothing beside it drops from the top right under the header on opaque paper
+  (it floated at the foot of the window, see-through in dark mode); a post card with its screenshot names the post
+  without quoting the words again; the podcast tab's button reads Capture clip; the brief's hint says "in the brief";
+  the panel's Home intro is one plainer sentence. Two things the tours showed were test artifacts, not bugs: a panel
+  whose window went to the back in headless Edge stops refreshing, and a persistent context starts with its own blank
+  tab, so a panel pinned by "the about:blank tab" watched the wrong one.
+  Then five subtle paper touches David chose, all in one block at the foot of `ui.css`, varied by a sheet's place among
+  its siblings (a feed card by its list item) so a page looks the same every time: tears that start at a different
+  point of the torn pattern on each sheet (`--tx`, `--tx2`, `--ty`, `--ty2` in the masks, where every sheet repeated one
+  tear); a tilt of at most a quarter degree on feed cards (`rotate`, none on a phone); a faint warm or cool wash on
+  some sheets (`--sheet-shade`); one corner lifting on about one sheet in three (`--lift-at`, a little light on the
+  paper there and the shadow layer moved a few pixels toward it, `--ldx`, `--ldy`); and a barely warm tone just inside
+  the tear (`--age`, `--age-edge`, darker rather than warmer in dark mode). Popups stay plain. The dark mode shadow
+  between sheets is lighter (`--sheet-shadow` .32), since it read as a black bar.
+  Then five more: a thin light fringe of fibres just inside every tear (`--fray-*`, each tear's torn line stroked, made
+  from the tear shapes by a scratchpad script, the mask cutting away the outer half); the highlighter multiplying into
+  the paper on our own pages in light mode (`mix-blend-mode: multiply` on `.pq mark`, `.cqInk`, the try-it's and the
+  scenes' marks; pages elsewhere untouched); a feed card rising 2 pixels under the pointer, its shadow softer and lower;
+  one more sheet under an annotation's card (`.underSheet`, a few pixels off and turned 0.9 degrees, hidden in a
+  plane); and one light, every shadow falling straight down, the drawings' shadows taken out of the turned drawing and
+  laid flat under it (`at` in `paperdeco.js`).
+  And two more: the paper's thickness, a darker hairline of the sheet's side along its bottom tear with the light
+  fibre line 1.5 pixels above it (`--edge-bot`); and replies on slips, every comment a small torn slip on the comments
+  sheet, a touch whiter (`--slip-paper`), with its own soft shadow and a tilt of a third of a degree either way, where
+  comments were rows ruled apart (`.comments li.cmt::before`, `::after`; flat on a phone). The main dart in
+  `paperdeco.js` now goes through `at` too, so its shadow stays flat like the others.
+  After David looked at it in the pane: the grain is a third lighter again; the folded corner no longer sits on every
+  annotation's card, showing only while the card is pointed at or focused, and once folded; the line between sheets
+  is finer (the thickness edge at .13, 1.6 pixels) and the shadow lighter and softer (`--sheet-shadow` .10, blur 4).
+  The try-it's brief and the other three tabs are torn sheets too (at the foot of `web.css`, keeping the light paper
+  in dark mode as their ink needs; the dotted paper and the curl, `.tiCurl`, are gone). So are "This annotation" and
+  "Your annotations" in the panel beside an annotation's page (`.annside > .sideNow`, `.annside > .sideList`). The
+  full pages' margins show only planes (`desk` in `paperdeco.js`), where the right one could be a folded-open sheet.
+  A sheet's side tears paint only between its top and bottom tears (`mask-clip: content-box` with the sheet layer
+  padded 9 and 7 pixels), since at each corner the side tear filled back in paper the top tear had torn away, which
+  showed as light specks on a dark page.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

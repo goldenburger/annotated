@@ -6,14 +6,13 @@ var PaperDeco = (() => {
   // One dart, resting, nose to the right, drawn about 110 by 60. Its wing carries a few lines of print and, on the
   // `marked` ones, a stroke of highlighter, since every plane here is folded from an annotated page.
   // The same dart as annotated's own mark (brand.js): a wing and a keel meeting at the nose, top right.
-  const plane = (x, y, rot = 0, s = 1, marked = false) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">
+  const plane = (x, y, rot = 0, s = 1, marked = false) => at(x, y, rot, s, `
     <ellipse class="pdShadow" cx="62" cy="92" rx="46" ry="6"/>
     <path class="pdFace" d="M108 20 L20 56 L55 68 Z"/>
     <path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/>
     <path class="pdLine" d="M44 52 L84 36 M40 58 L70 46"/>
     ${marked ? '<path class="pdMark" d="M48 55 L86 40"/>' : ''}
-    <path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/>
-  </g>`;
+    <path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/>`);
   // A plane in the air at the end of a dashed trail that loops once.
   const trail = (w = 220, h = 90) => `<path class="pdTrail" d="M4 ${h - 10} C ${w * .25} ${h - 4}, ${w * .32} ${h * .35}, ${w * .5} ${h * .5} S ${w * .62} ${h * .95}, ${w * .7} ${h * .6} S ${w * .82} 10, ${w - 30} 16"/>
     <g transform="translate(${w - 44} -8) rotate(8) scale(.34)"><path class="pdFace" d="M108 20 L20 56 L55 68 Z"/><path class="pdKeel" d="M108 20 L55 68 L66 104 Z"/><path class="pdEdge" d="M108 20 L20 56 L55 68 Z M108 20 L66 104 L55 68"/></g>`;
@@ -26,7 +25,19 @@ var PaperDeco = (() => {
   // Resting on a line of text: a small folded dart waiting to be thrown.
   const waiting = () => `<svg class="paperDeco pdWaiting" viewBox="14 14 100 96" width="22" height="21" aria-hidden="true" focusable="false">${DART}</svg>`;
   const svg = (w, h, body, cls = '') => `<svg class="paperDeco ${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true" focusable="false">${body}</svg>`;
-  const at = (x, y, rot, s, body) => `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">${body}</g>`;
+  // One light for the whole desk (2.37.0): a drawing turns, its shadow does not. The shadow is taken out of the turned
+  // drawing, put where its middle lands once turned, and laid flat, a little below, as every sheet's shadow falls.
+  const at = (x, y, rot, s, body) => {
+    const flat = [], a = rot * Math.PI / 180;
+    body = body.replace(/<ellipse class="(pdShadow(?:Soft)?)"([^>]*)\/>/g, (m, cls, attrs) => {
+      const num = (k) => { const q = attrs.match(new RegExp(' ' + k + '="([-\\d.]+)"')); return q ? Number(q[1]) : 0; };
+      const cx = num('cx'), cy = num('cy');
+      const px = cx * Math.cos(a) - cy * Math.sin(a), py = cx * Math.sin(a) + cy * Math.cos(a) + 3;
+      flat.push(`<ellipse class="${cls}"${attrs.replace(/ c[xy]="[-\d.]+"/g, '')} cx="${(Math.round(px * 10) / 10)}" cy="${(Math.round(py * 10) / 10)}"/>`);
+      return '';
+    });
+    return `${flat.length ? `<g transform="translate(${x} ${y}) scale(${s})">${flat.join('')}</g>` : ''}<g transform="translate(${x} ${y}) rotate(${rot}) scale(${s})">${body}</g>`;
+  };
 
   // More of them (David, 2026-09-25: the same few were showing up too often).
   // A glider: long straight wings and a short keel, about 120 by 60.
@@ -322,8 +333,10 @@ var PaperDeco = (() => {
   function desk(root = document.body) {
     if (!root || root.querySelector(':scope > .pdDesk')) return;
     const d = document.createElement('div'); d.className = 'pdDesk'; d.setAttribute('aria-hidden', 'true');
-    const left = make(pick(['pile', 'pile', 'stack', 'strip', 'lone', 'loose', 'swallow']), 'pdL');
-    const right = make(pick(['sheet', 'halfFold', 'folded', 'stack', 'ball', 'creased', 'smoothed']), 'pdR');
+    // Planes in the margins (David, 2026-09-29): a folded-open sheet on the right "doesn't really work with the rest
+    // of the theme", so both sides are planes now, a pile on the left or one of the darts, a single plane on the right.
+    const left = make(pick(['pile', 'pile', 'lone', 'swallow', 'stunt']), 'pdL');
+    const right = make(pick(['lone', 'swallow', 'stunt', 'lock', 'banking']), 'pdR');
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
