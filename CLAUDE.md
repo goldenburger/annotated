@@ -1223,6 +1223,9 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   A sheet's side tears paint only between its top and bottom tears (`mask-clip: content-box` with the sheet layer
   padded 9 and 7 pixels), since at each corner the side tear filled back in paper the top tear had torn away, which
   showed as light specks on a dark page.
+  2.37.1: no drawing twice on one page. Every drawing made by `PaperDeco.make` carries its kind (`data-pd-kind`), and
+  the Feed heading's plane and the margins pick with `PaperDeco.free`, which leaves out kinds already shown; the
+  same banking plane had sat beside the heading and in the margin.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

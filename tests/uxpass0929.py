@@ -123,6 +123,17 @@ async def web_part(p, errs):
   print('the page underneath:', u)
   if not u or u['rot'] in ('none', '0deg'): errs.append(f'the annotation has no page underneath: {u}')
   await c.close()
+  # 12. No drawing twice on a page: the Feed heading's plane and the margins' (David, 2026-09-29).
+  c = await b.new_context(viewport={'width': 1600, 'height': 900})
+  await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
+  pg = await c.new_page(); twice = []
+  for k in range(8):
+    await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.card.mf'); await asyncio.sleep(.6)
+    kinds = await pg.evaluate("[...document.querySelectorAll('[data-pd-kind]')].map((e) => e.dataset.pdKind).filter((k) => k !== 'trail')")
+    if len(kinds) != len(set(kinds)): twice.append(kinds)
+  print('drawings on the feed, repeated on', len(twice), 'of 8 visits')
+  if twice: errs.append(f'a drawing shows twice on one page: {twice}')
+  await c.close()
   # 1 and 7 on the home page.
   c = await b.new_context(viewport={'width': 1440, 'height': 900})
   await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)

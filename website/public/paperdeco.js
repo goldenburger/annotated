@@ -326,17 +326,26 @@ var PaperDeco = (() => {
   };
   // A trail that always ends in a plane, the plane marked `pdFlyer` so the home page can send it off (landing.js).
   ART.flyTrail = () => svg(220, 90, TRAILS[Math.floor(Math.random() * 3)](220, 90).replace(/(<g transform="[^"]*">)(?![\s\S]*<g transform)([\s\S]*<\/g>)/, '<g class="pdFlyer">$1$2</g>'));
-  const make = (name, cls = '') => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](); return d; };
+  const make = (name, cls = '') => { const d = document.createElement('div'); d.className = `pd pd-${name} ${cls}`.trim(); d.dataset.pdKind = name; d.setAttribute('aria-hidden', 'true'); d.innerHTML = ART[name](); return d; };
 
   // The margins of a full page (feed, profile, an annotation): something low on the left, something high on the
   // right and often a trail, each chosen and placed fresh on every visit, so pages do not look alike.
+  // A kind of drawing not already on the page (nor in `also`), or any of them if every one is taken.
+  function free(list, also = []) {
+    const used = new Set([...document.querySelectorAll('[data-pd-kind]')].map((e) => e.dataset.pdKind).concat(also));
+    const open = list.filter((k) => !used.has(k));
+    return pick(open.length ? open : list);
+  }
   function desk(root = document.body) {
     if (!root || root.querySelector(':scope > .pdDesk')) return;
     const d = document.createElement('div'); d.className = 'pdDesk'; d.setAttribute('aria-hidden', 'true');
     // Planes in the margins (David, 2026-09-29): a folded-open sheet on the right "doesn't really work with the rest
     // of the theme", so both sides are planes now, a pile on the left or one of the darts, a single plane on the right.
-    const left = make(pick(['pile', 'pile', 'lone', 'swallow', 'stunt']), 'pdL');
-    const right = make(pick(['lone', 'swallow', 'stunt', 'lock', 'banking']), 'pdR');
+    // No drawing twice on one page: the Feed heading's plane and the two margins each take a kind not already shown
+    // (David, 2026-09-29: the same banking plane beside the heading and in the margin).
+    const leftKind = free(['pile', 'pile', 'lone', 'swallow', 'stunt']);
+    const left = make(leftKind, 'pdL');
+    const right = make(free(['lone', 'swallow', 'stunt', 'lock', 'banking'], [leftKind]), 'pdR');
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
@@ -351,5 +360,5 @@ var PaperDeco = (() => {
     d.innerHTML = emptyArt();
     el.prepend(d);
   }
-  return { make, desk, empty, emptyArt, ART, rule, arrival, waiting };
+  return { make, desk, free, empty, emptyArt, ART, rule, arrival, waiting };
 })();
