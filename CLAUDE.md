@@ -1410,6 +1410,13 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `C:\Users\dswin\Videos\annotated-demo-4.mp4`, 1280 wide, no sound, 617 KB; still `panel-demo.jpg` from 0:16), muted and
   looping while at least a third of it is on screen, fetched only then, with its controls and no autoplay under
   reduced motion. The recording carries Chrome's own address bar and David's captions, so the frame adds none.
+- **2.38.3** (`tests/fullslip.py`, `tests/inchrome.py` part 5). "Open the feed as a full page" and "Open your profile as
+  a full page" under the panel's lists are torn slips like a reply (`.fullRow .fullBtn` at the foot of `ui.css`), where
+  they were the one plain outlined box left. The home page's try-it is as tall as the tab shown and grows, never shrinks,
+  when a taller one is chosen (`pick` in `landing.js`), and the hero's bottom padding is 16: holding the tallest tab
+  from the start left about 55 pixels of empty paper, and the next section now starts about 100 pixels higher, on the
+  first screen of a laptop. Backup before the paper planes pass: `E:\claude_code\backups\annotated-backup-2026-09-29-before-planes.zip`
+  and the tag `backup-2026-09-29-before-planes`.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

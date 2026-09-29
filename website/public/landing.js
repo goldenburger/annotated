@@ -68,8 +68,12 @@ var Landing = (() => {
     const cyc = cycle(el);
     // Tabs as tabs: arrows move between them, and choosing one sets the headline's word for good.
     const tabs = [...el.querySelectorAll('.tryTab')];
+    const tryBox = el.querySelector('.heroTry');
     const pick = (i, focus) => {
+      const before = tryBox.offsetHeight;
       tabs.forEach((b, j) => { b.setAttribute('aria-selected', String(i === j)); b.tabIndex = i === j ? 0 : -1; panels[j].hidden = i !== j; });
+      // Grows to a taller tab, and keeps that height when a shorter one is chosen (web.css, .heroTry).
+      tryBox.style.minHeight = Math.max(before, parseFloat(tryBox.style.minHeight) || 0) + 'px';
       if (focus) tabs[i].focus();
       cyc.set(TABS[i].word);
       document.dispatchEvent(new CustomEvent('annotated-tryit-touched'));

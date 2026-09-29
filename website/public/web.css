@@ -415,7 +415,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .landBar .sitenav a.navBtn { text-decoration: none; }
 .landMain { max-width: 1160px; margin: 0 auto; padding: 0 20px 40px; }
 /* The hero keeps both columns at the top, so a growing try-it never moves the headline. */
-.landHero { max-width: none; padding: 44px 0 30px; align-items: start; }
+.landHero { max-width: none; padding: 44px 0 16px; align-items: start; }
 .landHero .heroSub { max-width: 40ch; }
 .landHero .heroHave { max-width: 42ch; margin: 0; font: var(--t-m)/1.55 var(--sans); color: var(--ink-2); }
 .landHero .heroHave[hidden], .heroGetRow[hidden], .landGet[hidden], .landLatest[hidden] { display: none; }
@@ -492,13 +492,14 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stCardMedia { display: block; width: 100%; margin: 8px 0 4px; border-radius: 6px; }
 .sceneTry video.stCardMedia { background: #0E0F12; aspect-ratio: 16 / 9; }
 
-/* The tabs share one space as tall as the tallest, so choosing a tab never moves the page below. A hidden
-   panel keeps its place in the grid, unseen and out of reach. */
+/* The tabs share one space. It starts as tall as the tab shown and grows, never shrinks, when a taller one is chosen
+   (landing.js `pick`), so the page below moves at most once per tab and never jumps back. Holding the tallest from
+   the start left about 55 pixels of empty paper under the brief (comparison with the other entries, 2026-09-29). */
 .heroTry { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; }
 .heroTry > .tryTabs { min-width: 0; }
 .heroTry > .tryTabs { grid-row: 1; }
 .heroTry > .tryPanel { grid-row: 2; grid-column: 1; align-self: start; min-width: 0; }
-.heroTry > .tryPanel[hidden] { display: block !important; visibility: hidden; pointer-events: none; }
+.heroTry > .tryPanel[hidden] { display: none !important; }
 /* The clip's and the episode's source, on the paper's first line like the brief's. */
 .sceneTry .stSrc { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; margin: 0 8px 10px; font: 500 12.5px/1.25 var(--sans); color: #5B616E; }
 .sceneTry .stSrc .ic { width: 14px; height: 14px; }

@@ -2233,3 +2233,22 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 :root { --grain: image-set(url("paper/grain-l.png") 2x); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --grain: image-set(url("paper/grain-d.png") 2x); } }
 :root[data-theme="dark"] { --grain: image-set(url("paper/grain-d.png") 2x); }
+
+/* ---- The way to a full page is a torn slip, like a reply (2.38.3, David: it was the one plain outlined box left under
+   the panel's lists). The same tear, paper, grain, edge and shadow as `.comments li.cmt`, a slight tilt, a lift on
+   hover and flat when pressed. Both "Open the feed as a full page" and "Open your profile as a full page". */
+.fullRow .fullBtn { position: relative; isolation: isolate; border: 0 !important; background: transparent !important; box-shadow: none !important; border-radius: 0 !important;
+  min-height: 42px; padding: 11px 16px; color: var(--ink); rotate: -.3deg; transition: translate .18s ease, rotate .18s ease; }
+.fullRow .fullBtn::before, .fullRow .fullBtn::after { content: ""; position: absolute; inset: 0; pointer-events: none; box-sizing: border-box; padding: 6px 0 5px;
+  -webkit-mask: var(--tear-top) -71px 0 / 240px 6px repeat-x, var(--tear-bot) -143px 100% / 240px 5px repeat-x, var(--tear-left) 0 -37px / 6px 240px repeat-y, var(--tear-right) 100% -37px / 5px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 10px) calc(100% - 10px) no-repeat;
+  mask: var(--tear-top) -71px 0 / 240px 6px repeat-x, var(--tear-bot) -143px 100% / 240px 5px repeat-x, var(--tear-left) 0 -37px / 6px 240px repeat-y, var(--tear-right) 100% -37px / 5px 240px repeat-y, linear-gradient(#000 0 0) center / calc(100% - 10px) calc(100% - 10px) no-repeat;
+  -webkit-mask-clip: border-box, border-box, content-box, content-box, border-box; mask-clip: border-box, border-box, content-box, content-box, border-box; }
+.fullRow .fullBtn::before { z-index: -1; background: var(--edge-bot) -143px 100% / 240px 5px repeat-x, var(--grain-light) 0 0 / 256px 256px, var(--slip-paper); }
+.fullRow .fullBtn::after { z-index: -2; background: var(--sheet-shadow); translate: 0 2px; filter: blur(2.5px); transition: translate .18s ease, filter .18s ease; }
+.fullRow .fullBtn:hover { translate: 0 -1px; rotate: 0deg; }
+.fullRow .fullBtn:hover::after { translate: 0 3px; filter: blur(3.5px); }
+.fullRow .fullBtn:active { translate: 0 1px; }
+.fullRow .fullBtn:active::after { translate: 0 1px; filter: blur(1.5px); }
+.fullRow .fullBtn:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.fullRow .fullBtn:disabled { opacity: .7; }
+@media (prefers-reduced-motion: reduce) { .fullRow .fullBtn, .fullRow .fullBtn::after { transition: none; } }
