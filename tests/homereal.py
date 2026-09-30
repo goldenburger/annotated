@@ -11,8 +11,8 @@
 #   6. One card in Yours so far is half the row and its picture fills the card; it was a quarter, and the picture only
 #      as wide as its text (David, 2026-09-30: "way too tiny").
 #   7. The six David chose come first, in his order, and the rule fills in for any that are gone.
-#   8. The feed grows on big screens: one column to 2,100 pixels, two to 2,600, three beyond, the rail beside it and the
-#      margin drawings clear of both (David, 2026-09-30: a 660 pixel column on a screen 3,400 wide).
+#   8. The feed stays one card at a time at every width, as on X, a little wider from 1,700 pixels, the rail beside it
+#      (David, 2026-09-30: two and three to a row was tried and taken out).
 import asyncio, json
 from playwright.async_api import async_playwright
 from _env import CHROME
@@ -144,7 +144,7 @@ async def main():
       errs.append(f'the chosen annotations are not first, or the rest did not fill in: {picked}')
     await c.close()
     # 8.
-    for w, want in ((1440, 1), (1920, 1), (2400, 2), (3430, 3)):
+    for w, want in ((1440, 1), (1920, 1), (2400, 1), (3430, 1)):
       c = await b.new_context(viewport={'width': w, 'height': 1300})
       await c.route(B + '/**', W.site); await c.route(W.SUPA + '/**', W.make_db({}))
       pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))

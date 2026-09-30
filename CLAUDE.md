@@ -1659,10 +1659,10 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
 - **2.41.1, from David's recording of 2026-09-30 at 04:21.** An article's card shows its own screenshot, the page with the
   words marked, before the site's preview image (`cardHtml`), since Anthropic's preview image was only a title on a blank
   sheet; with the screenshot the card does not quote the words again under it, as post cards already did
-  (`tests/cardpic.py` art3). The full pages grow on big screens (the foot of `ui.css`): from 1,700 pixels a 780 column,
-  from 2,100 the feed and profiles lay cards two to a row in 1,160 (an annotation's page 880), from 2,600 three in
-  1,580, the rail beside it and the margin drawings moved out with it (`tests/homereal.py` part 8). Below 1,700 nothing
-  changed. Not done: the feed still opens on Robo Taxi's weaker takes ("Clever!"), which is David's to tidy.
+  (`tests/cardpic.py` art3). The full pages grow a little on big screens (the foot of `ui.css`): from 1,700 pixels a 780
+  column, the margin drawings moved out with it. The feed stays one card at a time at every width, as on X; two and
+  three to a row were tried in 2.41.1 and taken out in 2.41.2 at David's word (`tests/homereal.py` part 8). Below 1,700
+  nothing changed. Not done: the feed still opens on Robo Taxi's weaker takes ("Clever!"), which is David's to tidy.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
