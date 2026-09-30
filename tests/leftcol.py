@@ -14,6 +14,10 @@
 #      laptop bar is two rows.
 #   9. The second pass: back from an annotation keeps the search, the order, the kind and the place in the list; quotes and
 #      accents do not stop a match.
+#  10. The column is separate torn sheets with a gap between, as the rail is, and the chosen row is bold on shaded paper with
+#      its icon's chip turned to ink, not the button's yellow (David, 2026-09-30: it read as a button). Narrower, the bar is one sheet.
+#  11. An annotation's page and Activity have the column too, as ways into the feed: a kind opens the feed on that kind,
+#      a search and Enter opens it searched. Narrower than three columns it is not there and the page is as it was.
 import asyncio, json
 from playwright.async_api import async_playwright
 from _env import CHROME
@@ -40,7 +44,8 @@ async def main():
     await pg.evaluate('scrollTo(0, 700)'); await asyncio.sleep(.6)
     side2, rail2 = await pg.evaluate(BOX, '.lside'), await pg.evaluate(BOX, '.rail')
     print('   scrolled: side', side2, 'rail', rail2)
-    if not (60 <= side2['t'] <= 100): errs.append(f'the controls did not stay in view: {side2}')
+    # In view: under the header, or, taller than the window, with its foot in view (as the rail does).
+    if not (60 <= side2['t'] <= 100 or (0 <= side2['t'] < 100 and side2['b'] <= 700)): errs.append(f'the controls did not stay in view: {side2}')
     if rail2['b'] < 200 or rail2['t'] > 100 or rail2['b'] > 700 + 2: errs.append(f'the rail did not stay in view with its foot reachable: {rail2}')
     tags = await pg.evaluate("({ side: document.querySelectorAll('.lside .railTag').length, railShown: [...document.querySelectorAll('.rail .railTagsCard')].some((x) => x.offsetParent) })")
     print('3. your tags:', tags)
@@ -170,6 +175,63 @@ async def main():
     back = await pg.evaluate("({ sort: document.querySelector('.feedSort input:checked').value, y: Math.round(scrollY) })")
     print('   back from an annotation:', back)
     if back['sort'] != 'hot' or back['y'] < 300: errs.append(f'coming back lost the order or the place: {back}')
+    await c.close()
+    # 10.
+    c = await ctx(b, 1440, 900)
+    pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    await pg.goto(B + '/?feed&noplanes'); await asyncio.sleep(3.5)
+    sh = await pg.evaluate("""(() => { const sheets = [...document.querySelectorAll('.lside .lsSheet')].filter((x) => x.offsetParent).map((x) => x.getBoundingClientRect());
+      const gaps = sheets.slice(1).map((r, i) => Math.round(r.top - sheets[i].bottom));
+      const hi = getComputedStyle(document.documentElement).getPropertyValue('--hi').trim().toLowerCase();
+      const row = document.querySelector('.lside .feedFilter input:checked + span'), cs = getComputedStyle(row), btn = getComputedStyle(document.querySelector('.lside .lsMake .primary'));
+      const probe = document.createElement('i'); probe.style.background = hi; document.body.appendChild(probe); const hiRgb = getComputedStyle(probe).backgroundColor; probe.remove();
+      return { sheets: sheets.length, gaps, rowBg: cs.backgroundColor, rowImg: cs.backgroundImage, hiRgb, icons: [...document.querySelectorAll('.lside .seg label')].every((l) => l.querySelector('.lsIc svg')), chip: getComputedStyle(row.querySelector('.lsIc')).backgroundColor, other: getComputedStyle(document.querySelector('.lside .feedFilter input:not(:checked) + span .lsIc')).backgroundColor, outer: getComputedStyle(document.querySelector('.lside'), '::before').display }; })()""")
+    print('10. sheets:', sh)
+    if sh['sheets'] < 3 or any(g < 8 for g in sh['gaps']): errs.append(f'the column is not separate sheets with a gap: {sh}')
+    if sh['rowBg'] == sh['hiRgb'] or sh['hiRgb'] in sh['rowImg'] or 'gradient' in sh['rowImg']: errs.append(f'the chosen row is the button yellow: {sh}')
+    if not sh['icons']: errs.append('a row of the column has no icon')
+    if sh['chip'] == sh['other']: errs.append(f'the chosen row is not marked by its chip: {sh}')
+    await c.close()
+    c = await ctx(b, 1180, 900)
+    pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    await pg.goto(B + '/?feed&noplanes'); await asyncio.sleep(3.5)
+    one = await pg.evaluate("[...document.querySelectorAll('.lside .lsSheet')].map((x) => getComputedStyle(x).display)")
+    print('    in the bar:', one)
+    if any(d != 'contents' and d != 'none' for d in one): errs.append(f'the bar is more than one sheet: {one}')
+    await c.close()
+    # 11.
+    c = await ctx(b, 1440, 900)
+    pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    await pg.goto(f'{B}/@sawyer/{W.A_SAW["id"]}?noplanes'); await asyncio.sleep(3.5)
+    side, main = await pg.evaluate(BOX, '.lside.lsNav'), await pg.evaluate(BOX, '.sitemain')
+    print('11. annotation page column:', side)
+    if not side or side['r'] > main['l'] or side['h'] < 200: errs.append(f"an annotation's page has no column: {side}")
+    else:
+      await pg.click('.lside .feedFilter input[value=article]', force=True); await asyncio.sleep(3.5)
+      went = await pg.evaluate("({ url: location.search, kind: (document.querySelector('.feedFilter input:checked') || {}).value })")
+      print('    a kind opened:', went)
+      if 'feed' not in went['url'] or went['kind'] != 'article': errs.append(f'a kind on the annotation page did not open the feed on it: {went}')
+      await pg.go_back(); await asyncio.sleep(3)
+      await pg.fill('.lside .lsQ', 'buses'); await pg.keyboard.press('Enter'); await asyncio.sleep(3.5)
+      sq = await pg.evaluate("({ url: location.search, q: (document.querySelector('.lsQ') || {}).value, n: document.querySelectorAll('.cards .card.mf').length })")
+      print('    a search opened:', sq)
+      if 'feed' not in sq['url'] or sq['q'] != 'buses' or not sq['n']: errs.append(f'a search on the annotation page did not open the feed searched: {sq}')
+    await pg.goto(B + '/?activity'); await asyncio.sleep(3)
+    if not await pg.evaluate("!!document.querySelector('.lside.lsNav')"): errs.append('Activity has no column')
+    # Activity fills its column as a feed card does, and has the rail every other page has (it was a narrow sheet off to
+    # one side beside an empty rail).
+    await asyncio.sleep(2.5)
+    act = await pg.evaluate("(() => { const m = document.querySelector('.sitemain').getBoundingClientRect(), a = document.querySelector('.activity').getBoundingClientRect(); return { off: Math.round(a.left - m.left), short: Math.round(m.width - a.width), rail: document.querySelectorAll('.rail .railcard').length, you: !!document.querySelector('.rail .railcard .who, .rail .followCount, .rail .youFollowing') }; })()")
+    print('    Activity:', act)
+    if abs(act['off']) > 2 or abs(act['short']) > 2: errs.append(f'the Activity sheet does not fill its column: {act}')
+    if not act['rail']: errs.append(f'the Activity page has an empty rail: {act}')
+    await c.close()
+    c = await ctx(b, 1180, 900)
+    pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    await pg.goto(f'{B}/@sawyer/{W.A_SAW["id"]}?noplanes'); await asyncio.sleep(3.5)
+    nar = await pg.evaluate("(() => { const s = document.querySelector('.lside'), m = document.querySelector('.sitemain').getBoundingClientRect(), r = document.querySelector('.rail').getBoundingClientRect(); return { shown: !!(s && s.offsetParent), mainW: Math.round(m.width), railBeside: r.left >= m.right - 1 }; })()")
+    print('    at 1180:', nar)
+    if nar['shown'] or nar['mainW'] < 600 or not nar['railBeside']: errs.append(f"narrower, the annotation's page is not as it was: {nar}")
     await c.close(); await b.close()
   print('errors:', errs)
 

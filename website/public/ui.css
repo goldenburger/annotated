@@ -2379,8 +2379,9 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .activity .actText b { color: var(--ink); font-weight: 600; }
 .activity .actSaid { color: var(--ink); overflow-wrap: anywhere; }
 .activity .actOn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.actPage { max-width: 640px; }
-.actPage .activity.paperSheet { padding: 26px 28px 22px; }
+/* Beside the rail it fills its column, as a feed card does; it was held to 640 and sat off to one side (2026-09-30). */
+.actPage { max-width: none; }
+.actPage .activity.paperSheet { padding: 26px 28px 22px; max-width: none; margin: 0; }
 
 /* ---------- 2.41: the full pages grow a little on big screens, still one card at a time as on X (David, 2026-09-30: two
    and three to a row was tried and taken out). The margin drawings move out with the page. ---------- */
@@ -2463,11 +2464,12 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .lside .seg::before { content: attr(aria-label); display: block; margin: 0 0 4px; font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
 .lside .seg label > span { border-radius: 0; box-shadow: none; background: none; color: var(--ink-2); border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); font-weight: 500; }
 .lside .seg label:last-child > span { border-bottom: 0; }
-.lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; color: var(--hi-ink, var(--ink)); box-shadow: none; font-weight: 600; }
+/* The chosen row: a pencil tick and bold ink on shaded paper. It was a highlighter stroke, the same yellow as the button under it, and read as a button (David, 2026-09-30). */
+.lside .seg input:checked + span { background: var(--well-warm, var(--newsprint)); color: var(--ink); box-shadow: none; font-weight: 650; }
 .lside .seg input:checked + span .num { color: inherit; }
 .lside .seg input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: -2px; }
-:root[data-theme="dark"] .lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; box-shadow: none; color: var(--hi-ink, #16181D); }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; box-shadow: none; color: var(--hi-ink, #16181D); } }
+:root[data-theme="dark"] .lside .seg input:checked + span { background: var(--well-warm, var(--newsprint)); box-shadow: none; color: var(--ink); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lside .seg input:checked + span { background: var(--well-warm, var(--newsprint)); box-shadow: none; color: var(--ink); } }
 /* In the bar (narrower screens) the choices sit in a row, so there are no lines between them, and no headings. */
 @container (max-width: 1289px) {
   .lside .seg::before { content: none; }
@@ -2475,7 +2477,7 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 }
 /* UX pass on the left column (2026-09-30). */
 .lside.railcard h2.lsH { margin: 0 0 6px; font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
-.lside .railTag.on { background: var(--hi); border-color: transparent; color: var(--hi-ink, #16181D); }
+.lside .railTag.on { background: var(--well-warm, var(--newsprint)); border-color: var(--ink-2); color: var(--ink); font-weight: 650; }
 .lside .lsRanked { margin: 0; font: 500 var(--t-xs)/1.4 var(--sans); color: var(--ink-3); }
 .resultLine { margin: 0 0 14px; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-2); }
 .resultLine .link { margin-left: 4px; }
@@ -2497,5 +2499,62 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 @container (max-width: 1289px) { .sitegrid:has(> .lside) { row-gap: 14px; } .sitegrid:has(> .lside) > .sitemain > .resultLine { margin: 0; } }
 @container (max-width: 560px) { .lside .feedSortRow, .lside .lsRanked { order: 4; } }
 /* Second UX pass: a choice answers the pointer with a faint stroke, and the column's button stays on one line. */
-@media (hover: hover) { .lside .seg label:hover input:not(:checked) + span { background: linear-gradient(100deg, transparent 1%, color-mix(in srgb, var(--hi) 35%, transparent) 3%, color-mix(in srgb, var(--hi) 35%, transparent) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; color: var(--ink); } }
+@media (hover: hover) { .lside .seg label:hover input:not(:checked) + span { background: color-mix(in srgb, var(--well-warm, var(--newsprint)) 55%, transparent); color: var(--ink); } }
 .lside .lsMake .primary { font-size: 14px; padding: 9px 8px; line-height: 1.25; }
+/* 2.42.2: the column is separate torn sheets with a gap between, as the rail is (David, 2026-09-30: the tear is what
+   tells one window from the next): the search; which annotations and their order; the kinds; your tags. The button
+   stands below them, the one yellow thing in the column. Narrower, the bar is one sheet and these are not. */
+.lside .lsSheet { margin: 0; }
+.lside .lsSheet.lsTags:empty { display: none !important; }
+.lside .lsSheet > .seg + .feedSortRow, .lside .lsSheet > .seg + .lsRanked, .lside .lsSheet > .lsRanked + .feedSortRow { margin-top: 14px; }
+/* A pencil tick before the chosen row. */
+.lside .seg label > span { position: relative; }
+@container (min-width: 1290px) {
+  .sitegrid:has(> .lside) > .lside.railcard { padding: 0 !important; background: none !important; border: 0 !important; box-shadow: none !important; gap: 14px; }
+  .sitegrid:has(> .lside) > .lside.railcard::before, .sitegrid:has(> .lside) > .lside.railcard::after { display: none !important; }
+  .lside .feedBar { gap: 14px; }
+  .lside .seg label > span { padding-left: 26px; }
+  .lside .seg input:checked + span::before { content: ""; position: absolute; left: 7px; top: 50%; width: 13px; height: 13px; translate: 0 -55%; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.2 8.9c1.3 1.1 2.4 2.4 3.3 3.9C7.4 8.7 10 5.4 13.9 2.6' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.2 8.9c1.3 1.1 2.4 2.4 3.3 3.9C7.4 8.7 10 5.4 13.9 2.6' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat; }
+}
+@container (max-width: 1289px) {
+  .lside .lsSheet { display: contents !important; }
+  .lside .lsSheet::before, .lside .lsSheet::after { display: none !important; }
+  .lside .lsSheet.lsTags { display: none !important; }
+  /* In the bar the chosen one is bold ink over a pencil line. */
+  .lside .seg input:checked + span { background: none; box-shadow: inset 0 -2px 0 var(--ink); }
+}
+
+/* The column beside one annotation or Activity (navSide) is only a column: narrower than three columns, it is not there,
+   and the page is as it was. */
+@container (max-width: 1289px) {
+  .sitegrid:has(> .lside.lsNav) { grid-template-areas: none !important; grid-template-rows: none !important; row-gap: 40px !important; }
+  .sitegrid:has(> .lside.lsNav) > .lside { display: none !important; }
+  .sitegrid:has(> .lside.lsNav) > .sitemain { display: block !important; grid-area: auto !important; }
+  .sitegrid:has(> .lside.lsNav) > .rail { grid-area: auto !important; }
+}
+
+/* 2.42.2: a small icon before each row of the left column, in a chip like the rail's. The chosen row's chip turns to ink,
+   which is its mark now: the pencil tick went, since the two crowded each other. */
+.lsIc { display: inline-grid; place-items: center; flex: none; color: var(--ink-2); }
+.lsIc .ic { width: 14px; height: 14px; }
+@container (min-width: 1290px) {
+  .lside .seg label > span { justify-content: flex-start; align-items: center; gap: 9px; padding: 5px 8px 5px 5px; }
+  .lside .seg label > span .num { margin-left: auto; }
+  .lside .lsIc { width: 24px; height: 24px; border-radius: var(--r-s); background: var(--well-warm, var(--newsprint)); transition: background-color .15s, color .15s; }
+
+  .lside .seg input:checked + span .lsIc { background: var(--ink); color: var(--sheet, #fff); }
+  .lside .seg input:checked + span::before { content: none; }
+  .lside .seg label.zero .lsIc { opacity: .6; }
+}
+@container (max-width: 1289px) {
+  .lside .seg label > span { display: inline-flex; align-items: center; gap: 5px; }
+  .lside .lsIc .ic { width: 13px; height: 13px; }
+}
+@container (max-width: 560px) { .lside .lsIc { display: none; } }
+@container (max-width: 560px) { .lside .seg { flex-wrap: wrap; } .lside .seg label { flex: 0 0 auto; } }
+/* The pencil smudge moves out with the planes beside three columns; it sat 53 pixels inside the rail's edge on a wide screen. */
+@media (min-width: 1930px) { body:has(.lside) .pdDesk .pdStainL { left: max(18px, calc(50vw - 930px)); } body:has(.lside) .pdDesk .pdStainR { right: max(18px, calc(50vw - 930px)); } }
+/* In the bar the icons are left out: with them its choices wrapped to a third row (145 pixels, it was 106). */
+@container (max-width: 1289px) { .lside .lsIc { display: none; } }

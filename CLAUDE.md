@@ -1689,6 +1689,26 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `annotated-feed-y:` in sessionStorage, the place kept until the reader scrolls, since the page draws the list twice);
   quotes and accents do not stop a match (`fold`); choices take a faint stroke under the pointer; the button stays on
   one line.
+- **2.42.2, the left column's sheets and ticks** (`tests/leftcol.py` part 10; David, 2026-09-30). The chosen row was a
+  highlighter stroke, the same yellow as "Get the extension to annotate" under it, and read as a button: it is bold ink
+  on shaded paper (`--well-warm`) now, hover a fainter shade, the marked tag an ink outline, and the
+  button the one yellow thing in the column. The column is separate torn sheets with a 14 pixel gap, as the rail is
+  (`.lsSheet.railcard`: the search; which annotations and the order; the kinds; your tags), the button standing below;
+  `.lside` itself carries no sheet on a wide screen (its `::before` and `::after` are off) and is the one sheet in the
+  bar, where the inner ones are `display: contents` and the chosen choice is bold over a pencil line.
+  An annotation's page and Activity have the column too (`navSide`, `.lside.lsNav`, `tests/leftcol.py` part 11), as ways
+  into the feed: the search and Enter, For you, Following and Everyone, and the kinds each open the feed with that
+  chosen (written to `annotated-feed-choice:home||`, `Cloud.saveTab`), since two columns there and three on the feed
+  shifted the page. Narrower than three columns it is not shown and those pages are as they were. Not found has none.
+  Each row has a small icon in a chip like the rail's (`lsIc`, `LS_IC`; new in `brand.js`: spark, people, globe, clock,
+  stack, fold), and the chosen row's chip turns to ink, which replaced the pencil tick first tried.
+  The Activity page fills its column and has the rail every other page has (`social` on `renderActivity`, asked for by
+  `activityPage` beside the list and never holding it up): it was a 520 pixel sheet centred by the panel's `.annside`
+  rule inside a 640 pixel cap, beside an empty rail.
+  The extension's annotation page has the column too (its way to the feed is `onHome`, feed.html), and its rail's card
+  counts what you have published (`Cloud.countBy`, two seconds at most, the larger of that and the copies here): beside
+  someone else's annotation with nothing of yours kept on this computer it said "0 annotations" (`tests/extcount.py`).
+  The pencil smudge in the margins moves out with the planes beside three columns.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

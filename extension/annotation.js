@@ -139,6 +139,10 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         if (rec.take.poll) rec.take = { ...rec.take, poll: { ...rec.take.poll, counts: soc.poll.counts, vote: soc.poll.vote } };
       }
     }
+    // Your card counts what you have published, not only the copies kept on this computer: published from another
+    // computer, or with its copy gone, an annotation was not counted and the card said 0 (2026-09-30). Two seconds at most.
+    const publishedP = me && typeof Cloud !== 'undefined' && Cloud.countBy
+      ? Promise.race([Cloud.countBy(me.id).catch(() => 0), new Promise((r) => setTimeout(() => r(0), 2000))]) : Promise.resolve(0);
     const records = await recordsP;
     // Following and discovery for the rail and the author's Follow button.
     // Three seconds at most: with the network failing and the token expired, every request first retried a refresh for up
@@ -146,8 +150,9 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const soc = await Promise.race([discoveryP, new Promise((r) => setTimeout(() => r(null), 3000))]);
     // Arriving late, the rail is drawn then (Follow, your card), unless a box is in use.
     if (!soc) discoveryP.then((s) => { if (s) lateLoad(my); });
+    const yourCount = Math.max(AnnotationPage.mineCount(records, me && me.id), Number(await publishedP) || 0);
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
-      you: me && soc.youCounts ? { id: me.id, annotations: AnnotationPage.mineCount(records, me.id), ...soc.youCounts } : null } : null;
+      you: me && soc.youCounts ? { id: me.id, annotations: yourCount, ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
     const [pinnedId, blockMap] = await Promise.all([pinP, blocksP]);
     const needSignIn = () => { if (shared && !me) { AnnotationPage.signInPrompt({ text: 'Sign in to comment, react or vote.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); return true; } return false; };
@@ -170,7 +175,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       // Kept only on this computer: no link to share yet.
       localOnly: !shared && !!local,
       youId: me && me.id,
-      stats: { annotations: AnnotationPage.mineCount(records, me && me.id), followers: (soc && soc.youCounts && soc.youCounts.followers) || 0 },
+      stats: { annotations: yourCount, followers: (soc && soc.youCounts && soc.youCounts.followers) || 0 },
       comments, reactions, records, social,
       // The panel beside this page already carries Home and your profile.
       siteNav: false,

@@ -32,6 +32,13 @@ const Brand = (() => {
     plus: '<path d="M12 5v14M5 12h14"/>',
     poll: '<path d="M5 20V11M12 20V5M19 20v-6"/>',
     more: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
+    // The feed's left column (2.42.2): For you, Following, Everyone, Newest, All, Folded.
+    spark: '<path d="M11 3.5l1.9 5.1 5.1 1.9-5.1 1.9L11 17.5l-1.9-5.1L4 10.5l5.1-1.9z"/><path d="M18.5 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+    people: '<circle cx="9" cy="9" r="3.2"/><path d="M3 19.5c.8-3.4 3.2-5.2 6-5.2s5.2 1.8 6 5.2"/><path d="M15.6 6.3a3 3 0 0 1 0 5.4"/><path d="M17.6 14.8c1.7.8 2.9 2.3 3.4 4.7"/>',
+    globe: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 3.9 5.2 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.2-3.9-8.5s1.3-6.1 3.9-8.5z"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    stack: '<path d="M12 4 3.5 8.5 12 13l8.5-4.5z"/><path d="M3.5 12.5 12 17l8.5-4.5"/><path d="M3.5 16.5 12 21l8.5-4.5"/>',
+    fold: '<path d="M5 4h14v11l-5 5H5z"/><path d="M19 15h-5v5"/>',
     home: '<path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/>',
     user: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c1-4 4-6 7-6s6 2 7 6"/>',
     tag: '<path d="M3.5 12.5V4h8.5l8.5 8.5-8 8z"/><circle cx="8" cy="8.5" r="1.3"/>',

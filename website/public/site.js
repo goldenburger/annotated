@@ -187,14 +187,25 @@ function matchExtension(me) {
   async function activityPage() {
     document.title = 'Activity | annotated';
     const frame = { ...nav, onFeed: nav.onAll };
-    if (!me) { AnnotationPage.renderActivity(page, { signedOut: true, onSignIn: signIn, frame }); headerAccount(); return; }
+    // The rail beside it, as on every other page: asked for with the list, and never holding it up.
+    const socP = discover();
+    const within = (p, ms) => Promise.race([p, new Promise((r) => setTimeout(() => r(null), ms))]);
+    if (!me) {
+      AnnotationPage.renderActivity(page, { signedOut: true, onSignIn: signIn, frame }); headerAccount();
+      const soc = await within(socP, 4000);
+      if (soc && query.has('activity') && !me) { AnnotationPage.renderActivity(page, { signedOut: true, onSignIn: signIn, frame, social: soc }); headerAccount(); }
+      return;
+    }
     const seen = lastSeen();
     AnnotationPage.renderActivity(page, { loading: true, frame }); headerAccount();
     let items = null;
+    const countP = Cloud.countBy(me.id).catch(() => 0);
     try { items = await Cloud.activity(); } catch { items = null; }
+    const soc = await within(socP, 3000), mineN = await within(countP, 1500);
+    const social = soc ? { ...soc, you: youOf(soc, mineN || 0) } : null;
     items = items || null;
     if (items) items.forEach((a) => { if (a.annotationId && me.handle) handleOf.set(a.annotationId, a.kind === 'quote' ? (a.who && a.who.handle) || 'annotated' : me.handle); });
-    AnnotationPage.renderActivity(page, { items: items || [], failed: !items, lastSeen: seen, frame, onRetry: activityPage,
+    AnnotationPage.renderActivity(page, { items: items || [], failed: !items, lastSeen: seen, frame, social, onRetry: activityPage,
       onOpen: (id) => { location.href = linkFor(id); }, onPerson: (h) => { location.href = '/@' + h; } });
     headerAccount();
     if (items) try { localStorage.setItem(seenKey(), String(Date.now())); } catch { /* no storage */ }
