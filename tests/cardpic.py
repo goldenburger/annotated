@@ -29,6 +29,8 @@ RECORDS = [
                  'meta': {'title': 'A headline', 'site': 'News', 'image': 'https://news.example/card.jpg'}}),
     rec('art2', {'kind': 'article', 'text': 'Another passage', 'fragmentUrl': 'https://news.example/b',
                  'meta': {'title': 'No preview image', 'site': 'News'}, 'shotThumb': SHOT}),
+    rec('art3', {'kind': 'article', 'text': 'A third passage', 'fragmentUrl': 'https://news.example/c',
+                 'meta': {'title': 'Both', 'site': 'News', 'image': 'https://news.example/title-card.jpg'}, 'shot': 'https://news.example/shot.jpg'}),
     rec('aud1', {'kind': 'audio', 'title': 'An episode', 'show': 'A show', 'url': 'https://pod.example/e',
                  'artwork': 'https://pod.example/art.jpg', 'start': 10, 'end': 20, 'duration': 600}),
 ]
@@ -36,6 +38,8 @@ WANT = {
     'post1': (SHOT, 'top', 'a post shows its screenshot'),
     'art1':  ('https://news.example/card.jpg', '', "an article shows the page's preview image"),
     'art2':  (SHOT, 'top', 'an article with no preview image shows its screenshot'),
+    # Its own screenshot, the words marked, before a preview image that can be only a title (2026-09-30).
+    'art3':  ('https://news.example/shot.jpg', 'top', 'an article with both shows its marked screenshot'),
     'aud1':  ('https://pod.example/art.jpg', '', "a podcast shows the show's artwork"),
 }
 async def main():

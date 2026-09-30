@@ -1319,10 +1319,12 @@ const AnnotationPage = (() => {
     const thumb = safeImg(it.kind === 'video' ? it.poster
       : it.kind === 'audio' ? (it.artwork || it.poster)
       : it.kind === 'post' ? shotBest
-      : ((it.meta && it.meta.image) || shotBest));
+      // An article's own screenshot, the page with the words marked, before the site's preview image, which can be
+      // no more than a title on a blank sheet (David, 2026-09-30, Anthropic's position on open-weights models).
+      : (shotBest || (it.meta && it.meta.image)));
     // A screenshot is read from its top left corner. A preview image made for sharing is composed to
     // be seen whole, so that one stays centred.
-    const fromShot = it.kind !== 'video' && it.kind !== 'audio' && !(it.meta && it.meta.image);
+    const fromShot = it.kind !== 'video' && it.kind !== 'audio' && (it.kind === 'post' || !!shotBest || !(it.meta && it.meta.image));
     // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
     const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
     const brief = (it.end - it.start) < 10;
@@ -1362,7 +1364,7 @@ const AnnotationPage = (() => {
         <span class="cmeta">${mode === 'profile' && pinnedId === r.id ? `<span class="cpin">${Brand.icon('pin')} Pinned</span>` : ''}${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
         <span class="ctake">${esc(takeLine(r.take))}</span>
         ${media}
-        <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || (it.kind === 'post' && thumb) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
+        <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || ((it.kind === 'post' || it.kind === 'article') && thumb && fromShot) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
         ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
         ${r.firstReply && r.firstReply.text ? `<span class="creply"><b>${esc(r.firstReply.name)}</b> <span>${esc(r.firstReply.text.length > 140 ? r.firstReply.text.slice(0, 139) + '…' : r.firstReply.text)}</span></span>` : ''}
       </span>

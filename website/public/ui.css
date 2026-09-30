@@ -2381,3 +2381,23 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .activity .actOn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actPage { max-width: 640px; }
 .actPage .activity.paperSheet { padding: 26px 28px 22px; }
+
+/* ---------- 2.41: the full pages grow on big screens (David, 2026-09-30: on a screen 3,400 pixels wide the feed was a
+   660 pixel column in empty margins). The feed and profiles lay their cards two, then three, to a row; an annotation's
+   page grows its column. The margin drawings move out with the page so they never sit under it. ---------- */
+@media (min-width: 1700px) {
+  .site .sitegrid { grid-template-columns: minmax(0, 780px) 320px; gap: 48px; }
+  .pdDesk .pdL { left: max(24px, calc(50vw - 830px)); } .pdDesk .pdR { right: max(24px, calc(50vw - 830px)); } .pdDesk .pdT { left: max(40px, calc(50vw - 810px)); }
+}
+@media (min-width: 2100px) {
+  .site .sitegrid:has(> .sitemain.feed) { grid-template-columns: minmax(0, 1160px) 340px; }
+  .site .sitegrid:has(> .sitemain.ann:not(.feed)) { grid-template-columns: minmax(0, 880px) 340px; }
+  .site .sitemain.feed .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 34px; align-items: start; }
+  .site .sitemain.feed .cards > .emptyState { grid-column: 1 / -1; }
+  .pdDesk .pdL { left: max(24px, calc(50vw - 1030px)); } .pdDesk .pdR { right: max(24px, calc(50vw - 1030px)); } .pdDesk .pdT { left: max(40px, calc(50vw - 1010px)); }
+}
+@media (min-width: 2600px) {
+  .site .sitegrid:has(> .sitemain.feed) { grid-template-columns: minmax(0, 1580px) 360px; }
+  .site .sitemain.feed .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pdDesk .pdL { left: max(24px, calc(50vw - 1250px)); } .pdDesk .pdR { right: max(24px, calc(50vw - 1250px)); } .pdDesk .pdT { left: max(40px, calc(50vw - 1230px)); }
+}
