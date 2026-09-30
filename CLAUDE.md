@@ -1630,6 +1630,14 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `quoted:quote_of(...)` now, and `tests/livequeries.py` runs the website's read queries against the live database (read
   only), failing on the old query and passing on the new. `_world.site` answers byte ranges, but a video
   still would not seek through Playwright's stand-in; the frame was checked on `scripts/serve_website.py`.
+- **The panel tour of 2026-09-29** (2.40.2, `tests/xfeatures_ext.py` part 5; the tour script is `tour/ptour.py` in the
+  session's scratchpad, signed in against `tests/_world.py`: the welcome, beside a story, select, capture, take, tag,
+  publish, Undo, Home and its tabs, Your profile, Activity, Display settings, the account menu, help, the extension's feed,
+  profile and annotation pages, and dark). Fixed: beside one of your own published annotations that is not kept on this
+  computer, the panel said "You have no annotations yet"; it now adds your published annotations and the one on screen
+  from the database, with a three second limit (`annMode` in `sidepanel.js`). Seen and left: the Published card does not
+  offer Pin (pinning is on the annotation's page), and a screenshot refused because the panel's own window was in front
+  is a test artifact.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

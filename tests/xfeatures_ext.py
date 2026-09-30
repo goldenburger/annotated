@@ -108,6 +108,16 @@ async def main():
     await ap.click('.annCard .moreBtn'); await ap.click('.annCard .muteBtn'); await asyncio.sleep(1)
     print('   mute sent:', state['blocks'][-1:] if state['blocks'] else None)
     if not state['blocks'] or '"kind":"mute"' not in (state['blocks'][-1][1] or '').replace(' ', ''): errs.append(f'mute did not save: {state["blocks"]}')
+    # 5. Beside one of your own published annotations that is not kept on this computer, the panel shows it and lists yours
+    #    (it said "You have no annotations yet"; panel tour of 2026-09-29).
+    await ap.goto(f'chrome-extension://{extid}/annotation.html#{A2["id"]}'); await asyncio.sleep(2.5)
+    atid = await sw.evaluate("chrome.tabs.query({}).then((ts) => ts.find((x) => x.url.includes('annotation.html')).id)")
+    side = await ctx.new_page(); await side.set_viewport_size({'width': 400, 'height': 900})
+    await side.add_init_script("try{localStorage.setItem('annotated-welcome-seen','1')}catch(e){}")
+    await side.goto(f'chrome-extension://{extid}/sidepanel.html?tab={atid}'); await asyncio.sleep(5)
+    said = await side.evaluate("document.querySelector('#annMode')?.innerText || ''")
+    print('5. beside your published annotation:', said.replace(chr(10), ' | ')[:200])
+    if 'no annotations yet' in said or 'The second of mine.' not in said: errs.append(f'the panel beside your published annotation does not know it: {said[:200]!r}')
     await ctx.close()
   print('errors:', errs)
 

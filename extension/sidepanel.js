@@ -1482,6 +1482,17 @@ async function refresh() {
       if (sig && drawn && drawn.dataset.sig === sig) return;
       // A shared annotation's reactions, comments and votes live in the database. The copy here never learns
       // about them, so the card beside the page used to say only "Poll" under a vote, a reaction and a comment.
+      // Your published annotations live in the database too, not only on this computer: beside one of yours published from
+      // elsewhere the panel said "You have no annotations yet" (panel tour of 2026-09-29). Asked for with a time limit,
+      // and the annotation on screen is fetched when it is not kept here.
+      if (!mirrors && who && who.id) {
+        const [mine, one] = await Promise.all([
+          inTime(Cloud.list({ authorId: who.id, limit: 30 }), 3000).catch(() => []),
+          curId && !records.some((r) => r.id === curId) ? inTime(Cloud.get(curId), 3000).catch(() => null) : null]);
+        const have = new Set(records.map((r) => r.id));
+        for (const r of [...(mine || []), ...(one ? [one] : [])]) if (!have.has(r.id)) { records.push(r); have.add(r.id); }
+        if (annKey !== key) return;
+      }
       let current = records.find((r) => r.id === curId) || null;
       if (current && (current.cloud || current.author)) {
         const s = await inTime(Cloud.social(current.id, who && who.id), 3000).catch(() => null);
