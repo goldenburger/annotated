@@ -1663,6 +1663,18 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   column, the margin drawings moved out with it. The feed stays one card at a time at every width, as on X; two and
   three to a row were tried in 2.41.1 and taken out in 2.41.2 at David's word (`tests/homereal.py` part 8). Below 1,700
   nothing changed. Not done: the feed still opens on Robo Taxi's weaker takes ("Clever!"), which is David's to tidy.
+- **2.42.0, the feed's left column** (`tests/leftcol.py`; David, 2026-09-30: something sticky and useful, not a copy of X,
+  on our paper). `renderFeed` puts the feed's own controls in `.lside`, a torn sheet like the rail's cards: a search
+  (every word somewhere in the take, the quote, the source or the person; the kind counts follow it; "Nothing matches"
+  with Clear the search; kept with the filter and sort in `feedChoice`), For you, Following and Everyone, Newest and
+  Most discussed, the kinds with their counts and Folded, your tags (the rail's Your tags card is hidden while the
+  column shows), and Annotate something (with the extension, how to open the panel; without, Get the extension to
+  annotate, by `data-annotated-installed` in `web.css`). The same classes as before (`feedTabs`, `feedSort`,
+  `feedFilter`, `railTag`). From a 1,290 pixel container three columns, the column and the rail both sticky; narrower, a
+  bar under the list's heading (the list's parts join the grid with `display: contents`), sticky; on a phone, heading,
+  controls, cards, rail. The rail had never stuck: stretched to the list's height; it now keeps its foot reachable when
+  taller than the window (`--rh` from `shell`). The margin drawings show beside the three columns only from 1,930
+  pixels. Profiles have the column without the three tabs. Considered and left out: recently opened, top sites.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

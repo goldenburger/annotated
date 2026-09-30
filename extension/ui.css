@@ -2388,3 +2388,88 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
   .site .sitegrid { grid-template-columns: minmax(0, 780px) 320px; gap: 48px; }
   .pdDesk .pdL { left: max(24px, calc(50vw - 830px)); } .pdDesk .pdR { right: max(24px, calc(50vw - 830px)); } .pdDesk .pdT { left: max(40px, calc(50vw - 810px)); }
 }
+
+/* ---------- 2.42: the feed's left column (renderFeed .lside), a sheet like the rail's cards (David, 2026-09-30: sticky, useful,
+   and the paper we have). Wide, three columns: controls, the list, the rail, both sides staying in view. Narrower, the
+   controls are a bar above the list, in its column, the rail beside it. On a phone, one column. ---------- */
+.lsSearch { display: flex; align-items: center; gap: 8px; padding: 7px 11px; border: 1px solid var(--rule); border-radius: 999px; background: var(--paper); }
+.lsSearch svg { width: 15px; height: 15px; fill: none; stroke: var(--ink-3); stroke-width: 2; stroke-linecap: round; flex: none; }
+.lsSearch input { flex: 1; min-width: 0; border: 0; background: none; font: var(--t-s)/1.3 var(--sans); color: var(--ink); outline: none; }
+.lsSearch input::-webkit-search-cancel-button { cursor: pointer; }
+.lsSearch:focus-within { border-color: var(--ink-3); box-shadow: 0 0 0 2px color-mix(in srgb, var(--hi) 55%, transparent); }
+.lsH { margin: 0 0 8px; font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.lsTags:empty { display: none; }
+.lsMake .primary { display: flex; width: 100%; box-sizing: border-box; justify-content: center; text-align: center; text-decoration: none; }
+.lsMake .lsTip { margin: 8px 0 0; }
+/* The rail stays in view, and one taller than the window keeps its foot reachable (--rh from shell). Stretched to the
+   list's height it never stuck at all. */
+.sitegrid > .rail { align-self: start; top: min(78px, calc(100vh - var(--rh, 0px) - 16px)); }
+@container (min-width: 1290px) {
+  .sitegrid:has(> .lside) { grid-template-columns: 210px minmax(0, 660px) 300px; grid-template-areas: "side main rail"; gap: 36px; }
+  .sitegrid:has(> .lside) > .lside { grid-area: side; position: sticky; top: min(78px, calc(100vh - var(--rh, 0px) - 16px)); align-self: start; display: grid; gap: 18px; }
+  .sitegrid:has(> .lside) > .sitemain { grid-area: main; }
+  .sitegrid:has(> .lside) > .rail { grid-area: rail; }
+  .lside .feedBar { display: grid; gap: 14px; margin: 0; }
+  .lside .seg { flex-direction: column; }
+  .lside .seg label > span { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; text-align: left; padding: 7px 10px; }
+  .lside .feedSortRow { display: block; }
+  .lside .feedFilter .num { margin-left: auto; }
+  .rail .railTagsCard { display: none; }
+}
+@container (max-width: 1289px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "side rail" "main rail"; grid-template-rows: auto 1fr; }
+  .sitegrid:has(> .lside) > .lside { grid-area: side; position: sticky; top: 64px; z-index: 4; align-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 16px; }
+  .sitegrid:has(> .lside) > .sitemain { grid-area: main; }
+  .sitegrid:has(> .lside) > .rail { grid-area: rail; }
+  .lside .lsSearch { flex: 1 1 100%; }
+  .lside .lsBar { flex: 1 1 100%; }
+  .lside .lsTags, .lside .lsMake { display: none; }
+}
+@container (max-width: 1040px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "side" "main" "rail"; grid-template-rows: none; }
+  .sitegrid:has(> .lside) > .lside { position: relative; top: auto; }
+}
+@media (min-width: 1700px) { .site .sitegrid:has(> .lside) { grid-template-columns: 220px minmax(0, 780px) 320px; } }
+/* The margin drawings keep out of the three columns: shown only where there is room beside them. */
+@media (max-width: 1929px) { body:has(.lside) .pdDesk { display: none !important; } }
+@media (min-width: 1930px) {
+  body:has(.lside) .pdDesk .pdL { left: max(24px, calc(50vw - 940px)); } body:has(.lside) .pdDesk .pdR { right: max(24px, calc(50vw - 940px)); }
+  body:has(.lside) .pdDesk .pdT { left: max(40px, calc(50vw - 920px)); }
+}
+/* The column's pieces fill it (the search box and the button ran past its edge), and narrower, the bar comes under the
+   list's heading rather than above it: the list's own parts join the grid (display: contents) so the bar can sit between. */
+.lside { grid-template-columns: minmax(0, 1fr); }
+.lside .lsSearch, .lside .seg, .lside .feedBar > *, .lside .lsMake > * { box-sizing: border-box; max-width: 100%; }
+.lside .lsSearch input { width: 100%; }
+@container (min-width: 1290px) { .lside .seg { width: 100%; } }
+@container (max-width: 1289px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "head rail" "side rail" "list rail" "foot rail"; grid-template-rows: auto auto auto 1fr; }
+  .sitegrid:has(> .lside) > .sitemain { display: contents; }
+  .sitegrid:has(> .lside) > .sitemain > .feedHead { grid-area: head; }
+  .sitegrid:has(> .lside) > .sitemain > .cards { grid-area: list; }
+  .sitegrid:has(> .lside) > .sitemain > .profileFoot { grid-area: foot; }
+}
+@container (max-width: 1040px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "head" "side" "list" "foot" "rail"; grid-template-rows: none; }
+}
+/* The bar kept its row rule (space-between), which shrank the column's lists to their words. */
+.lside .feedBar { grid-template-columns: minmax(0, 1fr); justify-content: stretch; }
+
+/* The column reads as paper, not as switches (David, 2026-09-30): each choice on a faint ruled line, the chosen one
+   marked with the highlighter, small pencil headings, and the search written on a line. */
+.lside .lsSearch { background: none; border: 0; border-bottom: 1.5px solid color-mix(in srgb, var(--ink-3) 55%, transparent); border-radius: 0; padding: 6px 2px; }
+.lside .lsSearch:focus-within { box-shadow: none; border-bottom-color: var(--ink-2); }
+.lside .seg { background: none; padding: 0; gap: 0; border-radius: 0; }
+.lside .seg::before { content: attr(aria-label); display: block; margin: 0 0 4px; font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.lside .seg label > span { border-radius: 0; box-shadow: none; background: none; color: var(--ink-2); border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); font-weight: 500; }
+.lside .seg label:last-child > span { border-bottom: 0; }
+.lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; color: var(--hi-ink, var(--ink)); box-shadow: none; font-weight: 600; }
+.lside .seg input:checked + span .num { color: inherit; }
+.lside .seg input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: -2px; }
+:root[data-theme="dark"] .lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; box-shadow: none; color: var(--hi-ink, #16181D); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lside .seg input:checked + span { background: linear-gradient(100deg, transparent 1%, var(--hi) 3%, var(--hi) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; box-shadow: none; color: var(--hi-ink, #16181D); } }
+/* In the bar (narrower screens) the choices sit in a row, so there are no lines between them, and no headings. */
+@container (max-width: 1289px) {
+  .lside .seg::before { content: none; }
+  .lside .seg label > span { border-bottom: 0; padding: 6px 10px; }
+}

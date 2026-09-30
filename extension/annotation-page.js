@@ -186,6 +186,9 @@ const AnnotationPage = (() => {
         </nav>` : ''}
       </header>
       <div class="sitegrid"><div class="sitemain"></div><aside class="rail" aria-label="More"></aside></div>`;
+    // The rail stays in view as the page scrolls. Taller than the window, it scrolls up with the page until its foot
+    // shows and stays there (--rh), so its last rows can always be reached.
+    { const r = container.querySelector('.rail'); if (r && typeof ResizeObserver !== 'undefined') new ResizeObserver(() => r.style.setProperty('--rh', r.offsetHeight + 'px')).observe(r); }
     // On the website the logo is the home page and Feed is the feed. The nav's button was called Home and opened
     // the feed, so pressing Home on the feed went nowhere (recording of 2026-09-25 at 05:47, 0:32).
     container.querySelectorAll('.navHome').forEach((b) => b.addEventListener('click', () => onHome && onHome()));
@@ -285,8 +288,8 @@ const AnnotationPage = (() => {
   function railTags(records) {
     // Only your own annotations: shared lists also hold other people's.
     const tc = tagCounts(records.filter((r) => r.mine || !r.author));
-    return tc.length ? `<section class="railcard"><h2>Your tags</h2><div class="tagcloud">${tc.map(([t, n]) => `<button type="button" class="tagpill railTag" data-tag="${esc(t)}">${esc(t)} <span class="num">${n}</span></button>`).join('')}</div></section>`
-      : '<section class="railcard dbg"><h2>Your tags</h2><p class="note">Tag an annotation as a hot take, fact check, steelman, receipts or explainer and it shows up here.</p></section>';
+    return tc.length ? `<section class="railcard railTagsCard"><h2>Your tags</h2><div class="tagcloud">${tc.map(([t, n]) => `<button type="button" class="tagpill railTag" data-tag="${esc(t)}">${esc(t)} <span class="num">${n}</span></button>`).join('')}</div></section>`
+      : '<section class="railcard railTagsCard dbg"><h2>Your tags</h2><p class="note">Tag an annotation as a hot take, fact check, steelman, receipts or explainer and it shows up here.</p></section>';
   }
   // With shared accounts: people worth following and what is trending. Without, the old placeholder stays in debug mode.
   function railFollow(social) {
@@ -1442,11 +1445,30 @@ const AnnotationPage = (() => {
     // Muted and blocked people are left out of the feed (a profile you open still shows).
     if (hideAuthors && hideAuthors.size && mode !== 'profile') records = records.filter((r) => !(r.author && hideAuthors.has(r.author.id)));
     const keep = `${mode}|${tag || ''}|${person ? person.id : ''}`;
-    let { filter, sort } = feedChoice.get(keep) || { filter: 'all', sort: 'new' };
+    let { filter, sort, q = '' } = feedChoice.get(keep) || { filter: 'all', sort: 'new' };
+    const choose = () => feedChoice.set(keep, { filter, sort, q });
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
     main.classList.add('ann', 'feed');
+    // The feed's own controls, in a column beside it on a wide screen and a bar above it otherwise, so they stay in reach
+    // as you read down (David, 2026-09-30): search, which annotations, which kind, the order, your tags, and a way to make
+    // one. It was a bar at the top of the list that scrolled away with it.
+    const side = document.createElement('aside');
+    side.className = 'lside railcard'; side.setAttribute('aria-label', 'What the feed shows');
+    const onWeb = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
+    side.innerHTML = `<label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search takes, quotes, people" aria-label="Search these annotations" autocomplete="off"></label>
+      <div class="lsBar feedBar"></div><div class="lsTags"></div>
+      <div class="lsMake">${onWeb ? '<a class="primary lsGet" href="/install">Get the extension to annotate</a>' : ''}<button type="button" class="primary lsHave" aria-expanded="false">Annotate something</button>
+        <p class="note lsTip" hidden>Open any article, video, podcast or post on X and press the annotated plane in your toolbar, or Alt+Shift+K. Select words or clip a stretch, then add your take.</p></div>`;
+    main.parentElement.insertBefore(side, main);
+    // It stays in view like the rail, its foot reachable in a short window (--rh).
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => side.style.setProperty('--rh', side.offsetHeight + 'px')).observe(side);
+    const qIn = side.querySelector('.lsQ');
+    qIn.value = q;
+    // Every word has to be somewhere in the take, the quote, the source or the person.
+    const hay = (r) => { const it = r.item || {}; return [takeLine(r.take), it.text, it.quote, titleOf(it), it.author, it.handle, it.show, it.channel, it.meta && it.meta.site, r.take && r.take.tag, r.author && r.author.name, r.author && r.author.handle].filter(Boolean).join(' ').toLowerCase(); };
+    const hit = (r) => { const w = q.trim().toLowerCase(); return !w || w.split(/\s+/).every((t) => hay(r).includes(t)); };
     // Someone else's profile counts their follows, and your own counts yours. Only the first used to be
     // asked for, so your own profile said nought followers beside a card that said one.
     const pStats = (person ? social && social.personStats : social && social.youCounts) || {};
@@ -1454,12 +1476,12 @@ const AnnotationPage = (() => {
       // "For you" arrives already ranked, so its order is kept.
       const ranked = social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag;
       const folded = Folded.ids();
-      const list = records.filter((r) => (!tag || r.take.tag === tag) && (filter === 'all' || (filter === 'folded' ? folded.includes(r.id) : r.item.kind === filter)));
+      const list = records.filter((r) => (!tag || r.take.tag === tag) && hit(r) && (filter === 'all' || (filter === 'folded' ? folded.includes(r.id) : r.item.kind === filter)));
       if (!ranked) list.sort((a, b) => (sort === 'hot' ? buzz(b) - buzz(a) : 0) || b.created - a.created);
       // A profile's pinned annotation comes first, under Newest (Most discussed is a ranking of its own).
       const pinAt = mode === 'profile' && pinnedId && sort === 'new' ? list.findIndex((r) => r.id === pinnedId) : -1;
       if (pinAt > 0) list.unshift(list.splice(pinAt, 1)[0]);
-      const scope = records.filter((r) => !tag || r.take.tag === tag);
+      const scope = records.filter((r) => (!tag || r.take.tag === tag) && hit(r));
       const counts = { all: scope.length, video: 0, audio: 0, article: 0, post: 0 };
       scope.forEach((r) => { counts[r.item.kind] = (counts[r.item.kind] || 0) + 1; });
       counts.folded = scope.filter((r) => folded.includes(r.id)).length;
@@ -1468,16 +1490,7 @@ const AnnotationPage = (() => {
       // Audio and Passages looked like any other filter and led only to "Nothing here yet" (recording of
       // 2026-09-25 at 23:23, 2:57).
       const kinds = [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']].concat(counts.folded || filter === 'folded' ? [['folded', 'Folded']] : []);
-      main.innerHTML = `
-        <header class="feedHead">
-          ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
-            : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
-               ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div>${twoWays('pSignIn')}`
-                 : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(total != null ? total : records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
-               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
-            : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() + `${((k) => `<div class="pd pd-feedTop" data-pd-kind="${k}" aria-hidden="true">${PaperDeco.ART[k]()}</div>`)(PaperDeco.ART.heading ? 'heading' : PaperDeco.free ? PaperDeco.free(['swallow', 'stunt', 'lock', 'banking', 'loose']) : 'swallow')}` : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
-        </header>
-        <div class="feedBar">
+      side.querySelector('.lsBar').innerHTML = `
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
             ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
           </div>` : ''}
@@ -1488,7 +1501,18 @@ const AnnotationPage = (() => {
           <div class="seg feedFilter" role="radiogroup" aria-label="Show">
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
           </div>
-        </div>
+        `;
+      const tc = tagCounts((yours || records).filter((r) => r.mine || !r.author));
+      side.querySelector('.lsTags').innerHTML = tc.length ? `<h2 class="lsH">Your tags</h2><div class="tagcloud">${tc.map(([t, n]) => `<button type="button" class="tagpill railTag" data-tag="${esc(t)}">${esc(t)} <span class="num">${n}</span></button>`).join('')}</div>` : '';
+      main.innerHTML = `
+        <header class="feedHead">
+          ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
+            : mode === 'profile' ? `<div class="who">${pAv(person, 'lg')}<div><h1 class="name">${esc(pName(person))} <span class="uname">${esc(pHandle(person))}</span></h1>
+               ${!person && onSignIn ? `<div class="stats">${plural(records.length, 'annotation')} saved on this computer. Sign in to publish ${records.length === 1 ? 'it' : 'them'} under your name.</div>${twoWays('pSignIn')}`
+                 : `<div class="stats">${loadFailed ? 'Annotations did not load' : plural(total != null ? total : records.length, 'annotation')}, <span class="followCount num" data-id="${esc(person ? person.id : '')}">${num(pStats.followers)}</span> follower${num(pStats.followers) === 1 ? '' : 's'}, <span class="${person ? '' : 'youFollowing '}num">${num(pStats.following)}</span> following</div>`}
+               ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
+            : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() + `${((k) => `<div class="pd pd-feedTop" data-pd-kind="${k}" aria-hidden="true">${PaperDeco.ART[k]()}</div>`)(PaperDeco.ART.heading ? 'heading' : PaperDeco.free ? PaperDeco.free(['swallow', 'stunt', 'lock', 'banking', 'loose']) : 'swallow')}` : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
+        </header>
         <ul class="cards">${list.length ? cardsHtml(list, { mode, pinnedId }) : (() => {
           // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
           // the panel" under For you to someone with two annotations saved, which are on their profile.
@@ -1510,6 +1534,7 @@ const AnnotationPage = (() => {
           const followIn = web && onSignIn && tabs && tabs.current === 'following';
           // A list that did not load is not an empty one. The profile said "0 annotations" and "Nothing here yet"
           // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
+          if (q.trim() && !loadFailed) return `<li class="emptyState"><p class="esTitle">Nothing matches “${esc(q.trim())}”</p><p>Try fewer words, or another kind.</p><button type="button" class="ghost sm esClearQ">Clear the search</button></li>`;
           if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
           return `<li class="emptyState">${emptyArt('nothing')}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
         })()}</ul>
@@ -1532,16 +1557,22 @@ const AnnotationPage = (() => {
       if (esRetry) esRetry.addEventListener('click', () => { esRetry.disabled = true; esRetry.textContent = 'Loading…'; onRetry(); });
       main.querySelectorAll('.pSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
       rail.querySelectorAll('.railSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
-      main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
-      main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
+      side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; choose(); draw(); }));
+      side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; choose(); draw(); }));
+      const clearQ = main.querySelector('.esClearQ');
+      if (clearQ) clearQ.addEventListener('click', () => { q = ''; qIn.value = ''; choose(); draw(); qIn.focus(); });
       wireCards(main, records, { onOpen, getMedia });
       const all = main.querySelector('.allLink');
       if (all) all.addEventListener('click', onAll);
-      rail.querySelectorAll('.railTag').forEach((b) => b.addEventListener('click', () => onTag && onTag(b.dataset.tag)));
+      [...rail.querySelectorAll('.railTag'), ...side.querySelectorAll('.railTag')].forEach((b) => b.addEventListener('click', () => onTag && onTag(b.dataset.tag)));
       rail.querySelectorAll('.railOpen').forEach((b) => b.addEventListener('click', () => onOpen && onOpen(b.dataset.id)));
-      main.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => social.tabs.onTab(i.value)));
+      side.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => social.tabs.onTab(i.value)));
       wireFollow(container, social);
     };
+    let qTimer = 0;
+    qIn.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { q = qIn.value; choose(); draw(); }, 150); });
+    const make = side.querySelector('.lsHave'), tip = side.querySelector('.lsTip');
+    make.addEventListener('click', () => { tip.hidden = !tip.hidden; make.setAttribute('aria-expanded', String(!tip.hidden)); });
     draw();
   }
 

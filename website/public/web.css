@@ -1029,3 +1029,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .llRow .yours .cbody, .llRow .yours .yMedia, .llRow .yours .csource { align-self: stretch; width: 100%; box-sizing: border-box; }
 .llRow .yours .yMedia { display: block; }
 .llRow .yours .csource { display: flex; }
+
+/* The feed's left column: "Annotate something" with the extension, the way to get it without. */
+html:not([data-annotated-installed="1"]) .lside .lsHave, html:not([data-annotated-installed="1"]) .lside .lsTip { display: none; }
+html[data-annotated-installed="1"] .lside .lsGet { display: none; }
