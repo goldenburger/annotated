@@ -60,7 +60,7 @@ async def web(p, errs):
   if not full: errs.append('the demo was not fetched in full sight')
   await c.close()
   # 4. Hover hysteresis on the feed's right margin plane.
-  c = await b.new_context(viewport={'width': 1600, 'height': 900})
+  c = await b.new_context(viewport={'width': 2000, 'height': 900})
   await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
   pg = await c.new_page()
   await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.pdDesk .pdR .pdPiece'); await asyncio.sleep(1)

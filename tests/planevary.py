@@ -18,7 +18,7 @@ async def main():
   errs = []
   async with async_playwright() as p:
     b = await p.chromium.launch(executable_path=CHROME, headless=True)
-    c = await b.new_context(viewport={'width': 1500, 'height': 900})
+    c = await b.new_context(viewport={'width': 2000, 'height': 900})  # the feed's margins show drawings from 1,930 (2.42)
     await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
     pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
     rights, heads, dupes = [], [], []

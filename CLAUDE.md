@@ -1675,6 +1675,20 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   controls, cards, rail. The rail had never stuck: stretched to the list's height; it now keeps its foot reachable when
   taller than the window (`--rh` from `shell`). The margin drawings show beside the three columns only from 1,930
   pixels. Profiles have the column without the three tabs. Considered and left out: recently opened, top sites.
+- **2.42.1, two UX passes on the left column** (`tests/leftcol.py` parts 8 and 9; the tour scripts are `tour/lstour.py` and
+  `lstour2.py` in the session's scratchpad, about 100 interactions signed in and out, light and dark, five widths,
+  keyboard, a short window, profiles, a tag page, the extension's feed). First pass: Most discussed changes the heading's
+  "newest first"; a search the chosen kind hides says "No folded annotations match" with Show all N; a line above the
+  list says what is shown (`.resultLine`, with Show everything); the chosen kind is never faint; the keyboard stays on
+  its group after a choice, and after For you, Following or Everyone redraws the page (`lsRefocus`); / goes to the
+  search; the results return to their top when they change under a reader who has scrolled (`toTop`); the tag you are
+  on is marked in Your tags and pressed again shows everything; For you says "Ranked for you, not by time." where the
+  order was; the hint is "Search annotations"; the column's small headings match; the laptop bar is two rows (106
+  pixels, it was 162) with the list's parts in the grid and a row for the result line. Second pass: the search, order,
+  kind and the place in the list survive opening an annotation and coming back (`annotated-feed-choice:` and
+  `annotated-feed-y:` in sessionStorage, the place kept until the reader scrolls, since the page draws the list twice);
+  quotes and accents do not stop a match (`fold`); choices take a faint stroke under the pointer; the button stays on
+  one line.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

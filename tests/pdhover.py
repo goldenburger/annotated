@@ -19,7 +19,7 @@ async def main():
   async with async_playwright() as p:
     b = await p.chromium.launch(executable_path=CHROME, headless=True)
     for reduced in (False, True):
-      c = await b.new_context(viewport={'width': 1600, 'height': 900}, reduced_motion='reduce' if reduced else 'no-preference')
+      c = await b.new_context(viewport={'width': 2000, 'height': 900}, reduced_motion='reduce' if reduced else 'no-preference')
       await c.route('https://annotated-app.netlify.app/**', site); await c.route(SUPA + '/**', db)
       pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
       await pg.goto('https://annotated-app.netlify.app/?feed&noplanes'); await pg.wait_for_selector('.pdDesk .pdR .pdPiece'); await asyncio.sleep(1)

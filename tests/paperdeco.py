@@ -25,7 +25,8 @@ async def main():
   errs = []
   async with async_playwright() as p:
     b = await p.chromium.launch(executable_path=CHROME, headless=True)
-    for w, want in [(1530, True), (1100, False), (390, False)]:
+    # The feed has its left column from 2.42, so its margins show drawings only from 1,930 pixels; other pages from 1,440.
+    for w, want_feed, want in [(2000, True, True), (1530, False, True), (1100, False, False), (390, False, False)]:
       c = await b.new_context(viewport={'width': w, 'height': 900})
       await c.route('https://annotated-app.netlify.app/**', site)
       await c.route('https://efuotxdeifqzdfsavekb.supabase.co/**', lambda r: r.fulfill(status=200, content_type='application/json', body='[]'))
@@ -34,7 +35,8 @@ async def main():
         await pg.goto(URL + path); await asyncio.sleep(2.5)
         r = await pg.evaluate(CHECK)
         print(w, path, r)
-        if r['desk'] != want: errs.append(f'{w} {path}: the desk shown {r["desk"]}, wanted {want}')
+        wanted = want_feed if path == '?feed' else want
+        if r['desk'] != wanted: errs.append(f'{w} {path}: the desk shown {r["desk"]}, wanted {wanted}')
         if not r['silent'] or r['wide']: errs.append(f'{w} {path}: a drawing takes clicks, is read aloud, or widens the page: {r}')
         if not r['empty']: errs.append(f'{w} {path}: the empty list has no drawing')
       # 5. Paper in the interface: the Feed heading's trail, the loading outline's plane.

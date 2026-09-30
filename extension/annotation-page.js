@@ -1445,8 +1445,12 @@ const AnnotationPage = (() => {
     // Muted and blocked people are left out of the feed (a profile you open still shows).
     if (hideAuthors && hideAuthors.size && mode !== 'profile') records = records.filter((r) => !(r.author && hideAuthors.has(r.author.id)));
     const keep = `${mode}|${tag || ''}|${person ? person.id : ''}`;
-    let { filter, sort, q = '' } = feedChoice.get(keep) || { filter: 'all', sort: 'new' };
-    const choose = () => feedChoice.set(keep, { filter, sort, q });
+    let saved = feedChoice.get(keep);
+    if (!saved) { try { saved = JSON.parse(sessionStorage.getItem('annotated-feed-choice:' + keep) || 'null'); } catch { saved = null; } }
+    let { filter = 'all', sort = 'new', q = '' } = saved || {};
+    const choose = () => { feedChoice.set(keep, { filter, sort, q }); try { sessionStorage.setItem('annotated-feed-choice:' + keep, JSON.stringify({ filter, sort, q })); } catch { /* private window */ } };
+    const yKey = 'annotated-feed-y:' + keep;
+    const openCard = (id) => { try { sessionStorage.setItem(yKey, String(Math.round(scrollY))); } catch { /* private window */ } onOpen(id); };
     const { main, rail } = shell(container, { active: tag ? null : mode, onHome: onHome || onAll, onFeed: onAll, onProfile: onProfile || onAll, siteNav });
     // Most discussed: comments and reactions together, newest first on ties.
     const buzz = (r) => (r.comments || []).length + reactTotal(r.reactions) + (r.take.poll && r.take.poll.vote != null ? 1 : 0);
@@ -1457,22 +1461,25 @@ const AnnotationPage = (() => {
     const side = document.createElement('aside');
     side.className = 'lside railcard'; side.setAttribute('aria-label', 'What the feed shows');
     const onWeb = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
-    side.innerHTML = `<label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search takes, quotes, people" aria-label="Search these annotations" autocomplete="off"></label>
+    side.innerHTML = `<label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search annotations (press /)" aria-label="Search these annotations: takes, quotes, sources and people" autocomplete="off"></label>
       <div class="lsBar feedBar"></div><div class="lsTags"></div>
       <div class="lsMake">${onWeb ? '<a class="primary lsGet" href="/install">Get the extension to annotate</a>' : ''}<button type="button" class="primary lsHave" aria-expanded="false">Annotate something</button>
-        <p class="note lsTip" hidden>Open any article, video, podcast or post on X and press the annotated plane in your toolbar, or Alt+Shift+K. Select words or clip a stretch, then add your take.</p></div>`;
+        <p class="note lsTip" hidden>Open any article, video, podcast or post on X, then press the annotated plane in your toolbar (or Alt+Shift+K).</p></div>`;
     main.parentElement.insertBefore(side, main);
     // It stays in view like the rail, its foot reachable in a short window (--rh).
     if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => side.style.setProperty('--rh', side.offsetHeight + 'px')).observe(side);
     const qIn = side.querySelector('.lsQ');
     qIn.value = q;
     // Every word has to be somewhere in the take, the quote, the source or the person.
-    const hay = (r) => { const it = r.item || {}; return [takeLine(r.take), it.text, it.quote, titleOf(it), it.author, it.handle, it.show, it.channel, it.meta && it.meta.site, r.take && r.take.tag, r.author && r.author.name, r.author && r.author.handle].filter(Boolean).join(' ').toLowerCase(); };
-    const hit = (r) => { const w = q.trim().toLowerCase(); return !w || w.split(/\s+/).every((t) => hay(r).includes(t)); };
+    const fold = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const hay = (r) => { const it = r.item || {}; return fold([takeLine(r.take), it.text, it.quote, titleOf(it), it.author, it.handle, it.show, it.channel, it.meta && it.meta.site, r.take && r.take.tag, r.author && r.author.name, r.author && r.author.handle].filter(Boolean).join(' ')); };
+    const hit = (r) => { const w = fold(q).replace(/["\u201c\u201d\u2018\u2019]/g, ' ').trim(); return !w || w.split(/\s+/).every((t) => hay(r).includes(t)); };
     // Someone else's profile counts their follows, and your own counts yours. Only the first used to be
     // asked for, so your own profile said nought followers beside a card that said one.
     const pStats = (person ? social && social.personStats : social && social.youCounts) || {};
     const draw = () => {
+      // A choice made from the keyboard keeps the keyboard on its group after the redraw (UX pass: focus fell to the page).
+      const had = side.contains(document.activeElement) && document.activeElement.name ? document.activeElement.name : null;
       // "For you" arrives already ranked, so its order is kept.
       const ranked = social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag;
       const folded = Folded.ids();
@@ -1494,16 +1501,20 @@ const AnnotationPage = (() => {
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
             ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${l}</span></label>`).join('')}
           </div>` : ''}
-          <div class="feedSortRow" ${social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
+          ${ranked ? '<p class="note lsRanked">Ranked for you, not by time.</p>' : ''}
+          <div class="feedSortRow" ${ranked ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
             <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>Newest</span></label>
             <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>Most discussed</span></label>
           </div></div>
           <div class="seg feedFilter" role="radiogroup" aria-label="Show">
-            ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
+            ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed && filter !== k ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
           </div>
         `;
       const tc = tagCounts((yours || records).filter((r) => r.mine || !r.author));
-      side.querySelector('.lsTags').innerHTML = tc.length ? `<h2 class="lsH">Your tags</h2><div class="tagcloud">${tc.map(([t, n]) => `<button type="button" class="tagpill railTag" data-tag="${esc(t)}">${esc(t)} <span class="num">${n}</span></button>`).join('')}</div>` : '';
+      side.querySelector('.lsTags').innerHTML = tc.length ? `<h2 class="lsH">Your tags</h2><div class="tagcloud">${tc.map(([t, n]) => `<button type="button" class="tagpill railTag${t === tag ? ' on' : ''}" data-tag="${esc(t)}" ${t === tag ? 'aria-pressed="true" title="Show everything again"' : ''}>${esc(t)} <span class="num">${n}</span></button>`).join('')}</div>` : '';
+      const kindWord = { all: 'annotation', video: 'clip', audio: 'audio clip', article: 'passage', post: 'post', folded: 'folded annotation' }[filter] || 'annotation';
+      const narrowed = !!q.trim() || filter !== 'all';
+      const resultLine = narrowed && !loadFailed && list.length ? `<p class="resultLine" role="status">${plural(list.length, kindWord)}${q.trim() ? ` matching “${esc(q.trim())}”` : ''}${sort === 'hot' && !ranked ? ', most discussed first' : ''}. <button type="button" class="link showAll">Show everything</button></p>` : '';
       main.innerHTML = `
         <header class="feedHead">
           ${tag ? `<h1>Tagged <span class="tag">${esc(tag)}</span></h1><button type="button" class="link allLink">See everything</button>`
@@ -1513,6 +1524,7 @@ const AnnotationPage = (() => {
                ${person && social && social.onFollow ? `<button type="button" class="ghost sm followBtn" data-id="${esc(person.id)}" ${social.followsPerson ? 'data-on="1"' : ''}>Follow</button>` : ''}</div></div>`
             : `<h1>Feed</h1>${typeof PaperDeco !== 'undefined' ? PaperDeco.rule() + `${((k) => `<div class="pd pd-feedTop" data-pd-kind="${k}" aria-hidden="true">${PaperDeco.ART[k]()}</div>`)(PaperDeco.ART.heading ? 'heading' : PaperDeco.free ? PaperDeco.free(['swallow', 'stunt', 'lock', 'banking', 'loose']) : 'swallow')}` : ''}<p class="note stats">${social && social.tabs ? esc(social.tabs.note || '') : `${plural(records.length, 'annotation')} from everyone, newest first.`}</p>`}
         </header>
+        ${resultLine}
         <ul class="cards">${list.length ? cardsHtml(list, { mode, pinnedId }) : (() => {
           // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
           // the panel" under For you to someone with two annotations saved, which are on their profile.
@@ -1534,6 +1546,8 @@ const AnnotationPage = (() => {
           const followIn = web && onSignIn && tabs && tabs.current === 'following';
           // A list that did not load is not an empty one. The profile said "0 annotations" and "Nothing here yet"
           // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
+          const kindsWord = { video: 'clips', audio: 'audio clips', article: 'passages', post: 'posts', folded: 'folded annotations' }[filter];
+          if (q.trim() && !loadFailed && kindsWord && counts.all) return `<li class="emptyState"><p class="esTitle">No ${kindsWord} match “${esc(q.trim())}”</p><p>${plural(counts.all, 'annotation')} ${counts.all === 1 ? 'does' : 'do'} in All.</p><button type="button" class="ghost sm esAllKinds">Show all ${counts.all}</button></li>`;
           if (q.trim() && !loadFailed) return `<li class="emptyState"><p class="esTitle">Nothing matches “${esc(q.trim())}”</p><p>Try fewer words, or another kind.</p><button type="button" class="ghost sm esClearQ">Clear the search</button></li>`;
           if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
           return `<li class="emptyState">${emptyArt('nothing')}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
@@ -1557,24 +1571,50 @@ const AnnotationPage = (() => {
       if (esRetry) esRetry.addEventListener('click', () => { esRetry.disabled = true; esRetry.textContent = 'Loading…'; onRetry(); });
       main.querySelectorAll('.pSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
       rail.querySelectorAll('.railSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
-      side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; choose(); draw(); }));
-      side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; choose(); draw(); }));
+      if (sort === 'hot' && !ranked) { const st = main.querySelector('.feedHead .stats'); if (st) st.textContent = st.textContent.replace('newest first', 'most discussed first'); }
+      if (had) { const f = side.querySelector(`input[name="${had}"]:checked`); if (f) f.focus(); }
+      side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; choose(); draw(); toTop(); }));
+      side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; choose(); draw(); toTop(); }));
+      const showAll = main.querySelector('.showAll');
+      if (showAll) showAll.addEventListener('click', () => { q = ''; qIn.value = ''; filter = 'all'; choose(); draw(); toTop(); });
+      const allKinds = main.querySelector('.esAllKinds');
+      if (allKinds) allKinds.addEventListener('click', () => { filter = 'all'; choose(); draw(); });
       const clearQ = main.querySelector('.esClearQ');
       if (clearQ) clearQ.addEventListener('click', () => { q = ''; qIn.value = ''; choose(); draw(); qIn.focus(); });
-      wireCards(main, records, { onOpen, getMedia });
+      wireCards(main, records, { onOpen: openCard, getMedia });
       const all = main.querySelector('.allLink');
       if (all) all.addEventListener('click', onAll);
-      [...rail.querySelectorAll('.railTag'), ...side.querySelectorAll('.railTag')].forEach((b) => b.addEventListener('click', () => onTag && onTag(b.dataset.tag)));
+      [...rail.querySelectorAll('.railTag'), ...side.querySelectorAll('.railTag')].forEach((b) => b.addEventListener('click', () => (b.dataset.tag === tag && onAll ? onAll() : onTag && onTag(b.dataset.tag))));
       rail.querySelectorAll('.railOpen').forEach((b) => b.addEventListener('click', () => onOpen && onOpen(b.dataset.id)));
-      side.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => social.tabs.onTab(i.value)));
+      side.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => { if (side.contains(document.activeElement)) lsRefocus = 'ft'; social.tabs.onTab(i.value); }));
       wireFollow(container, social);
     };
+    function toTop() { const h = main.querySelector('.feedHead'); if (!h) return; const t = h.getBoundingClientRect().top; if (t < 0) scrollTo({ top: Math.max(0, scrollY + t - 72) }); }
     let qTimer = 0;
-    qIn.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { q = qIn.value; choose(); draw(); }, 150); });
+    qIn.addEventListener('input', () => { clearTimeout(qTimer); qTimer = setTimeout(() => { q = qIn.value; choose(); draw(); toTop(); }, 150); });
     const make = side.querySelector('.lsHave'), tip = side.querySelector('.lsTip');
     make.addEventListener('click', () => { tip.hidden = !tip.hidden; make.setAttribute('aria-expanded', String(!tip.hidden)); });
     draw();
+    // Back from an annotation: the list opens where it was left.
+    // The page may draw the list more than once as its data arrives, so the place is kept until the reader moves.
+    { let y = null; try { y = sessionStorage.getItem(yKey); } catch { /* private window */ }
+      if (y !== null && +y > 0) {
+        requestAnimationFrame(() => scrollTo(0, +y));
+        const forget = () => { try { sessionStorage.removeItem(yKey); } catch { /* private window */ } ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach((n) => removeEventListener(n, forget)); };
+        ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach((n) => addEventListener(n, forget, { passive: true }));
+      } }
+    // A tab chosen from the keyboard redraws the whole page; the keyboard comes back to the tabs.
+    if (lsRefocus) { const f = side.querySelector(`input[name="${lsRefocus}"]:checked`); lsRefocus = null; if (f) f.focus(); }
   }
+  let lsRefocus = null;
+  // / jumps to the feed's search, unless you are typing somewhere.
+  if (typeof document !== 'undefined') document.addEventListener('keydown', (e) => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    const a = document.activeElement;
+    if (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))) return;
+    const box = document.querySelector('.lside .lsQ');
+    if (box && box.offsetParent) { e.preventDefault(); box.focus(); box.select(); }
+  });
 
   // Side panel view while an annotation page is the active tab: share tools and your other annotations.
   // localAware: the extension knows which annotations are only saved locally. The preview does not.

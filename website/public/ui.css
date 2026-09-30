@@ -2473,3 +2473,29 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
   .lside .seg::before { content: none; }
   .lside .seg label > span { border-bottom: 0; padding: 6px 10px; }
 }
+/* UX pass on the left column (2026-09-30). */
+.lside.railcard h2.lsH { margin: 0 0 6px; font: 600 var(--t-xs)/1.2 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.lside .railTag.on { background: var(--hi); border-color: transparent; color: var(--hi-ink, #16181D); }
+.lside .lsRanked { margin: 0; font: 500 var(--t-xs)/1.4 var(--sans); color: var(--ink-3); }
+.resultLine { margin: 0 0 14px; font: 500 var(--t-s)/1.4 var(--sans); color: var(--ink-2); }
+.resultLine .link { margin-left: 4px; }
+.cards .emptyState :is(.esClearQ, .esAllKinds) { width: auto; align-self: center; display: inline-flex; margin-inline: auto; }
+@container (max-width: 1289px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "head rail" "side rail" "res rail" "list rail" "foot rail"; grid-template-rows: auto auto auto auto 1fr; }
+  .sitegrid:has(> .lside) > .sitemain > .resultLine { grid-area: res; }
+  /* Two rows: the search and the order, then which annotations and which kind, all on one line each. */
+  .lside .lsBar { display: contents; }
+  .lside .lsSearch { flex: 1 1 240px; order: 0; }
+  .lside .feedSortRow, .lside .lsRanked { order: 1; }
+  .lside .feedTabs { order: 2; }
+  .lside .feedFilter { order: 3; }
+  .lside .feedBar > *, .lside .feedSortRow, .lside .seg { margin: 0 !important; align-self: center; }
+}
+@container (max-width: 1040px) {
+  .sitegrid:has(> .lside) { grid-template-areas: "head" "side" "res" "list" "foot" "rail"; grid-template-rows: none; }
+}
+@container (max-width: 1289px) { .sitegrid:has(> .lside) { row-gap: 14px; } .sitegrid:has(> .lside) > .sitemain > .resultLine { margin: 0; } }
+@container (max-width: 560px) { .lside .feedSortRow, .lside .lsRanked { order: 4; } }
+/* Second UX pass: a choice answers the pointer with a faint stroke, and the column's button stays on one line. */
+@media (hover: hover) { .lside .seg label:hover input:not(:checked) + span { background: linear-gradient(100deg, transparent 1%, color-mix(in srgb, var(--hi) 35%, transparent) 3%, color-mix(in srgb, var(--hi) 35%, transparent) 97%, transparent 99%) no-repeat 0 55% / 100% 78%; color: var(--ink); } }
+.lside .lsMake .primary { font-size: 14px; padding: 9px 8px; line-height: 1.25; }
