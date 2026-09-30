@@ -204,6 +204,9 @@ var SceneTry = (() => {
       screen.style.backgroundPosition = `${sp.cols > 1 ? (col / (sp.cols - 1)) * 100 : 0}% ${rows > 1 ? (row / (rows - 1)) * 100 : 0}%`;
     };
     if (video) el.addEventListener('playing', () => screen.classList.add('live'), { once: true });
+    // The sprite's frame is a 96 pixel tile, blurry at full size, so the video's own frame shows as soon as it has sought
+    // there (it stayed hidden until Play selection; UX pass of 2026-09-29).
+    if (video) el.addEventListener('seeked', () => { if (!playing && el.readyState >= 2) screen.classList.add('live'); });
     const draw = () => {
       if (video) still();
       if (a < w0) w0 = a; if (z > w0 + span) w0 = z - span;

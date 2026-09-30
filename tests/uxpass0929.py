@@ -2,7 +2,7 @@
 # same day.
 #   1. No window has binder holes, and no sheet keeps the margin they needed.
 #   2. Cards in a list are separate sheets: the gap between them is wider than both sheets' reach, so the torn edges show.
-#   3. The paper carries the new grain (paper/grain2.png, a quieter copy in dark mode).
+#   3. The paper carries its grain (the scans since 2.39.0: paper/scan-l.png, scan-d.png in dark mode).
 #   4. A sign-in asked for with nothing beside it drops from the top right, under the header, on opaque paper.
 #   5. The feed's Following tab signed out offers Google or X, not the extension, and says so once.
 #   6. A post card with its screenshot names the post under it without quoting the words again.
@@ -57,7 +57,7 @@ async def web_part(p, errs):
       const reach = (el) => { const a = el.getBoundingClientRect(); return parseFloat(getComputedStyle(el).getPropertyValue('--sp')) || 0; };
       const r0 = cards[0].getBoundingClientRect(), r1 = cards[1].getBoundingClientRect();
       return { holes: cards.some((c) => /circle at 13px/.test(bg(c))), margin: parseFloat(getComputedStyle(cards[0]).marginLeft),
-        gap: r1.top - r0.bottom, sp: reach(cards[0]), grain: bg(cards[0]).match(/grain2[^"]*\\.png/)?.[0] || '',
+        gap: r1.top - r0.bottom, sp: reach(cards[0]), grain: bg(cards[0]).match(/scan-[ld]\\.png/)?.[0] || '',
         csn: cards.map((c) => !!c.querySelector('.csn')), cst: cards.map((c) => (c.querySelector('.cst') || {}).textContent),
         // The five paper touches (2.37.0): tears, tilt, whites, a lifted corner, ageing.
         tears: cards.map((c) => getComputedStyle(c).getPropertyValue('--tx').trim() + '/' + getComputedStyle(c).getPropertyValue('--ty').trim()),
@@ -67,7 +67,7 @@ async def web_part(p, errs):
     if r['holes']: errs.append(f'{scheme}: a feed card still has binder holes')
     if r['margin'] != 0: errs.append(f'{scheme}: a card keeps the holes margin ({r["margin"]})')
     if r['gap'] <= 2 * r['sp'] + 4: errs.append(f'{scheme}: cards overlap their sheets (gap {r["gap"]}, reach {r["sp"]})')
-    want = 'grain2-dark.png' if scheme == 'dark' else 'grain2.png'
+    want = 'scan-d.png' if scheme == 'dark' else 'scan-l.png'
     if r['grain'] != want: errs.append(f'{scheme}: the paper does not carry {want}: {r["grain"]!r}')
     if len(set(r['tears'])) < 3: errs.append(f'{scheme}: the cards share one tear: {r["tears"]}')
     if len(set(r['tilt'])) < 3 or any(t not in ('none',) and abs(float(t.replace('deg', ''))) > .3 for t in r['tilt']): errs.append(f'{scheme}: the tilt is missing or too much: {r["tilt"]}')

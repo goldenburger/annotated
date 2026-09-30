@@ -1608,6 +1608,28 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   databases; migration 28 was checked live in blocks that roll back. Not done: the panel's published card does not offer
   Pin, the home page's own header has no bell, the edit window counts from when a local copy was captured (so a take
   published long after capture loses Edit early), and nobody is emailed about activity.
+- **The UX tour of 2026-09-29** (2.40.1, `tests/uxtour0929.py`; David asked for about a hundred interactions with the site
+  and a plan of what to improve). The tour script lives in the session's scratchpad (`tour/tour.py`, 98 steps signed out,
+  signed in, dark and phone, a screenshot each); the world it runs against is `tests/_world.py`, a lived-in stand-in
+  database (four people, every kind of annotation, replies, reactions, a poll, a quote, a pin, follows and activity) that
+  any test may use. Fixed: the try-it's bar hides Mark a sentence for me and Show me an example while words are chosen
+  or a take is being written (four lines of links read as clutter); the YouTube tab's screen shows the video's own frame
+  as soon as it has sought there (it showed a blurry 96 pixel sprite tile until Play selection) and fills the paper's
+  width; the home page's header has the bell and its dot; your card counts all of yours beside someone else's profile
+  (it said 0) and on a tag page (it said 1); nobody you muted or blocked is suggested under People worth following
+  (`discovery` leaves them out), and the suggestion reads "@priya · 2 annotations"; the menu's edit item says "9 minutes
+  left to edit" on a line of its own; a comment's reactions and Reply share one row (`.cActs`); Annotate this, signed
+  out, asks you to sign in rather than opening a box that cannot publish (`quoteNeedsSignIn`); the wash on new Activity
+  rows is lighter in dark mode. David liked the Open Doodles, so there are more of them (`PaperDeco.doodle(kind)` now
+  takes a name): someone meditating when Activity is empty, someone on their phone when it asks you to sign in, someone
+  sitting on Not found and did not load, and someone with a very large coffee beside Download in the install steps
+  (`.giArt`, the download row as tall as the drawing so it never covers the steps). The coffee rings in the margins are
+  gone at David's word ("they look weird"); the pencil smudges stay. Found by the full run: 2.40.0's embed of the annotation a quote
+  answers named its constraint (`annotations!annotations_quote_of_fkey`), which PostgREST refuses on a table pointing at
+  itself, so every read of annotations failed against the live database while every stand-in passed; it is
+  `quoted:quote_of(...)` now, and `tests/livequeries.py` runs the website's read queries against the live database (read
+  only), failing on the old query and passing on the new. `_world.site` answers byte ranges, but a video
+  still would not seek through Playwright's stand-in; the frame was checked on `scripts/serve_website.py`.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

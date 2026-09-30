@@ -91,7 +91,7 @@ async def main():
     await pg.goto(f'{base}/@me/{MINE["id"]}'); await pg.wait_for_selector('.annCard .moreBtn'); await asyncio.sleep(1)
     items = await menu()
     print('1. my menu:', items)
-    if not any(i.startswith('Edit your take') and 'more min' in i for i in items): errs.append(f'no edit with minutes left on a new annotation: {items}')
+    if not any(i.startswith('Edit your take') and 'left to edit' in i for i in items): errs.append(f'no edit with minutes left on a new annotation: {items}')
     await pg.click('.annCard .moreBtn'); await pg.click('.annCard .pinBtn'); await asyncio.sleep(.8)
     pinned = await pg.evaluate("({ mark: !!document.querySelector('.who .pinMark'), say: document.querySelector('.blockSay').textContent })")
     print('   pinned:', state['pin'], pinned)

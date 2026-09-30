@@ -27,9 +27,11 @@ var Landing = (() => {
     const bar = document.createElement('header');
     bar.className = 'sitebar landBar';
     const pic = me && /^https:\/\//.test(me.avatar || '') ? `<img src="${escH(me.avatar)}" alt="" referrerpolicy="no-referrer">` : escH(((me && me.name) || 'Y').trim().slice(0, 1).toUpperCase());
+    // Activity is a bell here too, as on every other page of the site (UX pass: the home page had none).
+    const bell = `<a class="navBtn navAct" href="/?activity" aria-label="Activity" title="Activity">${typeof Brand !== 'undefined' ? Brand.icon('bell') : ''}<span class="actDot" aria-hidden="true" hidden></span></a>`;
     const you = `<button type="button" class="navBtn navProfile"><span class="avatar xs ${me && me.avatar ? 'hasImg' : ''}" aria-hidden="true">${pic}</span> You</button>`;
     bar.innerHTML = `<a class="wmBtn" href="/" aria-label="annotated home">${typeof Brand !== 'undefined' ? Brand.wordmark() : 'annotated'}</a>
-      <nav class="sitenav" aria-label="Site"><a class="navBtn navFeed" href="/?feed">Feed</a>${signedIn ? you : '<button type="button" class="navBtn webSignIn">Sign in</button>'}</nav>`;
+      <nav class="sitenav" aria-label="Site"><a class="navBtn navFeed" href="/?feed">Feed</a>${signedIn ? bell + you : '<button type="button" class="navBtn webSignIn">Sign in</button>'}</nav>`;
     const s = bar.querySelector('.webSignIn');
     if (s) { s.setAttribute('aria-label', 'Sign in with Google or X'); s.addEventListener('click', onSignIn); }
     const y = bar.querySelector('.navProfile');
@@ -159,7 +161,8 @@ var Landing = (() => {
         <li><b>Turn on Developer mode</b><span>Paste <code>chrome://extensions</code> into the address bar <button type="button" class="link giCopy">Copy it</button> and flip the switch at the top right.</span></li>
         <li><b>Load it</b><span>Load unpacked, choose the folder, and pin annotated from the puzzle piece.</span></li>
       </ol>
-      <p class="giDo"><a class="primary" href="/annotated-extension.zip" download>Download the extension</a><a class="link" href="https://github.com/goldenburger/annotated" target="_blank" rel="noopener">See the code on GitHub</a></p>`;
+      <p class="giDo"><a class="primary" href="/annotated-extension.zip" download>Download the extension</a><a class="link" href="https://github.com/goldenburger/annotated" target="_blank" rel="noopener">See the code on GitHub</a></p>
+      ${typeof PaperDeco !== 'undefined' && PaperDeco.doodle ? `<span class="giArt" aria-hidden="true">${PaperDeco.doodle('coffee')}</span>` : ''}`;
     root.appendChild(box);
     const cp = box.querySelector('.giCopy');
     cp.addEventListener('click', async () => {

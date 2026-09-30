@@ -2293,6 +2293,14 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .pdDd-floor { --dd-ar: 965 / 602; --dd-hi: url("doodles/floor-hi.svg"); --dd-inkm: url("doodles/floor-ink.svg"); }
 .pdDd-phone { --dd-ar: 977 / 523; --dd-hi: url("doodles/phone-hi.svg"); --dd-inkm: url("doodles/phone-ink.svg"); height: 70px; }
 .pdDd-book { --dd-ar: 606 / 700; --dd-hi: url("doodles/book-hi.svg"); --dd-inkm: url("doodles/book-ink.svg"); height: 100px; }
+/* Three more (UX pass of 2026-09-29, David: "use these type of assets enough"): someone sitting (Not found, did not
+   load), someone meditating (Activity, all caught up) and someone with a very large coffee (the install steps). */
+.pdDd-sit { --dd-ar: 776 / 717; --dd-hi: url("doodles/sit-hi.svg"); --dd-inkm: url("doodles/sit-ink.svg"); }
+.pdDd-calm { --dd-ar: 875 / 675; --dd-hi: url("doodles/calm-hi.svg"); --dd-inkm: url("doodles/calm-ink.svg"); }
+.pdDd-coffee { --dd-ar: 929 / 720; --dd-hi: url("doodles/coffee-hi.svg"); --dd-inkm: url("doodles/coffee-ink.svg"); }
+.activity .actArt { display: flex; justify-content: center; margin: 6px 0 12px; }
+.activity .actArt .pdDoodle { height: 96px; }
+.shellEmpty .pdEmpty .pdDoodle.pdDd-sit { height: 130px; }
 .pdEmpty .pdDoodle + svg { height: 34px; align-self: flex-start; margin-left: -4px; }
 .shellEmpty .pdEmpty .pdDoodle { height: 120px; }
 .browseEmpty .pdEmpty .pdDoodle { height: 76px; }
@@ -2321,7 +2329,8 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .who .pinMark svg, .cpin svg { width: 13px; height: 13px; }
 .cpin { font-size: var(--t-xs); color: var(--ink-3); margin-right: 6px; }
 .rlText .cpin { display: flex; margin: 0 0 2px; }
-.menu .editLeft { margin-left: 4px; font-weight: 400; }
+.menu .miText { display: grid; gap: 1px; }
+.menu .editLeft { font-size: var(--t-xs); font-weight: 400; color: var(--ink-3); }
 .blockSay { margin: 10px 0 0; }
 /* Annotate this: the box opens under the card's buttons. */
 .quoteBox { margin-top: 12px; display: grid; gap: 8px; }
@@ -2343,7 +2352,10 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .cquoted.gone { color: var(--ink-3); }
 @media (max-width: 560px) { .quoted { rotate: none; } }
 /* Replies to replies: under the comment they answer, indented along a pencil line, flat (no slip of their own). */
-.comments .cReplyBtn { margin-top: 6px; font-size: var(--t-xs); }
+/* A comment's reactions and Reply share one row (UX pass: they stacked, a line each). */
+.comments .cActs { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.comments .cActs .cReact { margin: 0; }
+.comments .cReplyBtn { font-size: var(--t-xs); }
 .comments .cReplyBox { margin-top: 8px; display: grid; gap: 6px; }
 .comments .cReplyBox .cReplyText { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; padding: 8px 10px; border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--sheet); color: var(--ink); }
 .comments .cReplyBox .cRow { display: flex; justify-content: flex-end; gap: 6px; margin: 0; }
@@ -2361,6 +2373,8 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .activity .actRow:hover, .activity .actRow:focus-visible { background: var(--well-warm, var(--paper)); }
 .activity .actRow:focus-visible { outline: 2px solid var(--ink-3); outline-offset: 1px; }
 .activity .actItem.new .actRow { background: color-mix(in srgb, var(--hi) 18%, transparent); box-shadow: inset 3px 0 0 var(--hi); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .activity .actItem.new .actRow { background: color-mix(in srgb, var(--hi) 8%, transparent); } }
+:root[data-theme="dark"] .activity .actItem.new .actRow { background: color-mix(in srgb, var(--hi) 8%, transparent); }
 .activity .actText { display: grid; gap: 3px; font-size: var(--t-s); line-height: 1.4; color: var(--ink-2); min-width: 0; }
 .activity .actText b { color: var(--ink); font-weight: 600; }
 .activity .actSaid { color: var(--ink); overflow-wrap: anywhere; }

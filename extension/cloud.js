@@ -19,7 +19,8 @@ const Cloud = (() => {
   // Named links, because annotations connect to profiles in more than one way (author, reactions, votes).
   const PROFILE = 'author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url)';
   const COMMENT_PROFILE = 'author:profiles!comments_author_id_fkey(id, handle, display_name, avatar_url)';
-  const QUOTED = 'quoted:annotations!annotations_quote_of_fkey(id, kind, take_text, tag, source, shot_path, poster_path, created_at, author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url))';
+  // A table pointing at itself is named by its column; the constraint's name is ambiguous there and PostgREST refused it.
+  const QUOTED = 'quoted:quote_of(id, kind, take_text, tag, source, shot_path, poster_path, created_at, author:profiles!annotations_author_id_fkey(id, handle, display_name, avatar_url))';
 
   async function upload(uid, id, name, blob) {
     const type = (blob.type || 'application/octet-stream').split(';')[0];
@@ -505,13 +506,16 @@ const Cloud = (() => {
   async function discovery(me, { personId = null, onPerson, signIn } = {}) {
     const key = `${(me && me.id) || ''}|${personId || ''}`;
     if (held && held.key === key && Date.now() - held.at < KEEP) return { ...held.value, onPerson };
-    const [followed, ppl, trend, youCounts, personStats] = await Promise.all([
+    const [followed, ppl0, trend, youCounts, personStats, hidden] = await Promise.all([
       followingIds(me && me.id).catch(() => new Set()),
-      people(me && me.id, 4).catch(() => []),
+      people(me && me.id, 6).catch(() => []),
       trending().catch(() => ({ sources: [], tags: [] })),
       me ? followCounts(me.id).catch(() => null) : null,
       personId ? followCounts(personId).catch(() => null) : null,
+      me ? blocks(me.id).catch(() => new Map()) : new Map(),
     ]);
+    // Nobody you muted or blocked is suggested to you (UX pass: a muted person stayed under People worth following).
+    const ppl = ppl0.filter((p) => !hidden.has(p.id)).slice(0, 4);
     const value = {
       signIn: signIn || null,
       followed, people: ppl, trending: trend, youCounts, personStats, onPerson,

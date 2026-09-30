@@ -215,13 +215,15 @@ const AnnotationPage = (() => {
   // page, with the wordmark to go home. It used to be one line of text on an empty page.
   // An empty list's drawing: a crumpled sheet and a plane (paperdeco.js), or nothing where it is not loaded.
   const emptyArt = (kind) => (typeof PaperDeco !== 'undefined' ? `<div class="pdEmpty" aria-hidden="true">${PaperDeco.emptyArt(kind)}</div>` : '');
+  const doodleArt = (kind) => (typeof PaperDeco !== 'undefined' && PaperDeco.doodle ? `<div class="actArt pdEmpty" aria-hidden="true">${PaperDeco.doodle(kind)}</div>` : '');
   // The panel's quiet corner under a list.
   const cornerArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pd pd-corner" aria-hidden="true">${PaperDeco.ART.corner()}</div>` : '');
   function renderMissing(container, { title, why = '', onHome, onProfile, onAll = null, siteNav = true }) {
     stopClock(container);
     const { main, rail } = shell(container, { active: null, onHome, onFeed: onAll, onProfile, siteNav });
     main.classList.add('ann');
-    main.innerHTML = `<div class="emptyState shellEmpty">${emptyArt()}<p class="esTitle">${esc(title)}</p>${why ? `<p>${esc(why)}</p>` : ''}
+    // Someone sitting it out, from Open Doodles, where it was a crumpled sheet (UX pass of 2026-09-29).
+    main.innerHTML = `<div class="emptyState shellEmpty">${doodleArt('sit') || emptyArt()}<p class="esTitle">${esc(title)}</p>${why ? `<p>${esc(why)}</p>` : ''}
       <p><button type="button" class="ghost sm missHome">See annotations</button></p></div>`;
     rail.remove();
     main.querySelector('.missHome').addEventListener('click', () => (onAll || onHome) && (onAll || onHome)());
@@ -293,7 +295,7 @@ const AnnotationPage = (() => {
     // no word about where everyone went.
     if (!social.people.length) return `<section class="railcard"><h2>People worth following</h2><p class="note">${social.followed && social.followed.size ? 'You follow everyone who has published this month. Their annotations are under Following.' : 'Nobody else has published this month. Yours will show up here for them.'}</p></section>`;
     return `<section class="railcard"><h2>People worth following</h2><ul class="peopleList">${social.people.map((p) => `<li>
-        <button type="button" class="railPerson" data-handle="${esc(p.handle)}">${pAv(p, 'sm')}<span class="rlText"><span class="rlTake">${esc(p.name)}</span><span class="note">@${esc(p.handle)}. ${plural(p.annotations, 'annotation')} this month</span></span></button>
+        <button type="button" class="railPerson" data-handle="${esc(p.handle)}">${pAv(p, 'sm')}<span class="rlText"><span class="rlTake">${esc(p.name)}</span><span class="note">@${esc(p.handle)} · ${plural(p.annotations, 'annotation')}</span></span></button>
         <button type="button" class="ghost sm followBtn" data-id="${esc(p.id)}" aria-pressed="false">Follow</button></li>`).join('')}</ul></section>`;
   }
   // here is the annotation on the page, if there is one. Trending listed the very source you were reading
@@ -658,8 +660,9 @@ const AnnotationPage = (() => {
       setTimeout(() => { lab.textContent = 'Save as GIF'; gifBtn.disabled = false; }, 4000);
     });
     const editLeft = () => Math.max(1, Math.ceil((EDIT_MS - (Date.now() - created)) / 60000));
+    const leftWords = () => `${editLeft()} minute${editLeft() === 1 ? '' : 's'} left to edit`;
     const moreMenu = q('.moreBtn') ? menu(q('.moreBtn'), `
-      ${canEdit ? `<button type="button" role="menuitem" class="editBtn" data-close>${Brand.icon('edit')} <span>Edit your take${opts.localOnly ? '' : ` <span class="note editLeft">for ${editLeft()} more min</span>`}</span></button>` : ''}
+      ${canEdit ? `<button type="button" role="menuitem" class="editBtn" data-close>${Brand.icon('edit')} <span class="miText"><span>Edit your take</span>${opts.localOnly ? '' : `<span class="editLeft">${leftWords()}</span>`}</span></button>` : ''}
       ${hooks.onPin ? `<button type="button" role="menuitem" class="pinBtn" data-close>${Brand.icon('pin')} <span class="pinText">${opts.pinned ? 'Unpin from your profile' : 'Pin to your profile'}</span></button>` : ''}
       ${hooks.onBlock ? `<button type="button" role="menuitem" class="muteBtn" data-close>${Brand.icon('mute')} <span class="muteText">${opts.blockKind === 'mute' ? 'Unmute' : 'Mute'} ${esc(pName(opts.author))}</span></button>
         <button type="button" role="menuitem" class="blockBtn danger" data-close>${Brand.icon('block')} <span class="blockText">${opts.blockKind === 'block' ? 'Unblock' : 'Block'} ${esc(pName(opts.author))}</span></button>` : ''}
@@ -668,7 +671,7 @@ const AnnotationPage = (() => {
     if (moreMenu && canEdit && !opts.localOnly) q('.moreBtn').addEventListener('click', () => {
       const left = moreMenu.querySelector('.editLeft'), eb = moreMenu.querySelector('.editBtn');
       if (Date.now() - created >= EDIT_MS) { if (eb) eb.remove(); return; }
-      if (left) left.textContent = `for ${editLeft()} more min`;
+      if (left) left.textContent = leftWords();
     });
     // Pin: one of your own at the top of your profile.
     let pinned = !!opts.pinned;
@@ -719,6 +722,8 @@ const AnnotationPage = (() => {
     if (q('.quoteBtn')) {
       const qb = q('.quoteBtn'), box = q('.quoteBox');
       qb.addEventListener('click', () => {
+        // Signed out, it asks you to sign in first, rather than opening a box that cannot publish (UX pass).
+        if (box.hidden && hooks.quoteNeedsSignIn && hooks.quoteNeedsSignIn()) return;
         const open = box.hidden;
         qb.setAttribute('aria-expanded', String(open));
         if (!open) { box.hidden = true; return; }
@@ -978,8 +983,8 @@ const AnnotationPage = (() => {
     const oneComment = (c, isReply) => `
         <li class="cmt${isReply ? ' cReplyItem' : ''}">${pAv(c.author && !c.mine ? c.author : null, 'sm')}
           <div class="cBody"><div class="cHead"><b>${esc(pName(c.author && !c.mine ? c.author : null))}</b><time datetime="${new Date(c.t).toISOString()}">${relTime(c.t)}</time>
-            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-k="${keyOf(c)}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cReact" data-k="${keyOf(c)}"></div>
-            ${!isReply && canReply && c.dbId ? `<button type="button" class="link cReplyBtn" data-k="${keyOf(c)}" aria-expanded="false">Reply</button><div class="cReplyBox" data-k="${keyOf(c)}" hidden></div>` : ''}
+            ${!c.author || c.mine ? `<button type="button" class="link cDel" data-k="${keyOf(c)}">Delete</button>` : ''}</div><p class="${isJumbo(c.text) ? 'jumbo' : ''}">${esc(c.text)}</p>${c.gif && safeGif(c.gif.url) ? `<figure class="cmtGif"><img src="${esc(safeGif(c.gif.url))}" alt="${esc(c.gif.alt || 'A GIF')}" loading="lazy"><figcaption class="note">Powered by GIPHY</figcaption></figure>` : ''}${cmtUpload(c)}<div class="cActs"><div class="cReact" data-k="${keyOf(c)}"></div>${!isReply && canReply && c.dbId ? `<button type="button" class="link cReplyBtn" data-k="${keyOf(c)}" aria-expanded="false">Reply</button>` : ''}</div>
+            ${!isReply && canReply && c.dbId ? `<div class="cReplyBox" data-k="${keyOf(c)}" hidden></div>` : ''}
             ${!isReply && kidsOf(c).length ? `<ul class="cReplies">${kidsOf(c).map((k) => oneComment(k, true)).join('')}</ul>` : ''}</div></li>`;
     const drawComments = () => {
       q('.cTitle').textContent = comments.length ? `Comments (${comments.length})` : 'Comments';
@@ -1575,11 +1580,11 @@ const AnnotationPage = (() => {
     container.innerHTML = `<div class="annside browse activity${frame ? ' paperSheet' : ''}">
       ${onBack ? `<button type="button" class="ghost sm browseBack" title="${esc(backTo)}">${Brand.icon('arrowLeft')}<span>${esc(backTo)}</span></button>` : ''}
       <div class="browseHead"><h2>Activity</h2></div>
-      ${signedOut ? `<p class="note">Sign in to see who replied to, reacted to or followed you.</p>${onSignIn ? twoWays('actSignIn') : ''}`
+      ${signedOut ? `${doodleArt('phone')}<p class="note">Sign in to see who replied to, reacted to or followed you.</p>${onSignIn ? twoWays('actSignIn') : ''}`
         : loading ? '<p class="note" role="status">Loading…</p>'
         : failed ? `<p class="note" role="alert">This did not load.</p>${onRetry ? '<button type="button" class="ghost sm actRetry">Try again</button>' : ''}`
         : items.length ? `<ul class="actList">${items.map(row).join('')}</ul>`
-        : `<div class="browseEmpty">${emptyArt('nothing')}<p class="note">Nothing yet. When someone replies to, reacts to or follows you, it shows up here.</p></div>`}
+        : `<div class="browseEmpty">${doodleArt('calm')}<p class="note">Nothing yet. When someone replies to, reacts to or follows you, it shows up here.</p></div>`}
     </div>`;
     const bk = container.querySelector('.browseBack');
     if (bk) bk.addEventListener('click', () => onBack());

@@ -463,8 +463,8 @@ var PaperDeco = (() => {
     left.style.setProperty('--pdy', Math.round(30 + Math.random() * 90) + 'px');
     right.style.setProperty('--pdy', Math.round(90 + Math.random() * 160) + 'px');
     d.append(left, right);
-    // Now and then a coffee ring or a pencil smudge, on whichever side has room.
-    if (Math.random() < .55) { const m = make('ring', Math.random() < .5 ? 'pdStainL' : 'pdStainR'); m.style.setProperty('--pdy', Math.round(12 + Math.random() * 60) + '%'); m.style.setProperty('--pdr', Math.round(Math.random() * 360) + 'deg'); d.appendChild(m); }
+    // Now and then a pencil smudge, on whichever side has room. The coffee ring is gone (David, 2026-09-29: it looked
+    // like a white bubble, not a stain).
     if (Math.random() < .45) { const m = make('smudge', Math.random() < .5 ? 'pdStainL' : 'pdStainR'); m.style.setProperty('--pdy', Math.round(20 + Math.random() * 60) + '%'); m.style.setProperty('--pdr', Math.round(-20 + Math.random() * 40) + 'deg'); d.appendChild(m); }
     if (Math.random() < .7) { const t = make('trail', 'pdT'); t.style.setProperty('--pdy', Math.round(180 + Math.random() * 120) + 'px'); d.appendChild(t); }
     root.appendChild(d);
@@ -473,7 +473,9 @@ var PaperDeco = (() => {
   // Someone reading, from Open Doodles (Pablo Stanley, CC0), in the page's ink and highlighter (doodles/, two masks
   // each, ui.css). One of four, never the one shown last in this tab.
   const DOODLES = ['chair', 'floor', 'phone', 'book'];
-  function doodle() {
+  // A named one (sit, calm, coffee and the four readers) where a place wants a particular drawing.
+  function doodle(kind) {
+    if (kind) return `<span class="pdDoodle pdDd-${String(kind).replace(/[^a-z]/g, '')}"></span>`;
     let last = ''; try { last = sessionStorage.getItem('annotated-dd-last') || ''; } catch { /* storage off */ }
     const k = pick(DOODLES.filter((d) => d !== last));
     try { sessionStorage.setItem('annotated-dd-last', k); } catch { /* storage off */ }

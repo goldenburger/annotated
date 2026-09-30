@@ -106,6 +106,14 @@ function matchExtension(me) {
         if (h) location.href = '/@' + h; else signInNow();
       };
       const land = Landing.mount(page, { signedIn: !!session && !visitor, onSignIn: signInNow, me, onProfile: toProfile });
+      // The bell's dot, asked a moment after the page is drawn so it never holds the page up.
+      if (session && !visitor && typeof Cloud !== 'undefined' && Cloud.activity) setTimeout(() => {
+        let seen = 0; try { seen = Number(localStorage.getItem('annotated-activity-seen:' + session.user.id)) || 0; } catch { /* no storage */ }
+        Cloud.activity(seen || Date.now() - 30 * 86400000).then((items) => {
+          const d = page.querySelector('.landBar .navAct .actDot');
+          if (d && items.length) { d.hidden = false; d.parentElement.setAttribute('aria-label', `Activity, ${items.length} new`); }
+        }).catch(() => {});
+      }, 1500);
       document.title = 'annotated: say what you think about anything on the web';
       void land;
       const who = session ? { id: session.user.id, name: ((session.user.user_metadata || {}).full_name) || 'another account' } : null;
@@ -222,7 +230,9 @@ function matchExtension(me) {
     remember(all);
     const soc = await socP;
     const mine = all.filter((r) => r.mine);
-    const social = soc ? { ...soc, you: youOf(soc, mine.length) } : null;
+    // Counted by the database: a tag page counted only that tag's, and the list only its first hundred (UX pass).
+    const myCount = me ? await Cloud.countBy(me.id).catch(() => mine.length) : 0;
+    const social = soc ? { ...soc, you: youOf(soc, Math.max(myCount, mine.length)) } : null;
     let records = all;
     if (!tag && soc) {
       const tabs = Cloud.homeTabs(all, soc, me, mine);
@@ -254,7 +264,9 @@ function matchExtension(me) {
     remember(records);
     const person = me && me.id === p.id ? null : { id: p.id, name: p.display_name || p.handle, handle: p.handle, avatar: Cloud.avatarOk ? Cloud.avatarOk(p.avatar_url) : '' };
     const soc = await socP;
-    const social = soc ? { ...soc, you: youOf(soc, me && me.id === p.id ? Math.max(await totalP || 0, records.length) : 0) } : null;
+    // Your card beside someone else's profile counts yours, where it said 0 (UX pass).
+    const myCount = !me ? 0 : me.id === p.id ? Math.max(await totalP || 0, records.length) : await Cloud.countBy(me.id).catch(() => 0);
+    const social = soc ? { ...soc, you: youOf(soc, myCount) } : null;
     if (social && !person) { social.onFollow = null; social.personStats = soc.personStats; }
     document.title = `${p.display_name || p.handle} | annotated`;
     const deleteAll = me && me.id === p.id ? async (progress) => {
@@ -341,6 +353,7 @@ function matchExtension(me) {
           return true;
         } catch (e) { alert('That did not save. ' + (e.message || '')); return false; }
       },
+      quoteNeedsSignIn: () => { if (me) return false; AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: signIn }); return true; },
       onQuote: async (take) => {
         if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: signIn }); throw new Error('Sign in first, then publish.'); }
         const r = await Cloud.quote({ id, item: rec.item }, take);

@@ -230,6 +230,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
         load();
       } : null,
       // Annotate this: your take on it, published as your own annotation that answers it, then opened.
+      quoteNeedsSignIn: () => { if (me) return false; AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); return true; },
       onQuote: shared ? async (take) => {
         if (!me) { AnnotationPage.signInPrompt({ text: 'Sign in to annotate this.', onSignIn: (p) => Backend.signIn(p).then(() => load()).catch(() => {}) }); throw new Error('Sign in first, then publish.'); }
         const r = await Cloud.quote({ id, item: rec.item }, take);

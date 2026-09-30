@@ -484,7 +484,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 
 /* The real clip and the real episode in the scenes: the video above its trimmer, its frames in the strip, the
    credit under the whole-length bar, and a player in the card. */
-.sceneTry .stScreen { margin: 0 8px 4px; border-radius: 8px; overflow: hidden; background: #0E0F12; aspect-ratio: 16 / 9; max-height: 170px; display: flex; justify-content: center; }
+.sceneTry .stScreen { margin: 0 8px 4px; border-radius: 8px; overflow: hidden; background: #0E0F12; aspect-ratio: 16 / 9; max-height: 262px; display: flex; justify-content: center; }
 .sceneTry .stScreen video { height: 100%; max-width: 100%; aspect-ratio: 16 / 9; display: block; }
 .sceneTry .stFrames span { background: #2A2D34 no-repeat; }
 .sceneTry .stPlay[aria-pressed="true"] { border-color: #16181D; }
@@ -986,3 +986,17 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pdFoot::before { background-image: url("paper/desk-d.jpg"); opacity: .9; } }
 :root[data-theme="dark"] .pdFoot::before { background-image: url("paper/desk-d.jpg"); opacity: .9; }
 @media (max-width: 760px) { .pdFoot::before { inset-inline: -8px; } }
+
+/* ---- UX pass of 2026-09-29. While words are chosen or a take is being written, the try-it's bar says only what is
+   happening now: "Mark a sentence for me" and "Show me an example" are ways to begin, and four lines of links under the
+   brief read as clutter. */
+.tiBar:has(.tiBtn:not([hidden])) .tiForMe, .tiBar:has(.tiBtn:not([hidden])) .tiShowMe,
+.tryit:has(.tiTake:not([hidden])) .tiForMe, .tryit:has(.tiTake:not([hidden])) .tiShowMe { display: none; }
+.tiBar .tiHint { flex: 1 1 auto; min-width: 0; }
+/* A minute is about a coffee (Open Doodles, UX pass of 2026-09-29), in the room beside the download button. */
+.landGet { position: relative; }
+/* The download row is as tall as the drawing, so it sits under the steps, never over their words. */
+.landGet .giDo { min-height: 84px; align-items: center; }
+.landGet .giArt { position: absolute; right: 34px; bottom: 16px; pointer-events: none; }
+.landGet .giArt .pdDoodle { height: 80px; opacity: .85; }
+@media (max-width: 900px) { .landGet .giArt { display: none; } }
