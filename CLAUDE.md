@@ -1638,6 +1638,24 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   from the database, with a three second limit (`annMode` in `sidepanel.js`). Seen and left: the Published card does not
   offer Pin (pinning is on the annotation's page), and a screenshot refused because the panel's own window was in front
   is a test artifact.
+- **2.41.0, real annotations on the home page** (`tests/homereal.py`; backup before it: tag
+  `backup-2026-09-29-before-home-real` on 2.40.2 and `E:\claude_code\backups\annotated-backup-2026-09-29-before-home-real.zip`).
+  From David's own recording of 2026-09-30 at 02:36, set beside the other entries: every card on the home page was an
+  Example, the page looked sparse at a large window, and a clip card flashed black. **Latest on annotated** (`realRow` in
+  `landing.js`, `.landReal` in `web.css`) sits under Yours so far and before In Chrome: up to six of Robo Taxi's published
+  annotations (`REAL_AUTHOR`, at David's word, the account the demo was made with; handle `testhandle`): the six David
+  chose (`FEATURED`, the Roadster post with its GIF and the All-In clip first), and, for any deleted, one per source,
+  tagged first, takes of 12 characters or more, three columns, hidden with fewer than three or no database (eight seconds
+  at most). They are drawn by the feed's own card, now shared as `AnnotationPage.cardsHtml` and `wireCards` (taken out of
+  `renderFeed` unchanged), so clips preview silently and Play with sound works there. The front page is wider (1280, and
+  1480 from 1700 pixels) with its small print a step larger (`--t-s/m/l` on `.land`) and a larger headline; the headline
+  still holds two lines for every tab word from 1024 pixels up. A clip is shown over its still only once a frame of it has
+  been painted (`paintedFrame` in `landing.js`, the same check in `wirePreviews`, `requestVideoFrameCallback` or the time
+  moving on), since `playing` can come before the first frame reaches the screen.
+  Then, from David's screenshot of the live page: the try-it is as tall as the tab shown (`pick` no longer holds the tallest
+  tab's height, `smooth` eases the page below), since Post on X after the YouTube clip sat over about 130 pixels of blank
+  paper; and Yours so far has two to four columns (`--cols`, one card is half the row), its body, picture and source
+  stretched to the card, where a clip card was a quarter of the row and its picture only as wide as its text.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

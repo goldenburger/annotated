@@ -1289,7 +1289,12 @@ const AnnotationPage = (() => {
         if (!src && r.item.hasMedia && getMedia) { const b = await getMedia(r.id).catch(() => null); if (b) { r.item.blob = b; src = URL.createObjectURL(b); previewBlobs.push(src); } }
         if (!src || !v.isConnected || v.src || v.dataset.sound) return;
         v.src = src;
-        v.addEventListener('playing', () => v.closest('.cthumb').classList.add('live'), { once: true });
+        // Shown over its picture only once a frame has been painted: 'playing' can come first, a black box (2026-09-30).
+        v.addEventListener('playing', () => {
+          const on = () => { const box = v.closest('.cthumb'); if (box) box.classList.add('live'); };
+          if (typeof v.requestVideoFrameCallback === 'function') v.requestVideoFrameCallback(on);
+          else { const t0 = v.currentTime, tu = () => { if (v.currentTime > t0 + .04) { v.removeEventListener('timeupdate', tu); on(); } }; v.addEventListener('timeupdate', tu); }
+        }, { once: true });
       }
       v.play().catch(() => {});
     }), { threshold: 0.5 });
@@ -1299,6 +1304,135 @@ const AnnotationPage = (() => {
   // one per drawing held each drawing's comments until the page went. A close may still cancel the request itself.
   const pendingDeletes = new Set();
   if (typeof addEventListener === 'function') addEventListener('pagehide', () => [...pendingDeletes].forEach((f) => f()));
+  // One feed card, shared by the feed, profiles and the home page's row of real annotations.
+  function cardHtml(r, { mode = 'home', pinnedId = null, again = false } = {}) {
+    const it = r.item;
+    // Three takes on one post used to repeat the author and the post three times over. The source is
+    // named once and the takes below it just say they are on the same thing. The quote still differs
+    // on every card, because that is what tells them apart.
+    // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
+    // A post is shown by its screenshot, the same as an article is. Posts were the one kind with no
+    // picture at all, and a column of cards all from X had nothing for the eye to catch.
+    // A published screenshot is the full-size picture online; the copy kept here for lists is small (it
+    // was 360 pixels wide, stretched to twice that on a card, and read as blurry). Online comes first.
+    const shotBest = /^https?:/.test(it.shot || '') ? it.shot : (it.shotThumb || it.shot);
+    const thumb = safeImg(it.kind === 'video' ? it.poster
+      : it.kind === 'audio' ? (it.artwork || it.poster)
+      : it.kind === 'post' ? shotBest
+      : ((it.meta && it.meta.image) || shotBest));
+    // A screenshot is read from its top left corner. A preview image made for sharing is composed to
+    // be seen whole, so that one stays centred.
+    const fromShot = it.kind !== 'video' && it.kind !== 'audio' && !(it.meta && it.meta.image);
+    // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
+    const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
+    const brief = (it.end - it.start) < 10;
+    const range = `${fmt(it.start, brief)} to ${fmt(it.end, brief)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
+    const snippet = it.kind === 'video' ? `${it.site === 'x' ? 'X' : 'YouTube'}${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
+      : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
+      // The words the person picked out are the point of the annotation, so the card shows those and
+      // falls back to the post itself only when the whole post was taken.
+      : it.kind === 'post' ? ((it.quote || it.text) ? `"${cut(it.quote || it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
+    const srcTitle = it.kind === 'post' ? `${it.author}${it.handle ? ' ' + it.handle : ''}` : it.kind === 'article' && (it.meta.site || hostOf(srcUrlOf(it))) ? `${siteLabel(it)}: ${titleOf(it)}` : titleOf(it);
+    const playable = (it.kind === 'video' || it.kind === 'audio') && (it.blob || it.mediaUrl || it.hasMedia);
+    // Stats row: reactions, poll and comments, each only when there is something to count.
+    const nC = (r.comments || []).length, nReact = reactTotal(r.reactions), poll = r.take.poll;
+    const stats = [];
+    if (nReact) stats.push(`<span class="fStat fReact" aria-label="${plural(nReact, 'reaction')}">${reactEmojis(r.reactions).slice(0, 4).join('')}<span class="num">${nReact}</span></span>`);
+    const nVotes = poll ? (poll.counts ? poll.counts.reduce((a, b) => a + (Number(b) || 0), 0) : Number.isFinite(r.pollVotes) ? r.pollVotes : (poll.vote !== null && poll.vote !== undefined ? 1 : 0)) : 0;
+    if (poll) stats.push(`<span class="fStat" aria-label="Poll">${Brand.icon('poll')}${nVotes ? plural(nVotes, 'vote') : 'Poll'}</span>`);
+    if (nC) stats.push(`<span class="fStat" aria-label="${plural(nC, 'comment')}">${Brand.icon('comment')}<span class="num">${nC}</span></span>`);
+    if (r.take.voice) stats.push(`<span class="fStat" aria-label="Voice note">${Brand.icon('mic')}Voice</span>`);
+    if (r.take.upload) stats.push(`<span class="fStat" aria-label="${r.take.upload.kind === 'video' ? 'A video' : 'A photo'}">${Brand.icon('image')}${r.take.upload.kind === 'video' ? 'Video' : 'Photo'}</span>`);
+    // The source sits large under the take, the way it does on the annotation's own page, so a feed can be
+    // scanned by what people were looking at. It used to be a small square beside the words. A clip plays
+    // silently while its card is on screen, and Play with sound opens the full player under it.
+    const preview = it.kind === 'video' && playable;
+    // A passage with no picture shows the words themselves, inked, as its picture. They are what was chosen.
+    // A post's screenshot already shows its marked words, so the line under it names the post and does not quote
+    // it again (UX pass of 2026-09-29).
+    const inkQuote = !thumb && it.kind === 'article' && it.text ? `<span class="cquote"><span class="cqInk">${esc(cut(it.text, 220))}</span></span>` : '';
+    // An annotation of an annotation shows the one it answers, small, in place of a picture.
+    const qd = r.quoted || null, isQ = !!(r.quoteOf || qd);
+    const media = isQ ? (qd ? `<span class="cquoted">${pAv(qd.author, 'xs')}<span><b>${esc(pName(qd.author))}</b> ${esc(cut(takeLine(qd.take) || titleOf(qd.item || {}) || '', 160))}</span></span>` : '<span class="cquoted gone">The annotation this answered was deleted.</span>') : inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num" title="${esc(fmt(it.end - it.start))} long">${fmt(it.start)}–${fmt(it.end)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
+    // The card is a link to the annotation rather than a button, so Play with sound can be a real button on
+    // the picture inside it.
+    return `<li class="cardItem"><div class="card mf ${thumb ? '' : 'nothumb'}${Folded.has(r.id) ? ' folded' : ''}" role="link" tabindex="0" data-id="${esc(r.id)}">
+      <span class="cbody">
+        ${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}
+        <span class="cmeta">${mode === 'profile' && pinnedId === r.id ? `<span class="cpin">${Brand.icon('pin')} Pinned</span>` : ''}${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
+        <span class="ctake">${esc(takeLine(r.take))}</span>
+        ${media}
+        <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || (it.kind === 'post' && thumb) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
+        ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
+        ${r.firstReply && r.firstReply.text ? `<span class="creply"><b>${esc(r.firstReply.name)}</b> <span>${esc(r.firstReply.text.length > 140 ? r.firstReply.text.slice(0, 139) + '…' : r.firstReply.text)}</span></span>` : ''}
+      </span>
+    </div>
+    </li>`;
+  }
+  function cardsHtml(list, opts = {}) {
+    let lastKey = '';
+    return list.map((r) => {
+      try {
+        const key = srcKey(r.item), again = !!key && key === lastKey;
+        lastKey = key;
+        return cardHtml(r, { ...opts, again });
+      // One card that cannot be drawn is left out, rather than taking the whole feed down (security audit of 2026-09-29).
+      } catch (e) { return ''; }
+    }).join('');
+  }
+  // What a card does: opens its annotation, previews its clip in sight, plays with sound.
+  function wireCards(main, records, { onOpen, getMedia = null }) {
+    // A card opens its annotation, by click or by Enter and Space, since it is a link and not a button now.
+    main.querySelectorAll('.card').forEach((c) => {
+      c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn') && !e.target.closest('video[data-sound]')) onOpen(c.dataset.id); });
+      c.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); onOpen(c.dataset.id); } });
+    });
+    wirePreviews(main, records, getMedia);
+    // Clips and audio play right in the feed. Opening the annotation stays a click on the card.
+    // A clip plays with sound in its own picture: the preview unmutes, starts from the beginning of the clip and gets
+    // its controls. It used to open a second player under the card while the silent one went on above it.
+    const quiet = (v) => { v.muted = true; v.controls = false; v.loop = true; delete v.dataset.sound; const box = v.closest('.cthumb'); if (box) box.classList.remove('sounding'); };
+    main.querySelectorAll('.cplayBtn').forEach((b) => b.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const pv = b.closest('.cardItem').querySelector('.cpv');
+      if (pv) {
+        main.querySelectorAll('video.cpv[data-sound]').forEach((v) => { if (v !== pv) { v.pause(); quiet(v); } });
+        main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
+        if (!pv.src) {
+          const r = records.find((x) => x.id === b.dataset.id);
+          if (r && !r.item.blob && !r.item.mediaUrl && r.item.hasMedia && getMedia) { b.disabled = true; r.item.blob = await getMedia(r.id).catch(() => null); b.disabled = false; }
+          const src = r && (safeLink(r.item.mediaUrl) || (r.item.blob ? URL.createObjectURL(r.item.blob) : ''));
+          if (!src) return;
+          if (src.startsWith('blob:')) previewBlobs.push(src);
+          pv.src = src;
+        }
+        pv.dataset.sound = '1'; pv.muted = false; pv.loop = false; pv.controls = true;
+        pv.closest('.cthumb').classList.add('sounding', 'live');
+        try { pv.currentTime = 0; } catch { /* not loaded yet */ }
+        pv.play().catch(() => {});
+        return;
+      }
+      const li = b.closest('.cardItem'), open = li.querySelector('.cardPlayer');
+      main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
+      main.querySelectorAll('.cplayBtn').forEach((x) => x.setAttribute('aria-expanded', 'false'));
+      if (open) return;
+      const r = records.find((x) => x.id === b.dataset.id);
+      if (!r) return;
+      // Light copies carry no clip: fetch it when you press play.
+      if (!r.item.blob && !r.item.mediaUrl && r.item.hasMedia && getMedia) { b.disabled = true; r.item.blob = await getMedia(r.id); b.disabled = false; }
+      if (!(r.item.blob || r.item.mediaUrl)) return;
+      const isA = r.item.kind === 'audio';
+      const box = document.createElement('div');
+      box.className = 'cardPlayer' + (isA ? ' audio' : '');
+      const m = document.createElement(isA ? 'audio' : 'video');
+      m.controls = true; m.autoplay = true; m.playsInline = true;
+      if (!isA && r.item.poster) m.poster = r.item.poster;
+      m.src = r.item.blob ? URL.createObjectURL(r.item.blob) : safeLink(r.item.mediaUrl);
+      box.appendChild(m);
+      li.appendChild(box);
+      b.setAttribute('aria-expanded', 'true');
+    }));
+  }
   // A feed's filter and sort, kept while the page lives (keyed by what the feed shows).
   const feedChoice = new Map();
   function renderFeed(container, { records, yours = null, tag, mode = 'home', person = null, getMedia = null, social = null, onOpen, onTag, onAll, onHome, onProfile, onDeleteAll = null, siteNav = true, onSignIn = null, loadFailed = false, onRetry = null, total = null, pinnedId = null, hideAuthors = null }) {
@@ -1353,74 +1487,7 @@ const AnnotationPage = (() => {
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
           </div>
         </div>
-        <ul class="cards">${(() => { let lastKey = ''; return list.length ? list.map((r) => { try {
-          const it = r.item;
-          // Three takes on one post used to repeat the author and the post three times over. The source is
-          // named once and the takes below it just say they are on the same thing. The quote still differs
-          // on every card, because that is what tells them apart.
-          const key = srcKey(it), again = !!key && key === lastKey;
-          lastKey = key;
-          // Posts get no thumbnail: a shrunken screenshot of text is unreadable, so the snippet carries it.
-          // A post is shown by its screenshot, the same as an article is. Posts were the one kind with no
-          // picture at all, and a column of cards all from X had nothing for the eye to catch.
-          // A published screenshot is the full-size picture online; the copy kept here for lists is small (it
-          // was 360 pixels wide, stretched to twice that on a card, and read as blurry). Online comes first.
-          const shotBest = /^https?:/.test(it.shot || '') ? it.shot : (it.shotThumb || it.shot);
-          const thumb = safeImg(it.kind === 'video' ? it.poster
-            : it.kind === 'audio' ? (it.artwork || it.poster)
-            : it.kind === 'post' ? shotBest
-            : ((it.meta && it.meta.image) || shotBest));
-          // A screenshot is read from its top left corner. A preview image made for sharing is composed to
-          // be seen whole, so that one stays centred.
-          const fromShot = it.kind !== 'video' && it.kind !== 'audio' && !(it.meta && it.meta.image);
-          // Break at a word. Cutting mid-word gave things like 'years. Ove…'.
-          const cut = (t, n) => { if (t.length <= n) return t; const s = t.slice(0, n); const sp = s.lastIndexOf(' '); return (sp > n * 0.6 ? s.slice(0, sp) : s).trimEnd() + '…'; };
-          const brief = (it.end - it.start) < 10;
-          const range = `${fmt(it.start, brief)} to ${fmt(it.end, brief)}${it.duration > 0 ? ` of ${fmt(it.duration)}` : ''}`;
-          const snippet = it.kind === 'video' ? `${it.site === 'x' ? 'X' : 'YouTube'}${it.channel ? ', ' + it.channel : ''}. Clip ${range}`
-            : it.kind === 'audio' ? `${it.show || 'Podcast'}. Audio clip ${range}`
-            // The words the person picked out are the point of the annotation, so the card shows those and
-            // falls back to the post itself only when the whole post was taken.
-            : it.kind === 'post' ? ((it.quote || it.text) ? `"${cut(it.quote || it.text, 160)}"` : 'Post') : `"${cut(it.text, 120)}"`;
-          const srcTitle = it.kind === 'post' ? `${it.author}${it.handle ? ' ' + it.handle : ''}` : it.kind === 'article' && (it.meta.site || hostOf(srcUrlOf(it))) ? `${siteLabel(it)}: ${titleOf(it)}` : titleOf(it);
-          const playable = (it.kind === 'video' || it.kind === 'audio') && (it.blob || it.mediaUrl || it.hasMedia);
-          // Stats row: reactions, poll and comments, each only when there is something to count.
-          const nC = (r.comments || []).length, nReact = reactTotal(r.reactions), poll = r.take.poll;
-          const stats = [];
-          if (nReact) stats.push(`<span class="fStat fReact" aria-label="${plural(nReact, 'reaction')}">${reactEmojis(r.reactions).slice(0, 4).join('')}<span class="num">${nReact}</span></span>`);
-          const nVotes = poll ? (poll.counts ? poll.counts.reduce((a, b) => a + (Number(b) || 0), 0) : Number.isFinite(r.pollVotes) ? r.pollVotes : (poll.vote !== null && poll.vote !== undefined ? 1 : 0)) : 0;
-          if (poll) stats.push(`<span class="fStat" aria-label="Poll">${Brand.icon('poll')}${nVotes ? plural(nVotes, 'vote') : 'Poll'}</span>`);
-          if (nC) stats.push(`<span class="fStat" aria-label="${plural(nC, 'comment')}">${Brand.icon('comment')}<span class="num">${nC}</span></span>`);
-          if (r.take.voice) stats.push(`<span class="fStat" aria-label="Voice note">${Brand.icon('mic')}Voice</span>`);
-          if (r.take.upload) stats.push(`<span class="fStat" aria-label="${r.take.upload.kind === 'video' ? 'A video' : 'A photo'}">${Brand.icon('image')}${r.take.upload.kind === 'video' ? 'Video' : 'Photo'}</span>`);
-          // The source sits large under the take, the way it does on the annotation's own page, so a feed can be
-          // scanned by what people were looking at. It used to be a small square beside the words. A clip plays
-          // silently while its card is on screen, and Play with sound opens the full player under it.
-          const preview = it.kind === 'video' && playable;
-          // A passage with no picture shows the words themselves, inked, as its picture. They are what was chosen.
-          // A post's screenshot already shows its marked words, so the line under it names the post and does not quote
-          // it again (UX pass of 2026-09-29).
-          const inkQuote = !thumb && it.kind === 'article' && it.text ? `<span class="cquote"><span class="cqInk">${esc(cut(it.text, 220))}</span></span>` : '';
-          // An annotation of an annotation shows the one it answers, small, in place of a picture.
-          const qd = r.quoted || null, isQ = !!(r.quoteOf || qd);
-          const media = isQ ? (qd ? `<span class="cquoted">${pAv(qd.author, 'xs')}<span><b>${esc(pName(qd.author))}</b> ${esc(cut(takeLine(qd.take) || titleOf(qd.item || {}) || '', 160))}</span></span>` : '<span class="cquoted gone">The annotation this answered was deleted.</span>') : inkQuote || (thumb ? `<span class="cthumb cwide${preview ? ' cprev' : ''}${it.kind === 'audio' ? ' caudio' : ''}"><img class="${fromShot ? 'top' : ''}" src="${esc(thumb)}" alt="" loading="lazy">${preview ? `<video class="cpv" muted playsinline loop preload="none" aria-hidden="true" data-id="${esc(r.id)}"></video>` : ''}${playable ? `<span class="cdur num" title="${esc(fmt(it.end - it.start))} long">${fmt(it.start)}–${fmt(it.end)}</span><button type="button" class="cplayBtn" data-id="${esc(r.id)}" aria-label="Play the ${it.kind === 'audio' ? 'audio' : 'clip'} here, with sound" aria-expanded="false">${Brand.icon('play')}<span>${it.kind === 'audio' ? 'Listen here' : 'Play with sound'}</span></button>` : ''}</span>` : '');
-          // The card is a link to the annotation rather than a button, so Play with sound can be a real button on
-          // the picture inside it.
-          return `<li class="cardItem"><div class="card mf ${thumb ? '' : 'nothumb'}${Folded.has(r.id) ? ' folded' : ''}" role="link" tabindex="0" data-id="${esc(r.id)}">
-            <span class="cbody">
-              ${r.why ? `<span class="cwhy">${esc(r.why)}</span>` : ''}
-              <span class="cmeta">${mode === 'profile' && pinnedId === r.id ? `<span class="cpin">${Brand.icon('pin')} Pinned</span>` : ''}${pAv(r.author && !r.mine ? r.author : null, 'xs')} ${esc(pName(r.author && !r.mine ? r.author : null))} <span class="dotsep">${relTime(r.created)}</span>${r.take.tag ? ` <span class="tag sm">${esc(r.take.tag)}</span>` : ''}${onlyHere(r) ? ' <span class="localTag">On this computer</span>' : ''}</span>
-              <span class="ctake">${esc(takeLine(r.take))}</span>
-              ${media}
-              <span class="csource${again ? ' again' : ''}">${kindIcon(it)}<span><span class="cst">${esc(again ? sameAgain(it) : srcTitle)}</span>${inkQuote || (it.kind === 'post' && thumb) ? '' : `<span class="csn">${esc(snippet)}</span>`}</span></span>
-              ${stats.length ? `<span class="fStats">${stats.join('')}</span>` : ''}
-              ${r.firstReply && r.firstReply.text ? `<span class="creply"><b>${esc(r.firstReply.name)}</b> <span>${esc(r.firstReply.text.length > 140 ? r.firstReply.text.slice(0, 139) + '…' : r.firstReply.text)}</span></span>` : ''}
-            </span>
-          </div>
-          </li>`;
-          // One card that cannot be drawn is left out, rather than taking the whole feed down (security audit of 2026-09-29).
-          } catch (e) { return ''; }
-        }).join('') : (() => {
+        <ul class="cards">${list.length ? cardsHtml(list, { mode, pinnedId }) : (() => {
           // Each tab says why it is empty, as the panel does. The page used to say "Publish an annotation from
           // the panel" under For you to someone with two annotations saved, which are on their profile.
           const mineHere = mode === 'home' && !tag && (yours || []).length;
@@ -1443,7 +1510,7 @@ const AnnotationPage = (() => {
           // for half a second before three appeared (recording of 2026-09-25 at 23:23, 2:51).
           if (loadFailed) return `<li class="emptyState">${emptyArt()}<p class="esTitle">These annotations did not load</p><p>Check your connection and try again.</p>${onRetry ? '<button type="button" class="ghost sm esRetry">Try again</button>' : ''}</li>`;
           return `<li class="emptyState">${emptyArt('nothing')}<p class="esTitle">Nothing here yet</p><p>${esc(why)}</p>${mineHere && onProfile ? `<button type="button" class="ghost sm esMine">See your ${plural(yours.length, 'annotation')}</button>` : ''}${followIn ? twoWays('pSignIn') : web && !hasExt ? '<a class="ghost sm esMake" href="/install">Get the extension to publish one</a>' : ''}</li>`;
-        })(); })()}</ul>
+        })()}</ul>
         ${mode === 'profile' && !person ? `<footer class="profileFoot">${onDeleteAll && records.length ? delAllBox(records) : ''}</footer>` : ''}`;
       // Your own profile ends with Delete all and Sign out. As the first thing under your name, the red button
       // led the page, above your annotations (recording of 2026-09-25 at 04:48).
@@ -1463,58 +1530,9 @@ const AnnotationPage = (() => {
       if (esRetry) esRetry.addEventListener('click', () => { esRetry.disabled = true; esRetry.textContent = 'Loading…'; onRetry(); });
       main.querySelectorAll('.pSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
       rail.querySelectorAll('.railSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
-      // A card opens its annotation, by click or by Enter and Space, since it is a link and not a button now.
-      main.querySelectorAll('.card').forEach((c) => {
-        c.addEventListener('click', (e) => { if (!e.target.closest('.cplayBtn') && !e.target.closest('video[data-sound]')) onOpen(c.dataset.id); });
-        c.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); onOpen(c.dataset.id); } });
-      });
       main.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
       main.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; feedChoice.set(keep, { filter, sort }); draw(); }));
-      wirePreviews(main, records, getMedia);
-      // Clips and audio play right in the feed. Opening the annotation stays a click on the card.
-      // A clip plays with sound in its own picture: the preview unmutes, starts from the beginning of the clip and gets
-      // its controls. It used to open a second player under the card while the silent one went on above it.
-      const quiet = (v) => { v.muted = true; v.controls = false; v.loop = true; delete v.dataset.sound; const box = v.closest('.cthumb'); if (box) box.classList.remove('sounding'); };
-      main.querySelectorAll('.cplayBtn').forEach((b) => b.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const pv = b.closest('.cardItem').querySelector('.cpv');
-        if (pv) {
-          main.querySelectorAll('video.cpv[data-sound]').forEach((v) => { if (v !== pv) { v.pause(); quiet(v); } });
-          main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
-          if (!pv.src) {
-            const r = records.find((x) => x.id === b.dataset.id);
-            if (r && !r.item.blob && !r.item.mediaUrl && r.item.hasMedia && getMedia) { b.disabled = true; r.item.blob = await getMedia(r.id).catch(() => null); b.disabled = false; }
-            const src = r && (safeLink(r.item.mediaUrl) || (r.item.blob ? URL.createObjectURL(r.item.blob) : ''));
-            if (!src) return;
-            if (src.startsWith('blob:')) previewBlobs.push(src);
-            pv.src = src;
-          }
-          pv.dataset.sound = '1'; pv.muted = false; pv.loop = false; pv.controls = true;
-          pv.closest('.cthumb').classList.add('sounding', 'live');
-          try { pv.currentTime = 0; } catch { /* not loaded yet */ }
-          pv.play().catch(() => {});
-          return;
-        }
-        const li = b.closest('.cardItem'), open = li.querySelector('.cardPlayer');
-        main.querySelectorAll('.cardPlayer').forEach((p) => { const m = p.querySelector('video,audio'); if (m) { m.pause(); URL.revokeObjectURL(m.src); } p.remove(); });
-        main.querySelectorAll('.cplayBtn').forEach((x) => x.setAttribute('aria-expanded', 'false'));
-        if (open) return;
-        const r = records.find((x) => x.id === b.dataset.id);
-        if (!r) return;
-        // Light copies carry no clip: fetch it when you press play.
-        if (!r.item.blob && !r.item.mediaUrl && r.item.hasMedia && getMedia) { b.disabled = true; r.item.blob = await getMedia(r.id); b.disabled = false; }
-        if (!(r.item.blob || r.item.mediaUrl)) return;
-        const isA = r.item.kind === 'audio';
-        const box = document.createElement('div');
-        box.className = 'cardPlayer' + (isA ? ' audio' : '');
-        const m = document.createElement(isA ? 'audio' : 'video');
-        m.controls = true; m.autoplay = true; m.playsInline = true;
-        if (!isA && r.item.poster) m.poster = r.item.poster;
-        m.src = r.item.blob ? URL.createObjectURL(r.item.blob) : safeLink(r.item.mediaUrl);
-        box.appendChild(m);
-        li.appendChild(box);
-        b.setAttribute('aria-expanded', 'true');
-      }));
+      wireCards(main, records, { onOpen, getMedia });
       const all = main.querySelector('.allLink');
       if (all) all.addEventListener('click', onAll);
       rail.querySelectorAll('.railTag').forEach((b) => b.addEventListener('click', () => onTag && onTag(b.dataset.tag)));
@@ -1729,5 +1747,5 @@ const AnnotationPage = (() => {
     return a.text === b.text && (a.meta.url || '') === (b.meta.url || '');
   }
 
-  return { renderActivity, EDIT_MS, signInPrompt, twoWays, Folded, GMARK, XMARK, renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
+  return { cardsHtml, wireCards, renderActivity, EDIT_MS, signInPrompt, twoWays, Folded, GMARK, XMARK, renderMissing, kindLabel, sameSource, render, renderFeed, renderSide, renderBrowse, xText, xUrl, srcUrlOf, titleOf, relTime, setMe, mineCount, stopClock };
 })();

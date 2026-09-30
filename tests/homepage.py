@@ -10,7 +10,7 @@
 #   8. The ending after a take is one line with Make another, and no second yellow button.
 #   9. Mark a sentence for me marks one, for the keyboard.
 #  10. The install steps in one row.
-#  11. Yours so far: the take just made, one card a quarter row wide, no published cards; nothing shown before a take.
+#  11. Yours so far: the take just made, one card half the row wide (2026-09-30), no published cards; nothing shown before a take.
 #  12. No Home pill on the front page.
 #  13. No text under 12.5 pixels in the hero and the steps.
 #  14. Dark mode: the headline word keeps dark ink, and the paper's text keeps its own dark ink.
@@ -154,11 +154,11 @@ async def main():
     # The page is short enough now that the steps may not reach the top, so on screen is what counts.
     if not (-5 <= at <= 600) or look != '/?feed': errs.append(f'the hero buttons led elsewhere: {at}, {look}')
     if len(steps) != 3 or len(set(steps)) != 1: errs.append(f'the steps are not one row: {steps}')
-    # 11. Yours so far: the take just made is there, one card a quarter of the row wide; no published cards.
+    # 11. Yours so far: the take just made is there, one card half the row wide; no published cards.
     cards = await pg.evaluate("({ takes: [...document.querySelectorAll('.landLatest .llRow .yours .ctake')].map((x) => x.textContent), published: document.querySelectorAll('.landLatest .llRow .cardItem:not(.yours)').length, shown: !document.querySelector('.landLatest').hidden, head: document.querySelector('.landLatest h2').textContent })")
     print('11. yours so far:', cards)
     cols = await pg.evaluate("getComputedStyle(document.querySelector('.llRow')).gridTemplateColumns.split(' ').length")
-    if cols != 4: errs.append(f'the row is not four columns: {cols}')
+    if cols != 2: errs.append(f'one card is not half the row: {cols} columns')
     if cards != {'takes': ['Clip is the verb that matters.'], 'published': 0, 'shown': True, 'head': 'Yours so far'}: errs.append(f'yours so far read {cards}')
     # 13.
     small = await pg.evaluate("""[...document.querySelectorAll('.landHero *, .landGet *')].filter((e) => [...e.childNodes].some((n) => n.nodeType === 3 && n.nodeValue.trim()) && e.offsetParent && parseFloat(getComputedStyle(e).fontSize) < 12.5).map((e) => e.className + ' ' + getComputedStyle(e).fontSize)""")

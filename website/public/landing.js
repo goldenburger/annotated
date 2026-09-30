@@ -73,17 +73,11 @@ var Landing = (() => {
     // Tabs as tabs: arrows move between them, and choosing one sets the headline's word for good.
     const tabs = [...el.querySelectorAll('.tryTab')];
     const tryBox = el.querySelector('.heroTry');
-    // A real resize (not the one `pick` sends) lets go of the held height, which was in pixels for the old width.
-    let heldW = innerWidth;
-    addEventListener('resize', (e) => { if (e.isTrusted && innerWidth !== heldW) { heldW = innerWidth; tryBox.style.minHeight = ''; } });
     const pick = (i, focus) => {
-      const cur = panels.find((x) => !x.hidden), held = cur ? cur.style.minHeight : '';
-      if (cur) cur.style.minHeight = '';
-      const before = cur && cur.querySelector('.tiTake:not([hidden]), .stTake:not([hidden])') ? 0 : tryBox.offsetHeight;
-      if (cur) cur.style.minHeight = held;
       tabs.forEach((b, j) => { b.setAttribute('aria-selected', String(i === j)); b.tabIndex = i === j ? 0 : -1; panels[j].hidden = i !== j; });
-      // Grows to a taller tab, and keeps that height when a shorter one is chosen (web.css, .heroTry).
-      tryBox.style.minHeight = Math.max(before, parseFloat(tryBox.style.minHeight) || 0) + 'px';
+      // As tall as the tab shown, eased there by `smooth`. It used to keep the tallest tab's height, and the Post on X tab
+      // after the YouTube clip sat over 150 pixels of blank paper (David, 2026-09-30).
+      tryBox.style.minHeight = '';
       if (focus) tabs[i].focus();
       cyc.set(TABS[i].word);
       document.dispatchEvent(new CustomEvent('annotated-tryit-touched'));
@@ -193,6 +187,14 @@ var Landing = (() => {
   // The clip's frames are fetched as the page opens, so a new card shows its frame at once. It was a black box for
   // half a second while the picture of frames arrived (recording of 2026-09-25 at 16:45, 2:24). Only the front
   // page asks for it (in `mount`); the feed, profiles and annotations load this file too and never show it.
+  // Calls back once the video has put a frame on screen: at its next painted frame where the browser says so, otherwise
+  // once its time has moved on.
+  function paintedFrame(v, cb) {
+    if (typeof v.requestVideoFrameCallback === 'function') { v.requestVideoFrameCallback(() => cb()); return; }
+    const t0 = v.currentTime;
+    const tu = () => { if (v.currentTime > t0 + .04) { v.removeEventListener('timeupdate', tu); cb(); } };
+    v.addEventListener('timeupdate', tu);
+  }
   function loopClip(frame, src, a, z, from = a) {
     const v = document.createElement('video');
     v.className = 'yClip'; v.muted = true; v.playsInline = true; v.preload = 'none';
@@ -205,9 +207,12 @@ var Landing = (() => {
     v.addEventListener('ended', () => { v.currentTime = a; v.play().catch(() => {}); });
     // The still frame shows until the video is really playing, and again while it jumps back to the start or
     // waits for data. Revealed early it showed black in Edge and white in Firefox (recording of 2026-09-25 at 04:48).
+    // Revealed only once a frame of it has really been painted: 'playing' can come before the first frame reaches the
+    // screen, and the card showed a black box for a second (recording of 2026-09-30 at 02:36, 0:58).
     const hide = () => frame.classList.remove('playing');
-    v.addEventListener('playing', () => frame.classList.add('playing'));
-    v.addEventListener('seeked', () => { if (!v.paused) frame.classList.add('playing'); });
+    const show = () => paintedFrame(v, () => { if (!v.paused && !v.seeking) frame.classList.add('playing'); });
+    v.addEventListener('playing', show);
+    v.addEventListener('seeked', () => { if (!v.paused) show(); });
     ['seeking', 'waiting', 'pause', 'emptied'].forEach((n) => v.addEventListener(n, hide));
     if (still()) return;
     const go = () => { if (v.readyState < 1) { v.addEventListener('loadedmetadata', () => { v.currentTime = from; v.play().catch(() => {}); }, { once: true }); v.load(); } else v.play().catch(() => {}); };
@@ -385,6 +390,8 @@ var Landing = (() => {
       if (get) get.hidden = installed() || !row.querySelector('.yours:not(.example)');
       while (row.children.length > 4) row.lastElementChild.remove();
       row.style.setProperty('--n', Math.max(1, row.children.length));
+      // Two to four columns: one card alone takes half the row, where a quarter left a clip a thumbnail (David, 2026-09-30).
+      row.style.setProperty('--cols', String(Math.min(4, Math.max(2, row.children.length))));
       // Folded away and back smoothly, never just gone (only the first drawing is immediate).
       if (drawn) ease.fold(!row.children.length); else box.hidden = !row.children.length;
       drawn = true;
@@ -557,6 +564,42 @@ var Landing = (() => {
     return b;
   }
 
+  // Real annotations, published with the extension, so the page is not only examples (comparison with the other
+  // entries, 2026-09-29). Robo Taxi's, at David's word (2026-09-30), the account the demo was made with. Drawn with the
+  // feed's own cards, a mix of kinds, one per source, the tagged ones first. Hidden until they arrive, and for good
+  // with fewer than three or no database.
+  const REAL_AUTHOR = 'ddf86e69-51d6-4226-a9ce-839829be9be5';
+  const srcOf = (it) => `${it.kind}:${it.videoId || it.url || (it.meta && it.meta.url) || ''}`;
+  // Chosen by David (2026-09-30), in this order; any that are gone are made up from the rule below.
+  const FEATURED = ['if-90-of-ai-runs-free-on-your-own-comput-r7jd', 'delaying-because-the-car-will-actually-n-fktn', 'same-incident-ajeya-cotra-walked-through-x6yp',
+    'the-same-line-as-dario-s-post-worried-ab-lu71', 'dario-s-reply-to-jensen-s-letter-same-go-dlef', 'three-arguments-in-one-line-safety-is-th-85fa'];
+  function pickReal(records, n = 6) {
+    const seen = new Set(), out = [];
+    FEATURED.forEach((id) => { const r = records.find((x) => x && x.id === id && x.item); if (r && out.length < n) { seen.add(srcOf(r.item)); out.push(r); } });
+    records.filter((r) => r && r.item && r.take && String(r.take.text || '').trim().length >= 12)
+      .sort((a, b) => (Number(!!b.take.tag) - Number(!!a.take.tag)) || (b.created - a.created))
+      .forEach((r) => { const k = srcOf(r.item); if (out.length < n && !seen.has(k) && !out.includes(r)) { seen.add(k); out.push(r); } });
+    return out;
+  }
+  function realRow(root) {
+    const box = document.createElement('section');
+    box.className = 'landReal'; box.hidden = true;
+    box.innerHTML = '<div class="llHead"><h2>Latest on annotated</h2>' + (typeof PaperDeco !== 'undefined' ? PaperDeco.rule() : '') + '<p class="llNote">Published with the extension. <a class="link" href="/?feed">See the feed</a></p></div><ul class="cards lrRow"></ul>';
+    root.appendChild(box);
+    if (typeof Cloud === 'undefined' || typeof AnnotationPage === 'undefined' || !AnnotationPage.cardsHtml) return box;
+    const timeout = new Promise((r) => setTimeout(() => r(null), 8000));
+    Promise.race([Cloud.list({ authorId: REAL_AUTHOR, limit: 20 }).catch(() => null), timeout]).then((got) => {
+      const list = pickReal(got || []);
+      if (list.length < 3) return;
+      const row = box.querySelector('.lrRow');
+      row.innerHTML = AnnotationPage.cardsHtml(list, { mode: 'home' });
+      row.style.setProperty('--n', String(list.length));
+      box.hidden = false;
+      AnnotationPage.wireCards(row, list, { onOpen: (id) => { const r = list.find((x) => x.id === id); if (r) location.href = `/@${encodeURIComponent((r.author && r.author.handle) || 'annotated')}/${encodeURIComponent(id)}`; } });
+    });
+    return box;
+  }
+
   // The real extension, in Chrome. Nothing else on the page showed the panel the brief asks for (comparison with the
   // other entries, 2026-09-29), so 0:03 to 0:30 of the submitted demo plays here silently, in a browser frame, while
   // it is in sight. With reduced motion it is the still with controls.
@@ -590,6 +633,7 @@ var Landing = (() => {
     // comes after (audit of 2026-09-24: on a laptop the row was below the fold and the planes flew off screen).
     hero(main);
     const l = latest(main);
+    realRow(main);
     inChrome(main);
     // What else the extension does, shown working, before the steps to get it (David, 2026-09-25).
     if (typeof Features !== 'undefined') Features.mount(main);
@@ -633,5 +677,5 @@ var Landing = (() => {
     watchInstalled(root);
   }
 
-  return { mount, mountInstall, slimLine, TABS };
+  return { mount, mountInstall, slimLine, TABS, pickReal };
 })();

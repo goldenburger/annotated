@@ -492,9 +492,8 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stCardMedia { display: block; width: 100%; margin: 8px 0 4px; border-radius: 6px; }
 .sceneTry video.stCardMedia { background: #0E0F12; aspect-ratio: 16 / 9; }
 
-/* The tabs share one space. It starts as tall as the tab shown and grows, never shrinks, when a taller one is chosen
-   (landing.js `pick`), so the page below moves at most once per tab and never jumps back. Holding the tallest from
-   the start left about 55 pixels of empty paper under the brief (comparison with the other entries, 2026-09-29). */
+/* The tabs share one space, as tall as the tab shown, the page below easing to it (landing.js `smooth`). Holding the
+   tallest tab's height left blank paper under a shorter tab (2026-09-29 and 2026-09-30). */
 .heroTry { display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; min-width: 0; }
 .heroTry > .tryTabs { min-width: 0; }
 .heroTry > .tryTabs { grid-row: 1; }
@@ -551,7 +550,7 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .llRow .yours .yEx { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #F2EEE2; font: 700 11px/1.4 var(--sans); letter-spacing: .06em; text-transform: uppercase; color: #5B616E; }
 .llRow .yours.example .card { border-style: dashed; }
 /* Your cards keep a quarter of the row each, however many there are, so one alone is a card, not a banner. */
-@media (min-width: 1061px) { .llRow { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1061px) { .llRow { grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); } }
 /* The example's pen starts just off the paper's right edge; on a phone that is off the window, so it is clipped
    to the try-it's width rather than widening the page while it glides in. */
 .heroTry { overflow-x: clip; }
@@ -1000,3 +999,33 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .landGet .giArt { position: absolute; right: 34px; bottom: 16px; pointer-events: none; }
 .landGet .giArt .pdDoodle { height: 80px; opacity: .85; }
 @media (max-width: 900px) { .landGet .giArt { display: none; } }
+
+/* ---------- 2.41: real annotations on the home page, and a fuller, larger page (comparison with the other entries,
+   2026-09-30: ours read as sparse and faint beside theirs). ---------- */
+.landReal { margin: 10px 0 34px; padding-top: 22px; border-top: 1px solid var(--rule); }
+.landReal[hidden] { display: none; }
+.landReal .llNote .link { margin-left: 4px; }
+.landReal .cards.lrRow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px 26px !important; align-items: start; }
+@media (max-width: 1060px) { .landReal .cards.lrRow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 620px) { .landReal .cards.lrRow { grid-template-columns: minmax(0, 1fr); } }
+.lrRow .card.mf .ctake { font-size: 19px; }
+.lrRow .cthumb.cwide:not(.caudio) img:not(.top) { height: 190px; object-fit: cover; }
+.lrRow .cthumb.cwide img.top { max-height: 230px; }
+/* Wider, and the small print one step larger, on the front page only. */
+.landMain { max-width: 1280px; }
+.land { --t-s: 15px; --t-m: 16px; --t-l: 18px; }
+.lcCopy p, .ftCopy p { font-size: 16px; color: var(--ink-2); }
+.llNote { font-size: 14px; }
+.landHero .heroH { font-size: clamp(38px, 4.8vw, 62px); }
+.ftChip { font-size: 13.5px; padding: 7px 12px; }
+@media (min-width: 1700px) {
+  .landMain { max-width: 1480px; }
+  .land { --t-s: 16px; --t-m: 17px; --t-l: 20px; }
+  .lcCopy p, .ftCopy p { font-size: 17.5px; }
+  .ftCopy h3 { font-size: 26px; }
+  .landLatest .llHead h2, .landReal .llHead h2, .landChrome .lcH, .landFeatures .ftH, .landGet .giH { font-size: 30px; }
+}
+/* A card's picture fills the card: the wrapper sized to its text, so a clip stayed 352 pixels in a card of 613. */
+.llRow .yours .cbody, .llRow .yours .yMedia, .llRow .yours .csource { align-self: stretch; width: 100%; box-sizing: border-box; }
+.llRow .yours .yMedia { display: block; }
+.llRow .yours .csource { display: flex; }

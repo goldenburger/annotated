@@ -38,8 +38,8 @@ async def main():
     if st['paused'] or st['t'] <= 0 or not st['muted'] or st['src'] != 'panel-demo.mp4': errs.append(f'the demo did not play muted in sight: {st}')
     await pg.evaluate("scrollTo(0, 0)"); await asyncio.sleep(1)
     if not await pg.evaluate("document.querySelector('.lcVideo').paused"): errs.append('the demo kept playing out of sight')
-    # 5. The hero is as tall as the tab shown, so the next section starts on the first screen of a laptop, and choosing
-    #    a taller tab grows it once without shrinking back when a shorter one is chosen again.
+    # 5. The hero is as tall as the tab shown, so the next section starts on the first screen of a laptop, and a shorter
+    #    tab chosen after a taller one takes its own height back (2026-09-30: holding the tallest left blank paper).
     await pg.goto('https://annotated-app.netlify.app/?preview=visitor&noplanes'); await asyncio.sleep(3)
     top = await pg.evaluate("Math.round(document.querySelector('.landHero').nextElementSibling ? document.querySelector('.landHero').getBoundingClientRect().bottom : 0)")
     hs = []
@@ -48,7 +48,7 @@ async def main():
       hs.append(await pg.evaluate("Math.round(document.querySelector('.heroTry').getBoundingClientRect().height)"))
     print('5. hero ends at', top, '| try-it heights by tab:', hs)
     if top > 560: errs.append(f'the hero runs to {top} pixels, leaving the next section below the fold')
-    if not (hs[1] > hs[0] and hs[2] == hs[1] and hs[3] == hs[1]): errs.append(f'the try-it did not grow once and hold: {hs}')
+    if not (hs[1] > hs[0] and abs(hs[2] - hs[0]) <= 2): errs.append(f'the try-it did not follow the tab shown: {hs}')
     await c.close()
     # 3.
     c = await b.new_context(viewport={'width': 1280, 'height': 800}, reduced_motion='reduce')
