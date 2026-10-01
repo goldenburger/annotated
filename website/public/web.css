@@ -795,8 +795,8 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 .sceneTry .stEmbed .link { font-size: 12.5px; justify-self: start; }
 /* The bar under the paper sits on the page, not the paper, so in dark mode it takes the page's light ink. Its
    hint and links were grey on near black (UX audit of 2026-09-25). */
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .heroTry .tiBar, :root:not([data-theme="light"]) .heroTry .stBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; } }
-:root[data-theme="dark"] .heroTry .tiBar, :root[data-theme="dark"] .heroTry .stBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .heroTry .tiBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; } }
+:root[data-theme="dark"] .heroTry .tiBar { --ink: #ECEEF2; --ink-2: #C9CCD3; --ink-3: #A3A9B5; }
 /* The row of smaller features arrives as a small flock (features.js): hidden until it comes into view, each chip
    waiting unseen until its plane has opened, then popping into place. */
 /* Waiting chips are faint rather than gone, so the row never reads as missing (recording of 2026-09-25 at 23:23). */
@@ -1033,3 +1033,10 @@ mark.annotated-hl.tiPool::before { filter: saturate(1.25) brightness(.94); trans
 /* The feed's left column: "Annotate something" with the extension, the way to get it without. */
 html:not([data-annotated-installed="1"]) .lside .lsHave, html:not([data-annotated-installed="1"]) .lside .lsTip { display: none; }
 html[data-annotated-installed="1"] .lside .lsGet { display: none; }
+/* Dark mode pass (2026-09-30). A mark whose band is shorter than its letters loses their tops on a dark page, since the
+   letters keep the highlighter's dark ink: the Features examples' quotes. The band covers the whole line there. */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ftDemo mark { background: var(--hi); padding: 1px 0; } }
+:root[data-theme="dark"] .ftDemo mark { background: var(--hi); padding: 1px 0; }
+/* The loading outline's bars were cream in dark mode, bright blocks before every page (dark mode pass, 2026-09-30). */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .skel i { background-image: linear-gradient(90deg, #22262E 0%, #2B3039 50%, #22262E 100%); } }
+:root[data-theme="dark"] .skel i { background-image: linear-gradient(90deg, #22262E 0%, #2B3039 50%, #22262E 100%); }

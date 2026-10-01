@@ -1718,6 +1718,14 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   `onProfile` to its author. Signed out it is Folded and Your profile; the extension's pages have no Activity (the panel
   has it); in the bar on narrower screens it is left out, the header's bell and You being right there. The column is
   now taller than a short window and, like the rail, scrolls until its foot shows and stays.
+- **2.42.4, a dark mode pass** (`tests/darkpass.py`; David, 2026-09-30: "dark mode setting in web browsers makes some
+  windows look weird"). Every page of the site in dark mode, signed in and out, desktop and phone, and the extension's
+  panel and pages. Fixed: the wordmark's swipe covers its letters in dark mode (it was 84% of the word, and the tops of
+  the dark letters vanished into the page); the Features examples' quotes are marked the full height of their letters;
+  the clip, podcast and post tabs' bars keep the paper's dark ink (the light-ink rule for the brief's bar, which sits on
+  the dark page, also caught them after 2.37 put them inside their paper, so they read faint on cream); the loading
+  outline's bars are dark, not cream. Seen and left: the link card under "It lands as a page" stays cream, being a
+  picture of the og image.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

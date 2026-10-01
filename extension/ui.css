@@ -2575,3 +2575,8 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 .lside .lsBadge[hidden] { display: none; }
 /* In the bar (narrower screens) Yours is left out: the header's bell and You are right there. */
 @container (max-width: 1289px) { .lside .lsYours { display: none !important; } }
+
+/* Dark mode pass (2026-09-30): the wordmark's swipe was 84% of the word's height, and the tops of its dark letters
+   vanished into a dark page ("annotatea"). In dark mode it covers the letters. */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .wordmark .wmWord svg { top: 50%; height: 118%; } }
+:root[data-theme="dark"] .wordmark .wmWord svg { top: 50%; height: 118%; }
