@@ -1726,6 +1726,11 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   the dark page, also caught them after 2.37 put them inside their paper, so they read faint on cream); the loading
   outline's bars are dark, not cream. Seen and left: the link card under "It lands as a page" stays cream, being a
   picture of the og image.
+- **2.42.5, search first, newest first** (`tests/leftcol.py` part 8; David, 2026-09-30). The search is the first sheet of
+  the left column again, above Yours (2.42.3 had put Yours above it). The feed opens newest first on every tab, For you
+  included: Sort sits under Which annotations on For you too, with Newest (the default), Most discussed and Best for you
+  (the ranked order For you used to force, `sort === 'best'`), and the heading says which ("For you, newest first.").
+  The panel's own Home keeps For you ranked.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

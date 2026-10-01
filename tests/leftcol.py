@@ -10,7 +10,7 @@
 #   7. A profile has the column too, without For you, Following and Everyone.
 #   8. The UX pass: Most discussed changes the heading's words; a search the kind hides says so and offers All; a line
 #      above the list says what is shown, with Show everything; the keyboard stays on its group after a choice; / goes to
-#      the search; the tag you are on is marked and pressed again shows everything; For you says it is ranked; the
+#      the search; the tag you are on is marked and pressed again shows everything; For you opens newest first with Best for you to choose; the search is the first sheet; the
 #      laptop bar is two rows.
 #   9. The second pass: back from an annotation keeps the search, the order, the kind and the place in the list; quotes and
 #      accents do not stop a match.
@@ -142,7 +142,11 @@ async def main():
     tf = await pg.evaluate("({ inTabs: !!document.activeElement.closest('.feedTabs'), tab: document.querySelector('.feedTabs input:checked').value, ranked: !!document.querySelector('.lsRanked') })")
     print('   keyboard on the tabs:', tf)
     if not tf['inTabs']: errs.append(f'the keyboard lost the tabs after a choice: {tf}')
-    if tf['tab'] == 'foryou' and not tf['ranked']: errs.append('For you did not say it is ranked')
+    # From 2.42.5 For you opens newest first, with Best for you as an order to choose.
+    fy = await pg.evaluate("({ sort: (document.querySelector('.feedSort input:checked') || {}).value, best: !!document.querySelector('.feedSort input[value=best]'), first: (document.querySelector('.lside .lsSheet') || {}).className })")
+    print('    For you:', fy)
+    if tf['tab'] == 'foryou' and (fy['sort'] != 'new' or not fy['best']): errs.append(f'For you does not open newest first with Best for you to choose: {fy}')
+    if 'lsFind' not in (fy['first'] or ''): errs.append(f'the search is not the first sheet of the column: {fy}')
     await pg.evaluate("document.activeElement.blur()"); await pg.keyboard.press('/'); await asyncio.sleep(.2)
     sl = await pg.evaluate("document.activeElement.classList.contains('lsQ')")
     if not sl: errs.append('/ did not go to the search')

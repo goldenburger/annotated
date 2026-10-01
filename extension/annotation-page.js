@@ -1534,8 +1534,8 @@ const AnnotationPage = (() => {
     const side = document.createElement('aside');
     side.className = 'lside railcard'; side.setAttribute('aria-label', 'What the feed shows');
     const onWeb = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
-    side.innerHTML = yoursHtml({ activity: !!onActivity, current: mode === 'profile' && !person ? 'you' : null }) + `<section class="railcard lsSheet lsFind"><label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search annotations (press /)" aria-label="Search these annotations: takes, quotes, sources and people" autocomplete="off"></label></section>
-      <div class="lsBar feedBar"></div><section class="railcard lsSheet lsTags"></section>
+    side.innerHTML = `<section class="railcard lsSheet lsFind"><label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search annotations (press /)" aria-label="Search these annotations: takes, quotes, sources and people" autocomplete="off"></label></section>
+      ${yoursHtml({ activity: !!onActivity, current: mode === 'profile' && !person ? 'you' : null })}<div class="lsBar feedBar"></div><section class="railcard lsSheet lsTags"></section>
       <div class="lsMake">${onWeb ? '<a class="primary lsGet" href="/install">Get the extension to annotate</a>' : ''}<button type="button" class="primary lsHave" aria-expanded="false">Annotate something</button>
         <p class="note lsTip" hidden>Open any article, video, podcast or post on X, then press the annotated plane in your toolbar (or Alt+Shift+K).</p></div>`;
     main.parentElement.insertBefore(side, main);
@@ -1558,7 +1558,9 @@ const AnnotationPage = (() => {
       // A choice made from the keyboard keeps the keyboard on its group after the redraw (UX pass: focus fell to the page).
       const had = side.contains(document.activeElement) && document.activeElement.name ? document.activeElement.name : null;
       // "For you" arrives already ranked, so its order is kept.
-      const ranked = social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag;
+      const onForYou = !!(social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag);
+      if (sort === 'best' && !onForYou) sort = 'new';
+      const ranked = onForYou && sort === 'best';
       const folded = Folded.ids();
       const list = records.filter((r) => (!tag || r.take.tag === tag) && hit(r) && (filter === 'all' || (filter === 'folded' ? folded.includes(r.id) : r.item.kind === filter)));
       if (!ranked) list.sort((a, b) => (sort === 'hot' ? buzz(b) - buzz(a) : 0) || b.created - a.created);
@@ -1579,10 +1581,10 @@ const AnnotationPage = (() => {
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
             ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${lsIc(k)}${l}</span></label>`).join('')}
           </div>` : ''}
-          ${ranked ? '<p class="note lsRanked">Ranked for you, not by time.</p>' : ''}
-          <div class="feedSortRow" ${ranked ? 'hidden' : ''}><div class="feedSort seg" role="radiogroup" aria-label="Sort">
+          <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">
             <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>${lsIc('new')}Newest</span></label>
             <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>${lsIc('hot')}Most discussed</span></label>
+            ${onForYou ? `<label><input type="radio" name="fs" value="best" ${sort === 'best' ? 'checked' : ''}><span>${lsIc('foryou')}Best for you</span></label>` : ''}
           </div></div></section>
           <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed && filter !== k ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${lsIc(k)}${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
@@ -1649,7 +1651,9 @@ const AnnotationPage = (() => {
       if (esRetry) esRetry.addEventListener('click', () => { esRetry.disabled = true; esRetry.textContent = 'Loading…'; onRetry(); });
       main.querySelectorAll('.pSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
       rail.querySelectorAll('.railSignIn').forEach((b) => b.addEventListener('click', () => onSignIn(b.dataset.provider)));
-      if (sort === 'hot' && !ranked) { const st = main.querySelector('.feedHead .stats'); if (st) st.textContent = st.textContent.replace('newest first', 'most discussed first'); }
+      { const st = main.querySelector('.feedHead .stats');
+        if (st && onForYou) st.textContent = sort === 'best' ? 'Picked from who you follow, what you reply to and react to, and what you annotate. Each one says why.' : sort === 'hot' ? 'For you, most discussed first. Each one says why.' : 'For you, newest first. Each one says why.';
+        else if (st && sort === 'hot') st.textContent = st.textContent.replace('newest first', 'most discussed first'); }
       if (had) { const f = side.querySelector(`input[name="${had}"]:checked`); if (f) f.focus(); }
       side.querySelectorAll('.lsYours .lsRow[data-go="folded"]').forEach((b) => { if (filter === 'folded') b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
       setYours({});
