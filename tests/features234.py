@@ -1,7 +1,7 @@
 # What 2.34.0 added after watching the other entries (recordings of 2026-09-28 at 21:38 and 22:04).
 #   1. A clip or podcast card shows the moment on its picture, "3:09–3:26", with the length in its tooltip.
 #   2. The feed carries the first reply by someone else as one line under the card, read from the list itself.
-#   3. Folding the corner of an annotation keeps it; the feed then offers Folded with the count, and it lists it.
+#   3. Folding the corner of an annotation keeps it; Folded (in Yours, at the top of the left column) counts it and lists it.
 #   4. Copying a link sends a tiny plane off the button.
 #   5. The home page's hero has Watch the demo and a plain trust line, and on a wide screen two pencil notes sit
 #      in the margins, the try-it's going once the paper is touched.
@@ -65,19 +65,20 @@ async def ext_part(p, errs):
     localStorage.removeItem('annotated-folded');
     const rs = await Cloud.list();
     const d = document.createElement('div'); document.body.appendChild(d);
-    const before = () => { AnnotationPage.renderFeed(d, { records: rs, mode: 'home', onOpen() {}, onTag() {}, onAll() {} }); return [...d.querySelectorAll('.feedFilter input')].map((i) => i.value); };
+    // Folded lives in Yours at the top of the left column from 2.42.3, always there, with its count once there is one.
+    const row = () => d.querySelector('.lsYours .lsRow[data-go="folded"]');
+    const before = () => { AnnotationPage.renderFeed(d, { records: rs, mode: 'home', onOpen() {}, onTag() {}, onAll() {} }); const r = row(); return r ? r.textContent.replace(/\\s+/g, ' ').trim() : ''; };
     const had = before();
     AnnotationPage.Folded.toggle(id);
     const now = before();
-    const lab = [...d.querySelectorAll('.feedFilter label')].find((l) => l.querySelector('input').value === 'folded');
-    const text = lab ? lab.textContent.replace(/\\s+/g, ' ').trim() : '';
-    lab && lab.querySelector('input').click();
+    const text = now;
+    row() && row().click();
     await new Promise((r) => setTimeout(r, 200));
     const listed = [...d.querySelectorAll('.cardItem .card')].map((c) => c.dataset.id);
     d.remove(); return { had, now, text, listed }; }""", 'pod1')
   print('Folded:', folded)
   if 'folded' in folded['had']: errs.append('Folded was offered with nothing folded')
-  if 'folded' not in folded['now'] or folded['text'] != 'Folded 1': errs.append(f"Folded is not offered with its count: {folded}")
+  if folded['had'].replace(' ', '') != 'Folded' or folded['text'].replace(' ', '') != 'Folded1': errs.append(f"Folded does not show its count: {folded}")
   if folded['listed'] != ['pod1']: errs.append(f"Folded does not list the folded annotation: {folded['listed']}")
 
   # 3 and 4 on the annotation's own page: the corner folds, and Copy link sends a plane.

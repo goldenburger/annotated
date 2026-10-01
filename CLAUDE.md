@@ -1709,6 +1709,15 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   counts what you have published (`Cloud.countBy`, two seconds at most, the larger of that and the copies here): beside
   someone else's annotation with nothing of yours kept on this computer it said "0 annotations" (`tests/extcount.py`).
   The pencil smudge in the margins moves out with the planes beside three columns.
+- **2.42.3, Yours at the top of the left column** (`tests/leftcol.py` part 12, `tests/features234.py` part 3; David,
+  2026-09-30, after X's nav). One sheet above the search: Activity with how many are new (an ink tab; from the bell's
+  own request in `site.js`, `AnnotationPage.setYours`), Folded (always there, with its count; it was offered under Show
+  only once something was folded, and is no longer repeated there) and Your profile with your count. The page you are
+  on is marked as the column's choices are. Each works from the feed (Folded filters in place) and from other pages
+  (Folded opens the feed on it, `feedOn`). "Your profile" has its own hook (`onYou`), since an annotation's page sends
+  `onProfile` to its author. Signed out it is Folded and Your profile; the extension's pages have no Activity (the panel
+  has it); in the bar on narrower screens it is left out, the header's bell and You being right there. The column is
+  now taller than a short window and, like the rail, scrolls until its foot shows and stays.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

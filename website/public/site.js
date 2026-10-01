@@ -167,6 +167,10 @@ function matchExtension(me) {
     onProfile: () => { if (me && me.handle) location.href = '/@' + me.handle; else signIn(); },
     onTag: (t) => { location.href = '/?tag=' + encodeURIComponent(t); },
     onOpen: (id) => { location.href = linkFor(id); },
+    // Yours in the left column: your own profile (an annotation's page sends onProfile to its author), and Activity when
+    // signed in.
+    onYou: () => { if (me && me.handle) location.href = '/@' + me.handle; else signIn(); },
+    onActivity: me ? () => { location.href = '/?activity'; } : null,
   };
 
   // Signed out: a sign-in button in the header. Signed in: sign out lives on your own profile.
@@ -182,7 +186,7 @@ function matchExtension(me) {
     if (query.has('activity')) return;
     const since = lastSeen() || Date.now() - 30 * 86400000;
     actAsked = actAsked || Cloud.activity(since).catch(() => []);
-    actAsked.then((items) => { const d = page.querySelector('.navAct .actDot'); if (d) d.hidden = !items.length; if (items.length) page.querySelector('.navAct').setAttribute('aria-label', `Activity, ${items.length} new`); });
+    actAsked.then((items) => { if (AnnotationPage.setYours) AnnotationPage.setYours({ activity: items.length }); const d = page.querySelector('.navAct .actDot'); if (d) d.hidden = !items.length; if (items.length) page.querySelector('.navAct').setAttribute('aria-label', `Activity, ${items.length} new`); });
   }
   async function activityPage() {
     document.title = 'Activity | annotated';

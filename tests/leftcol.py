@@ -16,6 +16,8 @@
 #      accents do not stop a match.
 #  10. The column is separate torn sheets with a gap between, as the rail is, and the chosen row is bold on shaded paper with
 #      its icon's chip turned to ink, not the button's yellow (David, 2026-09-30: it read as a button). Narrower, the bar is one sheet.
+#  12. Yours at the top of the column: Activity with how many are new, Folded, your profile with your count; each goes
+#      where it says, from the feed and from someone else's annotation, and the page you are on is marked.
 #  11. An annotation's page and Activity have the column too, as ways into the feed: a kind opens the feed on that kind,
 #      a search and Enter opens it searched. Narrower than three columns it is not there and the page is as it was.
 import asyncio, json
@@ -45,7 +47,7 @@ async def main():
     side2, rail2 = await pg.evaluate(BOX, '.lside'), await pg.evaluate(BOX, '.rail')
     print('   scrolled: side', side2, 'rail', rail2)
     # In view: under the header, or, taller than the window, with its foot in view (as the rail does).
-    if not (60 <= side2['t'] <= 100 or (0 <= side2['t'] < 100 and side2['b'] <= 700)): errs.append(f'the controls did not stay in view: {side2}')
+    if not (60 <= side2['t'] <= 100 or (side2['t'] < 100 and 560 <= side2['b'] <= 702)): errs.append(f'the controls did not stay in view: {side2}')
     if rail2['b'] < 200 or rail2['t'] > 100 or rail2['b'] > 700 + 2: errs.append(f'the rail did not stay in view with its foot reachable: {rail2}')
     tags = await pg.evaluate("({ side: document.querySelectorAll('.lside .railTag').length, railShown: [...document.querySelectorAll('.rail .railTagsCard')].some((x) => x.offsetParent) })")
     print('3. your tags:', tags)
@@ -121,7 +123,7 @@ async def main():
     print('   result line:', line)
     if 'matching' not in line or 'Show everything' not in line: errs.append(f'no line says what is shown: {line!r}')
     await pg.fill('.lsQ', ''); await asyncio.sleep(.5)
-    await pg.click('.feedFilter input[value=folded]', force=True); await asyncio.sleep(.4)
+    await pg.click('.lsYours .lsRow[data-go=folded]'); await asyncio.sleep(.4)
     await pg.fill('.lsQ', 'buses'); await asyncio.sleep(.6)
     hid = await pg.evaluate("document.querySelector('.cards').innerText")
     print('   folded and "buses":', hid.replace(chr(10), ' | ')[:120])
@@ -225,6 +227,34 @@ async def main():
     print('    Activity:', act)
     if abs(act['off']) > 2 or abs(act['short']) > 2: errs.append(f'the Activity sheet does not fill its column: {act}')
     if not act['rail']: errs.append(f'the Activity page has an empty rail: {act}')
+    await c.close()
+    # 12.
+    c = await ctx(b, 1440, 900)
+    await c.add_init_script(f"try{{localStorage.setItem('annotated-folded', JSON.stringify([{json.dumps(W.A_SAW['id'])}]))}}catch(e){{}}")
+    pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))
+    Y = "[...document.querySelectorAll('.lsYours .lsRow')].map((r) => r.innerText.replace(/\\s+/g, ' ').trim() + (r.hasAttribute('aria-current') ? ' [here]' : ''))"
+    await pg.goto(B + '/?feed&noplanes'); await asyncio.sleep(4)
+    rows = await pg.evaluate(Y)
+    print('12. Yours on the feed:', rows)
+    if rows != ['Activity 4', 'Folded 1', 'Your profile 2']: errs.append(f'Yours does not read Activity with its new, Folded and your profile with counts: {rows}')
+    await pg.goto(f'{B}/@sawyer/{W.A_SAW["id"]}?noplanes'); await asyncio.sleep(4)
+    await pg.click('.lsYours .lsRow[data-go=you]'); await asyncio.sleep(3)
+    here = await pg.evaluate(Y)
+    print('    your profile from their annotation:', pg.url.split('/')[-1], here)
+    if '/@davidw' not in pg.url or 'Your profile 2 [here]' not in here: errs.append(f'Your profile did not open yours, marked: {pg.url} {here}')
+    await pg.click('.lsYours .lsRow[data-go=folded]'); await asyncio.sleep(3.5)
+    fk = await pg.evaluate("({ q: location.search, n: document.querySelectorAll('.cards .card.mf').length, here: !!document.querySelector('.lsYours .lsRow[data-go=folded][aria-current]') })")
+    print('    Folded from a profile:', fk)
+    if 'feed' not in fk['q'] or fk['n'] != 1 or not fk['here']: errs.append(f'Folded did not open the feed on what you folded: {fk}')
+    await pg.click('.lsYours .lsRow[data-go=act]'); await asyncio.sleep(3)
+    if 'activity' not in pg.url or 'Activity [here]' not in await pg.evaluate(Y): errs.append(f'Activity did not open, marked: {pg.url}')
+    await c.close()
+    c = await ctx(b, 1440, 900, signed=False)
+    pg = await c.new_page()
+    await pg.goto(B + '/?feed&noplanes'); await asyncio.sleep(4)
+    out = await pg.evaluate(Y)
+    print('    signed out:', out)
+    if out != ['Folded', 'Your profile']: errs.append(f'signed out, Yours is not Folded and Your profile: {out}')
     await c.close()
     c = await ctx(b, 1180, 900)
     pg = await c.new_page(); pg.on('pageerror', lambda e: errs.append('PAGE ' + str(e)))

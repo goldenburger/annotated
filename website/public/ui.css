@@ -2558,3 +2558,20 @@ dialog#annotated-claim::before, .menu::before, .emptyState::before, .browseEmpty
 @media (min-width: 1930px) { body:has(.lside) .pdDesk .pdStainL { left: max(18px, calc(50vw - 930px)); } body:has(.lside) .pdDesk .pdStainR { right: max(18px, calc(50vw - 930px)); } }
 /* In the bar the icons are left out: with them its choices wrapped to a third row (145 pixels, it was 106). */
 @container (max-width: 1289px) { .lside .lsIc { display: none; } }
+
+/* 2.42.3: Yours, at the top of the left column (after X's nav, David, 2026-09-30): Activity with how many are new,
+   Folded, your profile. Rows like the column's choices, the page you are on marked the same way (its chip in ink). */
+.lside .lsYours .lsRow { all: unset; box-sizing: border-box; display: block; width: 100%; cursor: pointer; }
+.lside .lsYours .lsRow > span { display: flex; align-items: center; gap: 9px; padding: 5px 8px 5px 5px; border-bottom: 1px solid color-mix(in srgb, var(--rule) 70%, transparent); font: 500 var(--t-s)/1.2 var(--sans); color: var(--ink-2); }
+.lside .lsYours .lsRow:last-child > span { border-bottom: 0; }
+.lside .lsYours .lsRow .num { margin-left: auto; color: var(--ink-3); font-size: var(--t-xs); }
+.lside .lsYours .lsIc { width: 24px; height: 24px; border-radius: var(--r-s); background: var(--well-warm, var(--newsprint)); }
+.lside .lsYours .lsRow[aria-current] > span { background: var(--well-warm, var(--newsprint)); color: var(--ink); font-weight: 650; }
+.lside .lsYours .lsRow[aria-current] .lsIc { background: var(--ink); color: var(--sheet, #fff); }
+@media (hover: hover) { .lside .lsYours .lsRow:hover:not([aria-current]) > span { background: color-mix(in srgb, var(--well-warm, var(--newsprint)) 55%, transparent); color: var(--ink); } }
+.lside .lsYours .lsRow:focus-visible > span { outline: 2px solid var(--focus); outline-offset: -2px; }
+/* How many are new: a small ink tab, not the button's yellow. */
+.lside .lsBadge { margin-left: auto; min-width: 20px; padding: 2px 6px; border-radius: 999px; background: var(--ink); color: var(--sheet, #fff); font: 700 11px/1.3 var(--sans); text-align: center; }
+.lside .lsBadge[hidden] { display: none; }
+/* In the bar (narrower screens) Yours is left out: the header's bell and You are right there. */
+@container (max-width: 1289px) { .lside .lsYours { display: none !important; } }

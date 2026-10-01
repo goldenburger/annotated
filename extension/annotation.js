@@ -150,7 +150,20 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
     const soc = await Promise.race([discoveryP, new Promise((r) => setTimeout(() => r(null), 3000))]);
     // Arriving late, the rail is drawn then (Follow, your card), unless a box is in use.
     if (!soc) discoveryP.then((s) => { if (s) lateLoad(my); });
-    const yourCount = Math.max(AnnotationPage.mineCount(records, me && me.id), Number(await publishedP) || 0);
+    // Drawn at once with the copies here; the published count corrects the card when it comes (waiting for it held the
+    // page by up to two seconds, which walk1538 caught).
+    const yourCount = AnnotationPage.mineCount(records, me && me.id);
+    publishedP.then((n) => {
+      n = Number(n) || 0;
+      if (n <= yourCount) return;
+      const apply = (tries) => {
+        const st = document.querySelector('.rail .railcard .who .stats');
+        if (!st) { if (tries < 10) setTimeout(() => apply(tries + 1), 300); return; }
+        st.textContent = st.textContent.replace(/^\d+ annotations?/, n + (n === 1 ? ' annotation' : ' annotations'));
+        if (AnnotationPage.setYours) AnnotationPage.setYours({ mine: n });
+      };
+      apply(0);
+    });
     const social = soc ? { ...soc, youId: me && me.id, followsAuthor: !!(author && soc.followed.has(author.id)),
       you: me && soc.youCounts ? { id: me.id, annotations: yourCount, ...soc.youCounts } : null } : null;
     // Signed out, shared annotations can be read but not commented on or reacted to.
@@ -190,6 +203,7 @@ const beenHereBefore = (() => { try { const had = sessionStorage.getItem('annSee
       onHome: () => { location.href = 'feed.html'; },
       onProfile: () => { location.href = mine ? 'feed.html#profile' : 'feed.html#user=' + encodeURIComponent(author.id); },
       onTag: (tag) => { location.href = 'feed.html#tag=' + encodeURIComponent(tag); },
+      onYou: () => { location.href = 'feed.html#profile'; },
       onOpen: (oid) => { location.hash = encodeURIComponent(oid); },
       onDismissBanner: () => local && Store.update(id, { seen: true }),
       onComments: async (list, change = {}) => {
