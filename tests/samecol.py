@@ -1,7 +1,7 @@
 # 2.42.6, one left column everywhere (David's recording of 2026-10-02 at 06:04: "this search should be up", "you have
 # inconsistencies", "This left side window is how all the other left windows should look"). The feed's column is the
-# reference: search, Yours, Which annotations with Sort (Newest, Most discussed, Best for you), Show with counts, Your
-# tags, the button. Every page that has the column has those, in that order. Best for you from a profile opens the
+# reference: search, Yours, Which annotations with Sort (Newest, Most discussed, Top picks), Show with counts, Your
+# tags, the button. Every page that has the column has those, in that order. Top picks from a profile opens the
 # feed's For you in that order.
 import asyncio, json
 from playwright.async_api import async_playwright
@@ -12,7 +12,7 @@ SIG = r"""(() => { const s = document.querySelector('.lside'); if (!s) return nu
   return [...s.querySelectorAll('.lsFind, .lsYours, .feedTabs, .feedSort, .feedFilter, .lsTags h2, .lsMake')].filter((e) => e.offsetParent).map((e) =>
     e.classList.contains('lsFind') ? 'search' : e.classList.contains('lsYours') ? 'yours' : e.classList.contains('lsMake') ? 'button' : e.tagName === 'H2' ? 'tags'
     : e.getAttribute('aria-label') + ':' + [...e.querySelectorAll('label')].map((l) => l.innerText.replace(/\s+\d+$/, '').replace(/\s+/g, ' ').trim()).join('/')); })()"""
-WANT = ['search', 'yours', 'Which annotations:For you/Following/Everyone', 'Sort:Newest/Most discussed/Best for you', 'Show:All/Clips/Audio/Passages/Posts', 'tags', 'button']
+WANT = ['search', 'yours', 'Which annotations:For you/Following/Everyone', 'Sort:Newest/Most discussed/Top picks', 'Show:All/Clips/Audio/Passages/Posts', 'tags', 'button']
 async def main():
   errs = []
   async with async_playwright() as p:
@@ -29,8 +29,8 @@ async def main():
     await pg.goto(B + '/@davidw?noplanes'); await asyncio.sleep(3.5)
     await pg.evaluate("document.querySelector('.feedSort input[value=best]').click()"); await asyncio.sleep(3.5)
     bf = await pg.evaluate("({ url: location.search, tab: (document.querySelector('.feedTabs input:checked') || {}).value, sort: (document.querySelector('.feedSort input:checked') || {}).value })")
-    print('Best for you from a profile:', bf)
-    if 'feed' not in bf['url'] or bf['tab'] != 'foryou' or bf['sort'] != 'best': errs.append(f'Best for you from a profile did not open For you ranked: {bf}')
+    print('Top picks from a profile:', bf)
+    if 'feed' not in bf['url'] or bf['tab'] != 'foryou' or bf['sort'] != 'best': errs.append(f'Top picks from a profile did not open For you ranked: {bf}')
     await b.close()
   print('errors:', errs)
 asyncio.run(main())

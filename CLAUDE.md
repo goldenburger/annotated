@@ -1739,6 +1739,8 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   no counts and no tags; it now builds the same sheets, its counts and your tags from one `Cloud.list` read that never holds
   the page up. Profiles and tag pages carry Which annotations as ways into the feed (`.lsToFeed`). Best for you is offered
   everywhere and opens For you in that order (`onForYouNow`).
+- **2.42.7.** "Best for you" is called **Top picks** (David, 2026-10-01: For you is clear, Best for you was not). The
+  value stays `best`; only the label changed.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in

@@ -277,7 +277,7 @@ const AnnotationPage = (() => {
     side.innerHTML = `<section class="railcard lsSheet lsFind"><label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search the feed (press /), then Enter" aria-label="Search the feed: takes, quotes, sources and people" autocomplete="off"></label></section>
       ${yoursHtml({ activity: !!onActivity, current })}
       <div class="lsBar feedBar"><section class="railcard lsSheet"><div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">${opt('nft', [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']])}</div>
-        <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">${opt('nfs', [['new', 'Newest'], ['hot', 'Most discussed'], ['best', 'Best for you']])}</div></div></section>
+        <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">${opt('nfs', [['new', 'Newest'], ['hot', 'Most discussed'], ['best', 'Top picks']])}</div></div></section>
         <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">${opt('nff', [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']])}</div></section></div><section class="railcard lsSheet lsTags"></section>
       <div class="lsMake">${onWeb ? '<a class="primary lsGet" href="/install">Get the extension to annotate</a>' : ''}<button type="button" class="primary lsHave" aria-expanded="false">Annotate something</button>
         <p class="note lsTip" hidden>Open any article, video, podcast or post on X, then press the annotated plane in your toolbar (or Alt+Shift+K).</p></div>`;
@@ -1605,7 +1605,7 @@ const AnnotationPage = (() => {
           <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">
             <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>${lsIc('new')}Newest</span></label>
             <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>${lsIc('hot')}Most discussed</span></label>
-            <label><input type="radio" name="fs" value="best" ${sort === 'best' && onForYou ? 'checked' : ''}><span>${lsIc('foryou')}Best for you</span></label>
+            <label><input type="radio" name="fs" value="best" ${sort === 'best' && onForYou ? 'checked' : ''}><span>${lsIc('foryou')}Top picks</span></label>
           </div></div></section>
           <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed && filter !== k ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${lsIc(k)}${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
@@ -1680,7 +1680,7 @@ const AnnotationPage = (() => {
       setYours({});
       side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; choose(); draw(); toTop(); }));
       side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => {
-        // Best for you is For you's own order, so from anywhere else it goes there (every column offers the same three).
+        // Top picks is For you's own order, so from anywhere else it goes there (every column offers the same three).
         if (i.value === 'best' && !onForYouNow()) {
           if (mode === 'home' && !tag && social && social.tabs) { sort = 'best'; choose(); lsRefocus = 'fs'; social.tabs.onTab('foryou'); return; }
           if (typeof Cloud !== 'undefined' && Cloud.saveTab) Cloud.saveTab('foryou'); feedOn({ sort: 'best', filter: 'all', q: '' }, onAll || onHome); return;
