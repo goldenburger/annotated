@@ -222,7 +222,7 @@ const AnnotationPage = (() => {
   // The panel's quiet corner under a list.
   const cornerArt = () => (typeof PaperDeco !== 'undefined' ? `<div class="pd pd-corner" aria-hidden="true">${PaperDeco.ART.corner()}</div>` : '');
   // A small icon before each row of the left column, in a chip like the rail's (David, 2026-09-30).
-  const LS_IC = { act: 'bell', you: 'user', foryou: 'spark', following: 'people', everyone: 'globe', new: 'clock', hot: 'comment', all: 'stack', video: 'clip', audio: 'podcast', article: 'article', post: 'post', folded: 'fold' };
+  const LS_IC = { act: 'bell', you: 'user', best: 'spark', foryou: 'spark', following: 'people', everyone: 'globe', new: 'clock', hot: 'comment', all: 'stack', video: 'clip', audio: 'podcast', article: 'article', post: 'post', folded: 'fold' };
   const lsIc = (k) => `<span class="lsIc" aria-hidden="true">${Brand.icon(LS_IC[k] || 'tag')}</span>`;
   // Yours, at the top of the left column (David, 2026-09-30, after X): Activity with how many are new, Folded (kept by
   // folding a corner, our bookmarks) and your profile with how many you have published. The counts arrive when the page
@@ -267,16 +267,18 @@ const AnnotationPage = (() => {
   // Beside one annotation, or Activity, the left column is the way into the feed: a search, which annotations, which
   // kind, each opening the feed with that chosen, and the same button. Without it those pages had two columns where the
   // feed has three, and the page shifted on the way in and out (David, 2026-09-30).
-  function navSide(container, goFeed, { onActivity = null, onYou = null, current = null } = {}) {
+  function navSide(container, goFeed, { onActivity = null, onYou = null, current = null, onTag = null } = {}) {
     const grid = container.querySelector('.sitegrid'), main = grid && grid.querySelector(':scope > .sitemain');
     if (!grid || !main || !goFeed || grid.querySelector(':scope > .lside')) return;
     const side = document.createElement('aside');
     side.className = 'lside railcard lsNav'; side.setAttribute('aria-label', 'Go to the feed');
     const onWeb = !(typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id);
     const opt = (name, list) => list.map(([k, l]) => `<label><input type="radio" name="${name}" value="${k}"><span>${lsIc(k)}${l}</span></label>`).join('');
-    side.innerHTML = yoursHtml({ activity: !!onActivity, current }) + `<section class="railcard lsSheet lsFind"><label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search the feed (press /), then Enter" aria-label="Search the feed: takes, quotes, sources and people" autocomplete="off"></label></section>
-      <div class="lsBar feedBar"><section class="railcard lsSheet"><div class="seg feedTabs" role="radiogroup" aria-label="In the feed">${opt('nft', [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']])}</div></section>
-        <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">${opt('nff', [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']])}</div></section></div>
+    side.innerHTML = `<section class="railcard lsSheet lsFind"><label class="lsSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg><input type="search" class="lsQ" placeholder="Search annotations" title="Search the feed (press /), then Enter" aria-label="Search the feed: takes, quotes, sources and people" autocomplete="off"></label></section>
+      ${yoursHtml({ activity: !!onActivity, current })}
+      <div class="lsBar feedBar"><section class="railcard lsSheet"><div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">${opt('nft', [['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']])}</div>
+        <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">${opt('nfs', [['new', 'Newest'], ['hot', 'Most discussed'], ['best', 'Best for you']])}</div></div></section>
+        <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">${opt('nff', [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']])}</div></section></div><section class="railcard lsSheet lsTags"></section>
       <div class="lsMake">${onWeb ? '<a class="primary lsGet" href="/install">Get the extension to annotate</a>' : ''}<button type="button" class="primary lsHave" aria-expanded="false">Annotate something</button>
         <p class="note lsTip" hidden>Open any article, video, podcast or post on X, then press the annotated plane in your toolbar (or Alt+Shift+K).</p></div>`;
     grid.insertBefore(side, main);
@@ -286,6 +288,23 @@ const AnnotationPage = (() => {
     wireYours(side, { onActivity, onYou, onFolded: () => go({ filter: 'folded', q: '' }) });
     side.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => { if (typeof Cloud !== 'undefined' && Cloud.saveTab) Cloud.saveTab(i.value); go({ filter: 'all', q: '' }); }));
     side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => go({ filter: i.value, q: '' })));
+    side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { if (i.value === 'best' && typeof Cloud !== 'undefined' && Cloud.saveTab) Cloud.saveTab('foryou'); go({ sort: i.value, q: '' }); }));
+    // The kinds carry the feed's counts, as the feed's own column does: asked for once, never holding the page up.
+    if (typeof Cloud !== 'undefined' && Cloud.list) Promise.race([Cloud.list({ limit: 100 }).catch(() => null), new Promise((r) => setTimeout(() => r(null), 6000))]).then((rs) => {
+      if (!rs || !side.isConnected) return;
+      const n = { all: rs.length }; rs.forEach((r) => { const k = r.item && r.item.kind; if (k) n[k] = (n[k] || 0) + 1; });
+      side.querySelectorAll('.feedFilter label').forEach((l) => {
+        const k = l.querySelector('input').value, sp = l.querySelector('span');
+        if (n[k]) sp.insertAdjacentHTML('beforeend', ` <span class="num">${n[k]}</span>`); else if (k !== 'all') l.classList.add('zero');
+      });
+      // Your tags, as the feed's column has them, each opening its tag page.
+      const mine = me.handle ? rs.filter((r) => r.author && r.author.handle === me.handle) : [];
+      const tc = tagCounts(mine), box = side.querySelector('.lsTags');
+      if (box && tc.length) {
+        box.innerHTML = `<h2 class="lsH">Your tags</h2><div class="tagcloud">${tc.map(([t, c]) => `<button type="button" class="tagpill railTag" data-tag="${esc(t)}">${esc(t)} <span class="num">${c}</span></button>`).join('')}</div>`;
+        box.querySelectorAll('.railTag').forEach((b) => b.addEventListener('click', () => (onTag ? onTag(b.dataset.tag) : go({ q: b.dataset.tag }))));
+      }
+    });
     const qIn = side.querySelector('.lsQ');
     qIn.addEventListener('keydown', (e) => { if (e.key === 'Enter' && qIn.value.trim()) { e.preventDefault(); go({ q: qIn.value, filter: 'all' }); } });
     const make = side.querySelector('.lsHave'), tip = side.querySelector('.lsTip');
@@ -590,7 +609,7 @@ const AnnotationPage = (() => {
     const hasMore = canEdit || hooks.onDelete || hooks.onPin || hooks.onBlock;
     const { main, rail } = shell(container, { active: null, onHome: hooks.onHome, onFeed: hooks.onAll, onProfile: hooks.onProfile, siteNav: opts.siteNav !== false });
     // The extension's own page names its way to the feed onHome (feed.html); the website's is onAll.
-    navSide(container, hooks.onAll || (opts.siteNav === false ? hooks.onHome : null), { onActivity: hooks.onActivity || null, onYou: hooks.onYou || null });
+    navSide(container, hooks.onAll || (opts.siteNav === false ? hooks.onHome : null), { onActivity: hooks.onActivity || null, onYou: hooks.onYou || null, onTag: hooks.onTag || null });
     main.classList.add('ann', 'loading');
     main.innerHTML = `
       <div class="loadmsg" role="status" aria-label="Loading the annotation">
@@ -1554,6 +1573,7 @@ const AnnotationPage = (() => {
     // Someone else's profile counts their follows, and your own counts yours. Only the first used to be
     // asked for, so your own profile said nought followers beside a card that said one.
     const pStats = (person ? social && social.personStats : social && social.youCounts) || {};
+    const onForYouNow = () => !!(social && social.tabs && social.tabs.current === 'foryou' && mode === 'home' && !tag);
     const draw = () => {
       // A choice made from the keyboard keeps the keyboard on its group after the redraw (UX pass: focus fell to the page).
       const had = side.contains(document.activeElement) && document.activeElement.name ? document.activeElement.name : null;
@@ -1578,13 +1598,14 @@ const AnnotationPage = (() => {
       // Folded lives in Yours at the top of the column, always there, so it is not repeated here (2.42.3).
       const kinds = [['all', 'All'], ['video', 'Clips'], ['audio', 'Audio'], ['article', 'Passages'], ['post', 'Posts']];
       side.querySelector('.lsBar').innerHTML = `<section class="railcard lsSheet">
+          ${!(!tag && mode === 'home' && social && social.tabs) ? `<div class="seg feedTabs lsToFeed" role="radiogroup" aria-label="Which annotations">${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ftgo" value="${k}"><span>${lsIc(k)}${l}</span></label>`).join('')}</div>` : ''}
           ${!tag && mode === 'home' && social && social.tabs ? `<div class="seg feedTabs" role="radiogroup" aria-label="Which annotations">
             ${[['foryou', 'For you'], ['following', 'Following'], ['everyone', 'Everyone']].map(([k, l]) => `<label><input type="radio" name="ft" value="${k}" ${social.tabs.current === k ? 'checked' : ''}><span>${lsIc(k)}${l}</span></label>`).join('')}
           </div>` : ''}
           <div class="feedSortRow"><div class="feedSort seg" role="radiogroup" aria-label="Sort">
             <label><input type="radio" name="fs" value="new" ${sort === 'new' ? 'checked' : ''}><span>${lsIc('new')}Newest</span></label>
             <label><input type="radio" name="fs" value="hot" ${sort === 'hot' ? 'checked' : ''}><span>${lsIc('hot')}Most discussed</span></label>
-            ${onForYou ? `<label><input type="radio" name="fs" value="best" ${sort === 'best' ? 'checked' : ''}><span>${lsIc('foryou')}Best for you</span></label>` : ''}
+            <label><input type="radio" name="fs" value="best" ${sort === 'best' && onForYou ? 'checked' : ''}><span>${lsIc('foryou')}Best for you</span></label>
           </div></div></section>
           <section class="railcard lsSheet"><div class="seg feedFilter" role="radiogroup" aria-label="Show">
             ${kinds.map(([k, l]) => `<label${k !== 'all' && !counts[k] && !loadFailed && filter !== k ? ' class="zero"' : ''}><input type="radio" name="ff" value="${k}" ${filter === k ? 'checked' : ''}><span>${lsIc(k)}${l}${counts[k] ? ` <span class="num">${counts[k]}</span>` : ''}</span></label>`).join('')}
@@ -1658,7 +1679,13 @@ const AnnotationPage = (() => {
       side.querySelectorAll('.lsYours .lsRow[data-go="folded"]').forEach((b) => { if (filter === 'folded') b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
       setYours({});
       side.querySelectorAll('.feedFilter input').forEach((i) => i.addEventListener('change', () => { filter = i.value; choose(); draw(); toTop(); }));
-      side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => { sort = i.value; choose(); draw(); toTop(); }));
+      side.querySelectorAll('.feedSort input').forEach((i) => i.addEventListener('change', () => {
+        // Best for you is For you's own order, so from anywhere else it goes there (every column offers the same three).
+        if (i.value === 'best' && !onForYouNow()) {
+          if (mode === 'home' && !tag && social && social.tabs) { sort = 'best'; choose(); lsRefocus = 'fs'; social.tabs.onTab('foryou'); return; }
+          if (typeof Cloud !== 'undefined' && Cloud.saveTab) Cloud.saveTab('foryou'); feedOn({ sort: 'best', filter: 'all', q: '' }, onAll || onHome); return;
+        }
+        sort = i.value; choose(); draw(); toTop(); }));
       const showAll = main.querySelector('.showAll');
       if (showAll) showAll.addEventListener('click', () => { q = ''; qIn.value = ''; filter = 'all'; choose(); draw(); toTop(); });
       const allKinds = main.querySelector('.esAllKinds');
@@ -1670,7 +1697,8 @@ const AnnotationPage = (() => {
       if (all) all.addEventListener('click', onAll);
       [...rail.querySelectorAll('.railTag'), ...side.querySelectorAll('.railTag')].forEach((b) => b.addEventListener('click', () => (b.dataset.tag === tag && onAll ? onAll() : onTag && onTag(b.dataset.tag))));
       rail.querySelectorAll('.railOpen').forEach((b) => b.addEventListener('click', () => onOpen && onOpen(b.dataset.id)));
-      side.querySelectorAll('.feedTabs input').forEach((i) => i.addEventListener('change', () => { if (side.contains(document.activeElement)) lsRefocus = 'ft'; social.tabs.onTab(i.value); }));
+      side.querySelectorAll('.feedTabs:not(.lsToFeed) input').forEach((i) => i.addEventListener('change', () => { if (side.contains(document.activeElement)) lsRefocus = 'ft'; social.tabs.onTab(i.value); }));
+      side.querySelectorAll('.feedTabs.lsToFeed input').forEach((i) => i.addEventListener('change', () => { if (typeof Cloud !== 'undefined' && Cloud.saveTab) Cloud.saveTab(i.value); feedOn({ filter: 'all', q: '' }, onAll || onHome); }));
       wireFollow(container, social);
     };
     function toTop() { const h = main.querySelector('.feedHead'); if (!h) return; const t = h.getBoundingClientRect().top; if (t < 0) scrollTo({ top: Math.max(0, scrollY + t - 72) }); }
@@ -1742,7 +1770,7 @@ const AnnotationPage = (() => {
     stopClock(container);
     container.dataset.sig = '';
     // On the website it sits in the site's own frame, header and all.
-    if (frame) { const outer = container; const { main } = shell(container, { active: 'activity', siteNav: true, ...frame }); navSide(outer, frame.onFeed || frame.onHome, { onActivity: frame.onActivity || null, onYou: frame.onYou || frame.onProfile || null, current: 'act' }); setYours({ activity: 0 });
+    if (frame) { const outer = container; const { main } = shell(container, { active: 'activity', siteNav: true, ...frame }); navSide(outer, frame.onFeed || frame.onHome, { onActivity: frame.onActivity || null, onYou: frame.onYou || frame.onProfile || null, onTag: frame.onTag || null, current: 'act' }); setYours({ activity: 0 });
       if (social && social.you) setYours({ mine: social.you.annotations }); main.classList.add('ann', 'actPage');
       // The rail every other page has: you, what is trending, people worth following. It was left empty here, so the page
       // was lighter on the right than the feed it sits beside (David, 2026-09-30).

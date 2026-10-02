@@ -7,7 +7,7 @@
 #   4. "Annotate something" with the extension says how; without it, the way to get it.
 #   5. Narrower (1180): the controls are a bar under the list's heading, above the first card.
 #   6. A phone: heading, controls, cards, rail, in one column, no sideways scroll.
-#   7. A profile has the column too, without For you, Following and Everyone.
+#   7. A profile has the column too, with Which annotations as ways into the feed (2.42.6).
 #   8. The UX pass: Most discussed changes the heading's words; a search the kind hides says so and offers All; a line
 #      above the list says what is shown, with Show everything; the keyboard stays on its group after a choice; / goes to
 #      the search; the tag you are on is marked and pressed again shows everything; For you opens newest first with Best for you to choose; the search is the first sheet; the
@@ -105,7 +105,8 @@ async def main():
     await pg.goto(B + '/@sawyer?noplanes'); await asyncio.sleep(3.5)
     pr = await pg.evaluate("({ side: !!document.querySelector('.lside'), tabs: !!document.querySelector('.lside .feedTabs'), kinds: !!document.querySelector('.lside .feedFilter') })")
     print('7. profile:', pr)
-    if pr != {'side': True, 'tabs': False, 'kinds': True}: errs.append(f'the profile column is off: {pr}')
+    # From 2.42.6 a profile carries Which annotations too, as ways into the feed (one column everywhere).
+    if pr != {'side': True, 'tabs': True, 'kinds': True}: errs.append(f'the profile column is off: {pr}')
     await c.close()
     # 8.
     c = await ctx(b, 1440, 900)

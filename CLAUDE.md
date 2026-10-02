@@ -1731,6 +1731,14 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   included: Sort sits under Which annotations on For you too, with Newest (the default), Most discussed and Best for you
   (the ranked order For you used to force, `sort === 'best'`), and the heading says which ("For you, newest first.").
   The panel's own Home keeps For you ranked.
+- **2.42.6, one left column everywhere** (`tests/samecol.py`; David's recording of 2026-10-02 at 06:04, messages typed in
+  the search box and in Notepad: "this search should be up", "you have inconsistencies", "This left side window is how all
+  the other left windows should look"). The feed's column is the reference, and the feed, Activity, profiles, tag pages and
+  annotation pages now all carry: search, Yours, Which annotations with Sort (Newest, Most discussed, Best for you), Show
+  with counts, Your tags, the button. `navSide` put Yours above the search, named the group "In the feed", had no Sort,
+  no counts and no tags; it now builds the same sheets, its counts and your tags from one `Cloud.list` read that never holds
+  the page up. Profiles and tag pages carry Which annotations as ways into the feed (`.lsToFeed`). Best for you is offered
+  everywhere and opens For you in that order (`onForYouNow`).
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
