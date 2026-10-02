@@ -1741,6 +1741,14 @@ Fixed in the same pass. Each is here because the shape of it is easy to reintrod
   everywhere and opens For you in that order (`onForYouNow`).
 - **2.42.7.** "Best for you" is called **Top picks** (David, 2026-10-01: For you is clear, Best for you was not). The
   value stays `best`; only the label changed.
+- **Terms and privacy, liabilities** (2026-10-02, David's ask; written by Claude, not reviewed by a lawyer). Terms add:
+  at least 13, a licence to show what you publish, your responsibility for it (fair use included) and that annotated does
+  not review before publishing, other sites' content and terms, "as is" and "as available" with no warranty and the risk
+  of losing what is only on your computer, a limitation of liability (no indirect damages; at most what you paid, which is
+  nothing), covering annotated's costs for claims you cause, and changes. Privacy adds: other services' own policies
+  (Google and X sign-in too), keeping it safe (files public to anyone with their address; check a screenshot of a private
+  page before publishing), children under 13, how long things are kept and how to delete an account, and changes. No
+  governing law or place for disputes is named, since none was chosen.
 - **Submitted on 2026-09-27** as David Winston, @Davidmakestuff, site https://annotated-app.netlify.app, demo video
   https://youtu.be/VTbDJ9a-2XE (2:44, uploaded to the Robo Taxi YouTube channel). The video was cut from David's own
   screen recordings in real Chrome; the edit script (`edit.py`, `shots.py`, `cards.py`, `sfx.py`, `pensrc.py`) lived in
